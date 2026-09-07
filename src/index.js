@@ -5,6 +5,8 @@ import { initSplitReveal } from "./animations/splitReveal.js";
 import { initMarqueeScrollDirection } from "./animations/marqueeScrollDirection.js";
 import { initForewordFade } from "./animations/forewordAnim.js";
 import { initHighlightDrum } from "./animations/highlightDrum.js";
+import { initHorizontalParallax } from "./animations/horizontalParallax.js";
+import { initShapeSwap } from "./animations/shapeSwap.js";
 import {
   HSCROLL_REBUILT,
   initHorizontalScroller,
@@ -21,6 +23,8 @@ function initBandAware() {
   initRotaryWheel();
   initDrawPathScroll();
   initSplitReveal();
+  initHorizontalParallax();
+  initShapeSwap();
 }
 
 function init() {

@@ -13,7 +13,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("boots every preview component", async ({ page }) => {
-  await expect(page.locator('[data-split="heading"] .line')).toHaveCount(1);
+  await expect(page.locator('.mask-demo__inner .line')).toHaveCount(1);
   await expect(page.locator("[data-tunnel-init] canvas")).toHaveCount(2);
   await expect(page.locator("[data-tunnel2-init] canvas")).toHaveCount(1);
 });
@@ -31,7 +31,7 @@ test("WebGL previews allocate live render surfaces", async ({ page }) => {
 });
 
 test("initializes the scroll-linked reveal state", async ({ page }) => {
-  const heading = page.locator('[data-split="heading"] .word').first();
+  const heading = page.locator('.mask-demo__inner .word').first();
   await expect.poll(() => heading.evaluate((element) => getComputedStyle(element).transform)).not.toBe("none");
   await expect.poll(() => heading.evaluate((element) => {
     const triggers = element.closest("[data-foreword-fade-init]")?._forewordFadeTriggers;
@@ -106,7 +106,7 @@ test("remains usable with reduced motion enabled", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   await expect(page.locator("body")).toBeVisible();
-  await expect(page.locator('[data-split="heading"]')).toBeVisible();
+  await expect(page.locator(".mask-demo__inner")).toBeVisible();
   await expect(page.locator("canvas")).toHaveCount(3);
 });
 

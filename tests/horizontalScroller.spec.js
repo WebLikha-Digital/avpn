@@ -1,6 +1,9 @@
 import { test, expect } from "@playwright/test";
 
-const band = "[data-hscroll-init]";
+// The preview page has two bands. These tests are about the wheel band, so
+// every locator is scoped to it rather than matching the Signature Events one.
+const band = ".hband[data-hscroll-init]";
+const viewport = `${band} [data-hscroll-viewport]`;
 
 async function scrollTo(page, y) {
   // Locomotive eases window.scrollY, so drive it the way a user would and let
@@ -35,7 +38,7 @@ test("maps page position onto the track 1:1", async ({ page }) => {
 
   for (const offset of [0, 600, 1800]) {
     await scrollTo(page, top + offset);
-    const left = await page.locator("[data-hscroll-viewport]").evaluate((el) => el.scrollLeft);
+    const left = await page.locator(viewport).evaluate((el) => el.scrollLeft);
     expect(Math.abs(left - offset)).toBeLessThanOrEqual(2);
   }
 });
@@ -48,10 +51,10 @@ test("clamps the track at both ends of the band", async ({ page }) => {
   }));
 
   await scrollTo(page, Math.max(0, top - 400));
-  expect(await page.locator("[data-hscroll-viewport]").evaluate((el) => el.scrollLeft)).toBe(0);
+  expect(await page.locator(viewport).evaluate((el) => el.scrollLeft)).toBe(0);
 
   await scrollTo(page, top + distance + 2000);
-  expect(await page.locator("[data-hscroll-viewport]").evaluate((el) => el.scrollLeft)).toBe(distance);
+  expect(await page.locator(viewport).evaluate((el) => el.scrollLeft)).toBe(distance);
 });
 
 test("pins the wheel panel inside the band and turns it", async ({ page }) => {

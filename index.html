@@ -216,6 +216,61 @@
         width: max-content;
         height: 100%;
       }
+      /* --- Signature Events band ----------------------------------------
+         The CSS half of horizontalParallax.js / shapeSwap.js. Structural, so
+         it has to exist in Webflow's page-style embed too. Class names match
+         the Client-First names used in the Designer build. */
+      .section_signature-events { background: #f6efe9; }
+      .sig-events_track { align-items: flex-end; column-gap: 10.4vw; padding-bottom: 8vh; }
+      .sig-events_card { flex-shrink: 0; width: 106.3vw; }
+      .sig-events_spacer { flex-shrink: 0; width: 17.4vw; }
+      .sig-events_bg { position: absolute; left: 0; right: 0; }
+      .sig-events_bg.is-top { top: 0; height: 34vh; background: #f6efe9; }
+      .sig-events_bg.is-bottom {
+        top: 34vh; bottom: 0;
+        background: linear-gradient(180deg, #a9e4f7 0%, #cfeee4 100%);
+      }
+      .sig-events_word {
+        position: absolute;
+        top: 8vh;
+        left: 6vw;
+        white-space: nowrap;
+        will-change: transform;
+        display: flex;
+        align-items: center;
+        gap: 2vw;
+      }
+      .sig-events_word-text {
+        font-size: 13vw;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        color: #e2d9d2;
+      }
+      .sig-events_shape-stack { position: relative; width: 6.9vw; aspect-ratio: 1; }
+      .sig-events_shape-stack > * { position: absolute; inset: 0; }
+      .sig-events_shape.is-circle { border-radius: 50%; background: #9ccfe0; }
+      .sig-events_shape.is-half { border-radius: 0 50% 50% 0; background: #0b3b4d; }
+      .sig-events_shape.is-quarter { border-radius: 0 100% 0 0; background: #ee2a18; }
+      .sig-events_card-bg { display: none; }
+      .sig-events_card-inner { display: flex; align-items: center; gap: 3.9vw; }
+      .sig-events_card-media {
+        flex: 0 0 auto; width: 26.7vw; aspect-ratio: 1;
+        border-radius: 0 25% 0 0; background: #0b3b4d;
+      }
+      .sig-events_card-title-col { flex: 0 0 33.8vw; }
+      .sig-events_card-body-col { flex: 0 0 36.1vw; }
+      .sig-events_card-pill {
+        display: inline-flex; align-items: center; gap: 0.5rem;
+        padding: 0.5rem 1rem; border-radius: 99px;
+        background: #12775f; color: #fff; font-size: 1rem;
+      }
+      .sig-events_card-heading { font-size: 3.3vw; line-height: 1.1; margin: 0.6em 0 0.3em; }
+      .sig-events_card-link {
+        display: inline-block; margin-top: 1.5rem; padding: 1rem 2rem;
+        border: 1px solid #ee2a18; border-radius: 99px;
+        color: #0b3b4d; text-decoration: none; font-weight: 700;
+      }
+
       [data-rotary-wheel-stage] { position: relative; overflow: hidden; }
       [data-rotary-wheel-hub] {
         position: absolute;
@@ -607,6 +662,88 @@
         </div>
       </div>
     </div>
+
+
+    <p>Signature Events — the same band, with a wordmark that drifts at its own
+      rate outside the track and a brand shape that swaps as each card takes the
+      screen.</p>
+
+    <section class="section_signature-events sig-events_scroller" data-hscroll-init>
+      <div class="sig-events_viewport" data-hscroll-viewport>
+        <div class="sig-events_bg is-top"></div>
+        <div class="sig-events_bg is-bottom"></div>
+
+        <div class="sig-events_word" data-hparallax data-hparallax-speed="0.35">
+          <div class="sig-events_shape-stack"
+               data-shape-swap
+               data-shape-swap-panels=".sig-events_card">
+            <div class="sig-events_shape is-circle"></div>
+            <div class="sig-events_shape is-half"></div>
+            <div class="sig-events_shape is-quarter"></div>
+          </div>
+          <div class="sig-events_word-text">SIGNATURE EVENTS</div>
+        </div>
+
+        <div class="sig-events_track" data-hscroll-track>
+          <div class="sig-events_spacer is-lead"></div>
+          <div class="sig-events_card">
+            <div class="sig-events_card-bg"></div>
+            <div class="sig-events_card-inner">
+              <div class="sig-events_card-media"></div>
+              <div class="sig-events_card-title-col">
+                <div class="sig-events_card-pill">
+                  <span class="sig-events_card-pill-icon" aria-hidden="true">◉</span>
+                  <span class="sig-events_card-pill-label">Hongkong</span>
+                </div>
+                <h3 class="sig-events_card-heading" data-split="heading">AVPN Global Conference 2025</h3>
+                <div class="sig-events_card-date" data-split="heading">February 6, 2026</div>
+              </div>
+              <div class="sig-events_card-body-col">
+                <p class="sig-events_card-desc" data-split="heading">Southeast Asia needs deeper alignment across healthcare, policy, science, and social investment in order to achieve stronger and more resilient health systems that can address persistent gaps in access, equity, financing, and quality of care.</p>
+                <a class="sig-events_card-link is-primary" href="#">Learn more</a>
+              </div>
+            </div>
+          </div>
+          <div class="sig-events_card">
+            <div class="sig-events_card-bg"></div>
+            <div class="sig-events_card-inner">
+              <div class="sig-events_card-media"></div>
+              <div class="sig-events_card-title-col">
+                <div class="sig-events_card-pill">
+                  <span class="sig-events_card-pill-icon" aria-hidden="true">◉</span>
+                  <span class="sig-events_card-pill-label">Hyderabad, India</span>
+                </div>
+                <h3 class="sig-events_card-heading" data-split="heading">AVPN Health Impact Leadership Forum 2026</h3>
+                <div class="sig-events_card-date" data-split="heading">February 6, 2026</div>
+              </div>
+              <div class="sig-events_card-body-col">
+                <p class="sig-events_card-desc" data-split="heading">India has made remarkable strides in healthcare. Yet, ensuring consistent access to timely diagnosis and quality care remains an ongoing priority, calling for collaboration across medicine, science, policy, and social investment.</p>
+                <a class="sig-events_card-link is-primary" href="#">Learn more</a>
+              </div>
+            </div>
+          </div>
+          <div class="sig-events_card">
+            <div class="sig-events_card-bg"></div>
+            <div class="sig-events_card-inner">
+              <div class="sig-events_card-media"></div>
+              <div class="sig-events_card-title-col">
+                <div class="sig-events_card-pill">
+                  <span class="sig-events_card-pill-icon" aria-hidden="true">◉</span>
+                  <span class="sig-events_card-pill-label">Jakarta, Indonesia</span>
+                </div>
+                <h3 class="sig-events_card-heading" data-split="heading">AVPN Southeast Asia Health Impact Leadership Forum 2026</h3>
+                <div class="sig-events_card-date" data-split="heading">June 11, 2026</div>
+              </div>
+              <div class="sig-events_card-body-col">
+                <p class="sig-events_card-desc" data-split="heading">The AVPN Southeast Asia Health Impact Leadership Forum 2026 was an exclusive, curated convening designed to catalyse health systems transformation and accelerate impact across Southeast Asia.</p>
+                <a class="sig-events_card-link is-primary" href="#">Learn more</a>
+              </div>
+            </div>
+          </div>
+          <div class="sig-events_spacer is-tail"></div>
+        </div>
+      </div>
+    </section>
 
     <script type="module" src="/src/index.js"></script>
   </body>

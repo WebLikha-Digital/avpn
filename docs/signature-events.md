@@ -412,6 +412,24 @@ sits outside the scroller" above.
   The link arrow is done — see "The `Learn more` button" above.
 - **Link targets.** All three cards point at `#`. These are now the `URL` prop
   on each `Button Primary` instance, not a link setting on the element.
+- **Responsiveness — not yet done.** Everything here was built and checked at
+  desktop width only. Deferred deliberately; these are the parts known to need
+  a pass:
+  - **The band/wordmark pair.** `.is-top` is `25vh` and the wordmark is
+    `top: 6vh` + `9.5vw`. Those satisfy "wordmark fits inside the cream" at a
+    desktop ratio only — a short, wide viewport or a tall, narrow one breaks the
+    inequality in "The cream band is sized by the wordmark" and the word spills
+    onto the blue again.
+  - **Edge alignment.** `.sig-events_track`'s `padding: 0 5vw` and the
+    `-10.4vw` gap-cancelling margins on the first/last spacer are all authored
+    at the base breakpoint. `.padding-global` is `5%`, not `5vw`, so the two
+    only agree while the track's width tracks the viewport's.
+  - **Below `[data-hscroll-min-width]`.** The band switches itself off and the
+    `small` breakpoint takes over with a stacked layout. That path has not been
+    re-checked since the padding and negative margins went in — a negative
+    margin left on a stacked column would pull cards into each other.
+  - **The button.** `Button Primary` is fixed at the Figma 210×80 with a
+    `-62px` label slide. Untested where the card columns stack.
 
 ## Rebuilding or extending this
 

@@ -12,22 +12,30 @@ the index and conventions.
 
 ## Git
 
-Feature-branch workflow. Never commit feature work directly to `main`.
+Feature-branch workflow. Never make feature commits directly on `main`.
 
-Before starting a feature or fix:
+For every feature, fix, refactor, or maintenance task:
 
-1. Make sure `main` is up to date (`git fetch origin && git pull`).
-2. Create a branch from `main`.
-3. Prefix the branch by kind: `feat/` new features, `fix/` bug fixes,
+1. Start from `main`.
+2. Pull the latest changes from `origin/main`.
+3. Create a branch from `main`.
+4. Prefix the branch by kind: `feat/` new features, `fix/` bug fixes,
    `refactor/` code restructuring, `chore/` maintenance.
-4. Keep one branch to one logical change.
-5. Commit with conventional commit messages.
-6. Push the branch to origin.
-7. Open a pull request targeting `main`.
-8. Never merge the PR — the user reviews and merges it.
+5. Keep the branch focused on one logical change.
+6. Make and review the changes.
+7. Commit with a clear conventional commit message.
+8. Push the branch to origin.
+9. Open a pull request targeting `main`.
+10. Never merge the PR — the user reviews and merges it.
+11. After the PR is merged: switch back to `main`, pull the latest
+    `origin/main`, delete the local branch, and delete the remote branch if it
+    was not deleted automatically.
 
 If `main` already has uncommitted changes, branch first and carry those changes
-into the branch before committing.
+into the new branch before committing.
+
+If a feature branch already has commits for the task at hand, keep using it
+rather than opening another branch for the same logical change.
 
 - Never add a `Co-authored-by` trailer (or any co-author attribution) to commits.
 - Pushing a feature branch and opening its PR needs no separate approval; pushing

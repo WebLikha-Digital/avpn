@@ -90,18 +90,47 @@ scales; the design pixels are kept alongside for reference.
 
 | Element | Design px | vw |
 | --- | --- | --- |
-| `.sig-events_spacer` (each) | 250 | 17.4 |
+| `.sig-events_spacer` (each) | ~72 | 5 (matches `.padding-global`) |
 | `.sig-events_card` | 1531 | 106.3 |
 | track column gap | 150 | 10.4 |
 | `.sig-events_card-media` | 385 | — (square) |
 | `.sig-events_card-title-col` | 487 | 33.8 |
 | `.sig-events_card-body-col` | 520 | 36.1 |
-| `.sig-events_shape` | 100 | 6.9 |
+| `.sig-events_shape` | 100 | 5 |
 
-Track total: `250 + 3×1531 + 2×150 + 250 = 5393`. Against a 1440 viewport the
-band therefore owns `5393 − 1440 = 3953px` of vertical scroll, plus the one
-viewport height its sticky child occupies. `horizontalScroller.js` writes that
-height itself; there is no runway spacer to author.
+Track width is measured live by `horizontalScroller.js` (it re-reads on
+`invalidateOnRefresh`), so this is not baked into a hardcoded scroll distance.
+
+Edge alignment (first/last card lining up with `.padding-global`'s 5%, the
+alignment every other section on the page uses) is **not** just the spacer
+width — the track's `column-gap: 10.4vw` inserts itself between every pair of
+children, spacer-to-card included, and a flex item's own `margin` doesn't
+remove that. The lead/tail spacers are zeroed out (`width: 0`, via a
+`first-child`/`last-child` pseudo override — the docs' own `.is-lead`/
+`.is-tail` combo classes are never actually applied to the elements, so a
+pseudo override was used instead of relying on those) and the alignment now
+comes from `.sig-events_track`'s own `padding-left`/`padding-right: 5vw`. The
+`10.4vw` gap that would still land between that padding and the first/last
+card is cancelled with a negative margin on the spacer itself
+(`margin-right: -10.4vw` on the first spacer, `margin-left: -10.4vw` on the
+last) — negative margin on a flex item does pull it across the gap, even
+though zero/positive margin cannot remove the gap.
+
+### The cream band is sized by the wordmark
+
+`.sig-events_bg.is-top` is `25vh` and `.is-bottom` starts at the same `25vh`,
+so the two are edited as one number. That number is not free: the wordmark has
+to finish inside the cream, and its box runs from `.sig-events_word`'s `top`
+(6vh) for the height of one `9.5vw` line at `line-height: 1`. Roughly
+
+```
+cream height ≥ word top + word font-size + a little clearance
+25vh (235px) ≥ 6vh (56px) + 9.5vw (165px) + 14px      @ 1728×941
+```
+
+Shrink the band without shrinking the word and the last third of "SIGNATURE
+EVENTS" spills onto the blue. The original `34vh` / `8vh` / `13vw` trio
+satisfied the same inequality; these three values move together.
 
 The card is deliberately **wider than the viewport** (106.3vw). Its inner
 content is 1452 design px against a 1440 frame, so the body column's right edge
@@ -139,16 +168,24 @@ so they live on the class where the next person will find them. Same call as
   height: 100%;
   align-items: flex-end;
   column-gap: 10.4vw;
+  padding-left: 5vw;
+  padding-right: 5vw;
 }
 
 .sig-events_card   { flex-shrink: 0; width: 106.3vw; }
-.sig-events_spacer { flex-shrink: 0; width: 17.4vw; }
+.sig-events_spacer { flex-shrink: 0; width: 5vw; }
+.sig-events_spacer:first-child { width: 0vw; margin-right: -10.4vw; }
+.sig-events_spacer:last-child  { width: 0vw; margin-left: -10.4vw; }
 
 /* Drifts on its own; must not take part in the track's layout. */
-.sig-events_word { position: absolute; white-space: nowrap; will-change: transform; }
+.sig-events_word { position: absolute; top: 6vh; left: 5vw;
+                   white-space: nowrap; will-change: transform; }
+.sig-events_word-text { font-size: 9.5vw; line-height: 1; }
 
-/* Every shape occupies the same box; only opacity separates them. */
-.sig-events_shape-stack   { position: relative; width: 6.9vw; aspect-ratio: 1; }
+/* Every shape occupies the same box; only opacity separates them.
+   In Webflow this is width + height, not aspect-ratio — change both together
+   or the shapes go oval. */
+.sig-events_shape-stack   { position: relative; width: 5vw; height: 5vw; }
 .sig-events_shape-stack > * { position: absolute; inset: 0; }
 ```
 
@@ -262,6 +299,63 @@ shown and left alone.
 
 ---
 
+## The "Learn more" button
+
+A Webflow **component**, `Button Primary` (group `Buttons`), used by all three
+cards. One exposed prop: **URL**, bound to the root link's `link` setting, so an
+instance only needs its destination set. Built from the Figma component
+`Primary` (node `I1852:8549;1711:2322`) — pill 210×80, `padding: 16px 24px 16px
+16px`, `gap: 16px`, 46px arrow circle, 14px arrow, `border-radius: 100px`.
+
+```
+a.sig-events_card-link                          [data-button]
+├ div.sig-events_card-link-icon                 left circle
+│ └ div.sig-events_card-link-icon-wrapper > svg
+├ div.sig-events_card-link-label
+└ div.sig-events_card-link-icon.is-duplicate    right circle, absolute
+  └ div.sig-events_card-link-icon-wrapper > svg
+```
+
+Colour comes from the same brand variables the rest of the section uses —
+`red-main` on the border and both circles, `navy-main` on the label,
+`neutral-white` on the arrows. The Figma component specifies `#121212` for the
+label; navy was kept instead so the button matches the rest of the card copy.
+
+### Where the CSS lives, and why it is split
+
+Geometry and colour are literal properties on the Webflow classes, as with the
+rest of this section. The **hover** lives in its own `.button-style` embed on
+the Home page, keyed on `[data-button]` — the transitions, the rest-state
+transforms, and the hover media query are all things the Designer cannot
+express.
+
+The mechanic is adapted from Osmo Supply's Button 040 (CSS only, no JS), with
+two deliberate departures:
+
+- **Mirrored.** Osmo rests with the arrow circle on the *right* and slides it
+  left on hover. The Figma component rests with it on the **left**, so the two
+  states are swapped: at rest the left circle is `scale: 1` and the duplicate
+  `scale: 0`; on hover they trade, and the label slides left by
+  `-(circle + gap)` into the space the left circle vacates. Because `scale`
+  does not affect layout and the duplicate is absolutely positioned, the pill's
+  width never changes.
+- **Confined.** Osmo's pieces travel outside its (border-less) container. Here
+  the pill has a visible border, so it carries `overflow: hidden` and nothing
+  escapes it. That is also why the focus ring is a `box-shadow` on the button
+  rather than Osmo's `::after` — a pseudo-element child would be clipped away
+  by that same `overflow`. An element's own box-shadow is not.
+
+The duplicate circle's SVG drops the `<g clip-path>` / `<defs><clipPath>`
+wrapper the original icon carries. The clip is a full-box rect, so it changes
+nothing visually, and keeping it would have put a second element with
+`id="clip0_4058_19578"` in the document.
+
+Reduced motion is handled by the source's own gate: the entire hover block sits
+inside `@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion:
+no-preference)`, so the button simply rests with the circle on the left.
+
+---
+
 ## Webflow build notes
 
 Built on the Home page, immediately after `section_stories-community`. That
@@ -314,9 +408,10 @@ sits outside the scroller" above.
 - **Card images.** `.sig-events_card-media` is an empty div on `navy-light`.
   Drop an Image inside each and give it `.sig-events_card-image` (already
   created: `width/height 100%`, `object-fit: cover`).
-- **Icons.** `.sig-events_card-pill-icon` (location pin) and
-  `.sig-events_card-link-icon` (arrow) are empty boxes.
-- **Link targets.** All three cards point at `#`.
+- **Icons.** `.sig-events_card-pill-icon` (location pin) is still an empty box.
+  The link arrow is done — see "The `Learn more` button" above.
+- **Link targets.** All three cards point at `#`. These are now the `URL` prop
+  on each `Button Primary` instance, not a link setting on the element.
 
 ## Rebuilding or extending this
 
@@ -331,3 +426,8 @@ sits outside the scroller" above.
 - Both components re-init on `HSCROLL_REBUILT` via `initBandAware()` in
   `src/index.js`, so a width change tears them down and rebuilds them with the
   band.
+- **The button elsewhere on the site**: drop a `Button Primary` instance in and
+  set its `URL` prop. The hover CSS is keyed on `[data-button]`, which the
+  component's root carries, so it needs nothing else — but the `.button-style`
+  embed holding that CSS currently sits on the Home page only. A second page
+  needs its own copy, or the CSS moved somewhere site-wide.

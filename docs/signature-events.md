@@ -55,19 +55,19 @@ section.section_signature-events.sig-events_scroller       [data-hscroll-init]
   └ div.sig-events_track                                   [data-hscroll-track]
     ├ div.sig-events_spacer.is-lead
     ├ div.sig-events_card                                  ×3
-    │ ├ div.sig-events_card-bg
     │ └ div.sig-events_card-inner
     │   ├ div.sig-events_card-media
-    │   │ └ img.img-df
     │   ├ div.sig-events_card-title-col
     │   │ ├ div.sig-events_card-pill
     │   │ │ ├ div.sig-events_card-pill-icon
-    │   │ │ └ div.sig-events_card-pill-label     "Hongkong"
-    │   │ ├ h3.sig-events_card-heading           [data-split="heading"]
-    │   │ └ div.sig-events_card-date             [data-split="heading"]
+    │   │ │ └ div.sig-events_card-pill-label.text-size-small     "Hongkong"
+    │   │ ├ h3.sig-events_card-heading.heading-style-h3   [data-split="heading"]
+    │   │ └ div.sig-events_card-date                     [data-split="heading"]
     │   └ div.sig-events_card-body-col
-    │     ├ p.sig-events_card-desc               [data-split="heading"]
-    │     └ a.sig-events_card-link.is-primary
+    │     ├ p.sig-events_card-desc.text-size-regular     [data-split="heading"]
+    │     └ a.sig-events_card-link
+    │       ├ div.sig-events_card-link-icon
+    │       └ div.sig-events_card-link-label.text-size-small     "Learn more"
     └ div.sig-events_spacer.is-tail
 ```
 
@@ -114,9 +114,11 @@ on `.sig-events_card-inner`, not three variants.
 
 ## The structural CSS
 
-These go in the page's `.page-style` embed, not Global Styles — the Designer
-cannot express `sticky` + `max-content`, and the stacking rules are structural
-rather than styling.
+These are set as literal properties on the Webflow classes themselves, via the
+style tool — not written into a `.page-style` embed. `sticky` and `max-content`
+are beyond the Designer's *visual* style panel but are ordinary CSS underneath,
+so they live on the class where the next person will find them. Same call as
+`docs/webflow-programmes-highlights-build.md` made for the first band.
 
 ```css
 .sig-events_viewport { position: sticky; top: 0; height: 100vh; overflow: hidden; }
@@ -164,9 +166,11 @@ rest are here so a fourth card can be added without inventing a new shape.
 .sig-events_shape.is-lens     { border-radius: 0 40% 0 40%; }   /* opposite pair  */
 ```
 
-Colour is a separate combo per shape, set from the site's Webflow colour
-variables in the Designer. Do not hard-code hexes here — the shapes are brand
-marks and share their palette with the rest of the site.
+Colour is a separate combo per shape, bound to the site's Webflow colour
+variables rather than hard-coded: `is-circle` is `Brand/Primary/aqua-main`,
+`is-half` is `Brand/Primary/navy-main`, `is-quarter` is
+`Brand/Primary/red-main`. The shapes are brand marks and share their palette
+with the rest of the site.
 
 ---
 
@@ -232,6 +236,53 @@ fire on scroll position alone, which reads as noise — so the first shape is
 shown and left alone.
 
 ---
+
+## Webflow build notes
+
+Built on the Home page, immediately after `section_stories-community`. That
+position comes from the Figma page: `Block - Signature Events` sits at y 5134,
+directly below `Block - Stories` (3781–5125).
+
+Colours are the site's brand variables, not hexes: `aqua-main` (circle),
+`navy-main` (half, and all card copy), `red-main` (quarter, link border and
+icon), `emerald-main` (location pill), `navy-light` (media placeholder). The two
+literals are the cream `#f7f1ea`, copied from `.section_stories-community` so the
+two sections share a ground, and the wordmark's `#e8ded5` — a warm tint of that
+cream, which the palette has no token for.
+
+Mobile (`small`, ≤767px) is where the band switches itself off, so that
+breakpoint carries the stacked layout: the viewport goes `static`, the track
+becomes a column, cards go full width, the card's three columns stack, and the
+spacers are hidden. Without those the track would keep its `max-content` width
+and push the page into a horizontal scroll.
+
+### Three MCP gotchas, if this is rebuilt through the tools
+
+- **A combo class has to exist before it can be applied.** `set_style` with
+  `["sig-events_card-heading", "heading-style-h3"]` fails with "styles not
+  found" until `create_style` has made that exact pairing
+  (`name: "heading-style-h3", parent_style_names: ["sig-events_card-heading"]`).
+  The error names both classes even though both exist on their own.
+- **A combo cannot be created against a name that exists only as a global.**
+  `text-size-medium` had no combo anywhere on the site, so pairing it with
+  `sig-events_card-date` returned "Cannot have duplicate style names". The date
+  therefore carries its type size on its own class instead of a combo. Names
+  that already appear in some combo (`text-size-small`, `text-size-regular`)
+  pair fine.
+- **`set_text` does not work on a Text Block created by the element builder.**
+  It reports "This element doesn't support text". Write the `text` setting
+  through `data_element_settings_tool > set_settings` instead. Headings and
+  paragraphs take `set_text` normally, which is why only the pills, dates,
+  link labels and the wordmark needed the workaround.
+
+### Still to do in the Designer
+
+- **Card images.** `.sig-events_card-media` is an empty div on `navy-light`.
+  Drop an Image inside each and give it `.sig-events_card-image` (already
+  created: `width/height 100%`, `object-fit: cover`).
+- **Icons.** `.sig-events_card-pill-icon` (location pin) and
+  `.sig-events_card-link-icon` (arrow) are empty boxes.
+- **Link targets.** All three cards point at `#`.
 
 ## Rebuilding or extending this
 

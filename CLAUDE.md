@@ -12,7 +12,23 @@ the index and conventions.
 
 ## Git
 
+Feature-branch workflow. Never commit feature work directly to `main`.
+
+Before starting a feature or fix:
+
+1. Make sure `main` is up to date (`git fetch origin && git pull`).
+2. Create a branch from `main`.
+3. Prefix the branch by kind: `feat/` new features, `fix/` bug fixes,
+   `refactor/` code restructuring, `chore/` maintenance.
+4. Keep one branch to one logical change.
+5. Commit with conventional commit messages.
+6. Push the branch to origin.
+7. Open a pull request targeting `main`.
+8. Never merge the PR — the user reviews and merges it.
+
+If `main` already has uncommitted changes, branch first and carry those changes
+into the branch before committing.
+
 - Never add a `Co-authored-by` trailer (or any co-author attribution) to commits.
-- Never push to `main` until the user explicitly says to. Other branches, and
-  local commits, are fine without asking each time — only pushing to `main` is
-  gated.
+- Pushing a feature branch and opening its PR needs no separate approval; pushing
+  to `main` itself is never done.

@@ -10,6 +10,7 @@ import {
   initHorizontalScroller,
 } from "./animations/horizontalScroller.js";
 import { initRotaryWheel } from "./animations/rotaryWheel.js";
+import { initStoriesStack } from "./animations/storiesStack.js";
 import { initTunnel } from "./canvas/tunnel.js";
 import { initTunnel2 } from "./canvas/tunnel2.js";
 
@@ -29,6 +30,7 @@ function init() {
   initMarqueeScrollDirection();
   initForewordFade();
   initHighlightDrum();
+  initStoriesStack();
   initTunnel();
   initTunnel2();
   watchImagesForRefresh();

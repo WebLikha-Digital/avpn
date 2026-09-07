@@ -220,7 +220,19 @@
          The CSS half of horizontalParallax.js / shapeSwap.js. Structural, so
          it has to exist in Webflow's page-style embed too. Class names match
          the Client-First names used in the Designer build. */
-      .section_signature-events { background: #f6efe9; }
+      /* The preview page styles `section` as a flex column; the stage is the
+         only child that has to fill it, and its own children are absolute, so
+         it would otherwise shrink to zero width. */
+      .section_signature-events { background: #f6efe9; position: relative; display: block; }
+      /* The sticky stage. Everything that must stay put while the band scrolls
+         lives here, beside the viewport — not inside it. scrollLeft moves every
+         descendant of a scroll container, absolutely positioned ones included. */
+      .sig-events_stage {
+        position: sticky; top: 0; width: 100%; height: 100vh; overflow: hidden;
+      }
+      .sig-events_viewport--sig {
+        position: relative; width: 100%; height: 100%; overflow: hidden;
+      }
       .sig-events_track { align-items: flex-end; column-gap: 10.4vw; padding-bottom: 8vh; }
       .sig-events_card { flex-shrink: 0; width: 106.3vw; }
       .sig-events_spacer { flex-shrink: 0; width: 17.4vw; }
@@ -669,7 +681,7 @@
       screen.</p>
 
     <section class="section_signature-events sig-events_scroller" data-hscroll-init>
-      <div class="sig-events_viewport" data-hscroll-viewport>
+      <div class="sig-events_stage">
         <div class="sig-events_bg is-top"></div>
         <div class="sig-events_bg is-bottom"></div>
 
@@ -684,6 +696,7 @@
           <div class="sig-events_word-text">SIGNATURE EVENTS</div>
         </div>
 
+        <div class="sig-events_viewport sig-events_viewport--sig" data-hscroll-viewport>
         <div class="sig-events_track" data-hscroll-track>
           <div class="sig-events_spacer is-lead"></div>
           <div class="sig-events_card">
@@ -741,6 +754,7 @@
             </div>
           </div>
           <div class="sig-events_spacer is-tail"></div>
+          </div>
         </div>
       </div>
     </section>

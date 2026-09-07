@@ -16,10 +16,16 @@ const ENTER_SCALE = 0.8;
  * div — would mean the outgoing and incoming shapes can never overlap, so the
  * change lands as a hard cut in the middle of a smooth scroll.
  *
- * Driven by onToggle rather than scrub, because this is a state change and not
- * a scrubbed value: a fast flick past two panels ends on the right shape
- * instead of somewhere between two of them, and scrolling back up reverses it
- * for free.
+ * The active panel is whichever one's centre is nearest the middle of the
+ * band's window, recomputed from `scrollLeft` on every update. An earlier
+ * version gave each panel its own trigger spanning `left center` to
+ * `right center`; that leaves the gaps before the first panel and after the
+ * last uncovered, so scrolling back to the top of the band left whichever
+ * shape was last shown on screen. Nearest-centre has no gaps and clamps at
+ * both ends for free.
+ *
+ * The value it produces is an index, not a scrubbed number: a fast flick past
+ * two panels lands on the right shape rather than somewhere between two.
  *
  * Webflow contract:
  *   [data-shape-swap]          the stack; its children are the shapes, in the
@@ -75,25 +81,41 @@ export function initShapeSwap() {
       });
     };
 
+    const scroller = band.scroller;
+    const track = scroller.querySelector("[data-hscroll-track]");
+
+    // offsetLeft is relative to the track, which is the panels' offset parent,
+    // so this stays right no matter how far the band has scrolled.
+    const nearest = () => {
+      const focus = scroller.scrollLeft + scroller.clientWidth / 2;
+      let best = 0;
+      let bestDistance = Infinity;
+
+      panels.forEach((panel, i) => {
+        const distance = Math.abs(panel.offsetLeft + panel.offsetWidth / 2 - focus);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          best = i;
+        }
+      });
+
+      return best;
+    };
+
     gsap.set(shapes, { autoAlpha: 0, scale: ENTER_SCALE });
 
-    stack._shapeSwapTriggers = panels.map((panel, i) =>
+    stack._shapeSwapTriggers = [
       ScrollTrigger.create({
-        trigger: panel,
-        // Measured against the middle of the band's window: a panel owns the
-        // marker from the moment its leading edge passes the centre until the
-        // next panel's does, so exactly one is ever active.
-        start: "left center",
-        end: "right center",
+        trigger: track,
+        start: "left left",
+        end: "right right",
         ...band,
-        onToggle: (self) => self.isActive && show(i),
-      })
-    );
+        onUpdate: () => show(nearest()),
+        onRefresh: () => show(nearest()),
+      }),
+    ];
 
-    // Nothing has toggled yet on first paint, so seed from whichever panel is
-    // already active rather than assuming the band starts at panel 0.
-    const active = stack._shapeSwapTriggers.findIndex((t) => t.isActive);
-    show(active === -1 ? 0 : active);
+    show(nearest());
   });
 }
 

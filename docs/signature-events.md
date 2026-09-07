@@ -41,7 +41,7 @@ state as a combo (`is-*`).
 
 ```
 section.section_signature-events.sig-events_scroller       [data-hscroll-init]
-└ div.sig-events_viewport                                  [data-hscroll-viewport]
+└ div.sig-events_stage                                     sticky, 100vh, clipped
   ├ div.sig-events_bg.is-top                               cream band
   ├ div.sig-events_bg.is-bottom                            blue gradient
   ├ div.sig-events_word                                    [data-hparallax]
@@ -52,7 +52,8 @@ section.section_signature-events.sig-events_scroller       [data-hscroll-init]
   │ │ ├ div.sig-events_shape.is-half
   │ │ └ div.sig-events_shape.is-quarter
   │ └ div.sig-events_word-text                             "SIGNATURE EVENTS"
-  └ div.sig-events_track                                   [data-hscroll-track]
+  └ div.sig-events_viewport                                [data-hscroll-viewport]
+    └ div.sig-events_track                                 [data-hscroll-track]
     ├ div.sig-events_spacer.is-lead
     ├ div.sig-events_card                                  ×3
     │ └ div.sig-events_card-inner
@@ -71,9 +72,10 @@ section.section_signature-events.sig-events_scroller       [data-hscroll-init]
     └ div.sig-events_spacer.is-tail
 ```
 
-`.sig-events_word` and `.sig-events_shape-stack` are children of the
-**viewport**, not the track. That is load-bearing — see "Why the word sits
-outside the track" below.
+The stage is what stays on screen; the viewport inside it is only the scroll
+container. Backgrounds and wordmark are children of the **stage**, beside the
+viewport rather than inside it. That is load-bearing — see "Why the word sits
+outside the scroller" below.
 
 The reveals are the existing `splitReveal.js`; it is already band-aware and
 swaps its own default start to `clamp(left 80%)` inside a band, so the cards
@@ -121,7 +123,14 @@ so they live on the class where the next person will find them. Same call as
 `docs/webflow-programmes-highlights-build.md` made for the first band.
 
 ```css
-.sig-events_viewport { position: sticky; top: 0; height: 100vh; overflow: hidden; }
+/* The sticky box. Everything that must hold still while the band scrolls lives
+   here, beside the viewport. */
+.sig-events_stage { position: sticky; top: 0; width: 100%; height: 100vh;
+                    overflow: hidden; }
+
+/* The scroll container, filling the stage. */
+.sig-events_viewport { position: relative; width: 100%; height: 100%;
+                       overflow: hidden; }
 
 .sig-events_track {
   display: flex;
@@ -186,13 +195,25 @@ The element is translated by `distance × speed` across the band's travel, where
 the track, which is what living inside the track already does, so values at or
 above 1 are clamped to 0.95.
 
-### Why the word sits outside the track
+### Why the word sits outside the scroller
 
-The track moves because the viewport's `scrollLeft` changes — its own transform
-is never touched. A sibling of the track is therefore stationary by default,
-and a translation applied to it is measured against a still frame. Put the same
-element *inside* the track and its translation stacks on top of the scroll, so
-`speed: 0.35` would mean "1.35× the track", the opposite of what it reads as.
+`scrollLeft` moves everything the scroll container holds — not just the track.
+An element placed *beside* the track but still inside the viewport therefore
+travels the full distance anyway, and this tween stacks on top of it: a
+`speed` of 0.35 renders as 1.35× the track, the opposite of what it reads as.
+`position: absolute` does not exempt it, because an absolutely positioned child
+of a scroll container is positioned against the scrolled content.
+
+This is exactly how the section was built first, and the bug is quiet: the
+element's transform is correct, so a test that reads the transform passes while
+the word visibly races the cards. The check that catches it measures
+`getBoundingClientRect().left` instead, and `horizontalParallax.js` now refuses
+to animate an element inside the viewport, warning to the console rather than
+animating the wrong thing.
+
+Put it in the stage instead. There it is stationary by default, so the
+translation is measured against a still frame and the shortfall against the
+track's full distance reads as parallax.
 
 Both widths are read as functions with `invalidateOnRefresh`, so a webfont
 landing late or an image settling re-measures the drift instead of baking in a
@@ -216,18 +237,22 @@ nothing would just push the wordmark off screen.
 default — every direct child of the track — would count the two spacers as
 panels and put the shape index one step out.
 
-Each panel gets a trigger spanning `left center` → `right center`, so a panel
-owns the marker from the moment its leading edge crosses the middle of the band
-window until the next panel's does, and exactly one shape is ever active.
+The active panel is whichever one's centre is nearest the middle of the band's
+window, recomputed from `scrollLeft`. The first version gave each panel a
+trigger spanning `left center` → `right center`, which leaves the run-up before
+the first panel and the run-out after the last uncovered: scrolling back to the
+top of the band left whichever shape was showing when you got there, rather
+than resetting to the circle. Nearest-centre has no gaps and clamps at both
+ends without special cases.
 
 Three decisions worth keeping:
 
 - **All shapes exist at once, stacked.** Rewriting a class on a single `div`
   means the outgoing and incoming shapes can never overlap, and the change
   lands as a hard cut mid-scroll.
-- **`onToggle`, not `scrub`.** This is a state change, not a scrubbed value. A
-  fast flick past two cards ends on the correct shape rather than halfway
-  between two, and scrolling back up reverses for free.
+- **An index, not a scrubbed value.** A fast flick past two cards lands on the
+  correct shape rather than halfway between two, and scrolling back reverses
+  for free.
 - **Shape index is modulo shape count.** Three shapes across six panels cycle,
   so adding a card in the Designer needs no code change.
 
@@ -274,6 +299,15 @@ and push the page into a horizontal scroll.
   through `data_element_settings_tool > set_settings` instead. Headings and
   paragraphs take `set_text` normally, which is why only the pills, dates,
   link labels and the wordmark needed the workaround.
+
+### The stage, and the bug that made it necessary
+
+The section was first built with the backgrounds and wordmark inside
+`[data-hscroll-viewport]`. Published, the blue band scrolled off to the left
+with the cards and the wordmark travelled 1.35× the track. `sig-events_stage`
+is the fix: the sticky, clipped box that holds still, with the viewport
+demoted to a plain `position: relative` child filling it. See "Why the word
+sits outside the scroller" above.
 
 ### Still to do in the Designer
 

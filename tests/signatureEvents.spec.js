@@ -27,8 +27,12 @@ async function geometry(page) {
   });
 }
 
-const wordX = (page) =>
-  page.locator(word).evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).m41);
+// Where the word actually is on screen, not what its transform says. The bug
+// this guards against put the element inside the scroll container, where
+// scrollLeft moved it as well as the tween — a transform-only check passed
+// while the word travelled 1.35x the track.
+const wordLeft = (page) =>
+  page.locator(word).evaluate((el) => el.getBoundingClientRect().left);
 
 const opacities = (page) =>
   page.locator(shapes).evaluateAll((els) =>
@@ -48,10 +52,10 @@ test("drifts the wordmark at its authored fraction of the track", async ({ page 
   );
 
   await scrollTo(page, top);
-  expect(Math.abs(await wordX(page))).toBeLessThanOrEqual(2);
+  const start = await wordLeft(page);
 
   await scrollTo(page, top + distance);
-  const travelled = -(await wordX(page));
+  const travelled = start - (await wordLeft(page));
 
   expect(travelled).toBeCloseTo(distance * speed, -1);
   // The point of the parallax: the word covers less ground than the cards do.
@@ -90,11 +94,30 @@ test("returns to the first shape when scrolled back to the start", async ({ page
   expect(values.findIndex((value) => value > 0.5)).toBe(0);
 });
 
-test("keeps the wordmark outside the track, so it is not scrolled by it", async ({ page }) => {
+test("keeps the wordmark outside the scroller, so it is not scrolled by it", async ({ page }) => {
   const parent = await page.locator(word).evaluate((el) => ({
-    inTrack: Boolean(el.closest("[data-hscroll-track]")),
+    inBand: Boolean(el.closest("[data-hscroll-init]")),
+    // The whole point: scrollLeft moves every descendant of the scroller,
+    // absolutely positioned ones included, so the word has to sit beside it.
     inViewport: Boolean(el.closest("[data-hscroll-viewport]")),
   }));
 
-  expect(parent).toEqual({ inTrack: false, inViewport: true });
+  expect(parent).toEqual({ inBand: true, inViewport: false });
+});
+
+test("refuses to animate a wordmark left inside the scroller", async ({ page }) => {
+  const warnings = [];
+  page.on("console", (message) => {
+    if (message.type() === "warning") warnings.push(message.text());
+  });
+
+  await page.locator(word).evaluate((el) => {
+    el.closest("[data-hscroll-init]").querySelector("[data-hscroll-track]").append(el);
+  });
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent("hscroll:rebuilt")));
+
+  await expect
+    .poll(() => warnings.filter((text) => text.includes("[hparallax]")).length)
+    .toBeGreaterThan(0);
+  expect(await page.locator(word).evaluate((el) => Boolean(el._horizontalParallax))).toBe(false);
 });

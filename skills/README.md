@@ -33,3 +33,6 @@ Skill tool or pulled in by Codex via AGENTS.md.
   convention (GSAP-based DOM/scroll animation).
 - `threejs-canvas/` — same conventions, adapted for WebGL/canvas components
   (render loop lifecycle, GPU resource disposal, resize/visibility handling).
+- `fix-bug/` — the workflow to follow when a bug is reported: acceptance criteria,
+  `fix/` branch, early draft PR, reproduce-then-fix, the checks this repo actually
+  has, and the post-merge cleanup.

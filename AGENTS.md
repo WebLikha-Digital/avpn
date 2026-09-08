@@ -10,6 +10,8 @@ Before doing work related to animations, builds, or Webflow embedding, check
 `skills/` for a relevant `SKILL.md` and follow it. Start with `skills/README.md` for
 the index and conventions.
 
+When a bug is reported, follow `skills/fix-bug/SKILL.md`.
+
 ## Git
 
 Feature-branch workflow. Never make feature commits directly on `main`.
@@ -40,3 +42,20 @@ rather than opening another branch for the same logical change.
 - Never add a `Co-authored-by` trailer (or any co-author attribution) to commits.
 - Pushing a feature branch and opening its PR needs no separate approval; pushing
   to `main` itself is never done.
+
+### Bug fixes
+
+Bug fixes use `fix/` branches and follow `skills/fix-bug/SKILL.md`. The short form:
+
+- Restate actual vs. expected behavior, reproduction steps, and acceptance criteria
+  before writing code.
+- Reproduce or confirm the bug before changing anything.
+- Open a draft PR early so the PR is the running record of the fix.
+- Keep the branch to the one bug — no unrelated refactors or cleanup.
+- Run the repo's real checks (`npm run build`, `npm run test:e2e`, plus browser and
+  responsive checks) and report only checks that actually ran.
+- The fix is not done until it meets the acceptance criteria; never hide or skip a
+  failing test.
+- Review the diff and strip debug code before committing.
+- Preserve any unrelated uncommitted changes already in the working tree — never
+  discard them, and never fold them into the fix commit.

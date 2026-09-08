@@ -13,7 +13,12 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("boots every preview component", async ({ page }) => {
-  await expect(page.locator('.mask-demo__inner .line')).toHaveCount(1);
+  // How many lines SplitText builds depends on where the heading wraps, which
+  // varies with the platform's default font — one line on macOS, two on CI's
+  // Linux runner. Assert the split happened, not how many lines it produced.
+  await expect
+    .poll(() => page.locator(".mask-demo__inner .line").count())
+    .toBeGreaterThan(0);
   await expect(page.locator("[data-tunnel-init] canvas")).toHaveCount(2);
   await expect(page.locator("[data-tunnel2-init] canvas")).toHaveCount(1);
 });

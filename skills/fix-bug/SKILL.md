@@ -155,7 +155,7 @@ because the fix "looks obviously right".
 
 | # | Gate | How to verify |
 | --- | --- | --- |
-| 1 | CI is green on the PR | `gh pr checks <pr> --required` — GitHub's status, not your own test run. |
+| 1 | CI is green on the PR | `gh pr checks <pr>` — GitHub's status, not your own test run. `main` has no branch protection, so nothing enforces this gate for you: check it, and never merge past a red or pending run. |
 | 2 | A regression spec fails on `main` and passes on the branch | Both results recorded in the PR, from step 7. |
 | 3 | The diff touches only `src/` and `tests/` | `git diff --name-only main...HEAD`. Any change to `package.json`, `vite.config.js`, either Playwright config, `.github/`, `dist/`, `skills/`, or `docs/` disqualifies. |
 | 4 | The diff is at most 50 changed lines | `git diff --shortstat main...HEAD`. |

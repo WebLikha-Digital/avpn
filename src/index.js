@@ -13,6 +13,8 @@ import {
 } from "./animations/horizontalScroller.js";
 import { initRotaryWheel } from "./animations/rotaryWheel.js";
 import { initStoriesStack } from "./animations/storiesStack.js";
+import { initProgrammesOverview } from "./animations/programmesOverview.js";
+import { initListHoverReveal } from "./animations/listHoverReveal.js";
 import { initTunnel } from "./canvas/tunnel.js";
 import { initTunnel2 } from "./canvas/tunnel2.js";
 
@@ -35,6 +37,8 @@ function init() {
   initForewordFade();
   initHighlightDrum();
   initStoriesStack();
+  initProgrammesOverview();
+  initListHoverReveal();
   initTunnel();
   initTunnel2();
   watchImagesForRefresh();

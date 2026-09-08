@@ -75,14 +75,25 @@ export function initHorizontalScroller() {
     let start = 0;
 
     const measure = () => {
-      // getBoundingClientRect + scrollY rather than offsetTop, which is
-      // relative to the offset parent and silently wrong as soon as an ancestor
-      // is positioned.
-      start = wrap.getBoundingClientRect().top + window.scrollY;
+      // Order matters. `teardown` blanks the inline height, so on a rebuild the
+      // band contributes nothing to the page until this runs — on a tall band
+      // that collapses the document by thousands of pixels, and the browser
+      // clamps `window.scrollY` to the shorter page. A position read taken in
+      // that state is measured against the clamped offset, and the wrong
+      // `start` survives the height being restored a line later. Growing the
+      // page back first is safe (a taller document never clamps scroll), so
+      // the height goes on before anything positional is read.
+      //
+      // `distance` is independent of the wrap's own height, so it can be read
+      // either side of that.
       distance = Math.max(0, track.scrollWidth - viewport.clientWidth);
       // The band owns exactly as much page as it needs to travel, plus the one
       // viewport height its sticky child occupies while it is parked.
       wrap.style.height = `${distance + viewport.offsetHeight}px`;
+      // getBoundingClientRect + scrollY rather than offsetTop, which is
+      // relative to the offset parent and silently wrong as soon as an ancestor
+      // is positioned.
+      start = wrap.getBoundingClientRect().top + window.scrollY;
     };
 
     // Written on ScrollTrigger's refreshInit, which runs before any trigger
@@ -104,7 +115,16 @@ export function initHorizontalScroller() {
 
     measure();
     ScrollTrigger.addEventListener("refreshInit", onRefreshInit);
-    gsap.ticker.add(render);
+    // Prioritized, so this callback sits at the head of the ticker queue and
+    // always writes `scrollLeft` before ScrollTrigger reads it. Without the
+    // flag the order silently inverts on a rebuild: `teardown` removes this
+    // callback and init re-adds it at the tail, behind ScrollTrigger's own
+    // ticker listener, which was registered once and never moves. Everything
+    // pinned to this scroller then renders from the previous frame's
+    // `scrollLeft` — measured as `WT` on every frame after a resize where a
+    // fresh load gives `TW`, which reads as a few-pixel shimmy while the page
+    // is moving and disappears the moment it stops.
+    gsap.ticker.add(render, false, true);
     wrap.setAttribute("data-hscroll-active", "");
 
     wrap._horizontalScroller = { viewport, track, render, onRefreshInit };
@@ -169,6 +189,13 @@ function watchResize() {
   const onResize = () => {
     if (window.innerWidth === lastWidth) return;
     lastWidth = window.innerWidth;
+    // The layout has already changed, and the ticker keeps writing scrollLeft
+    // every frame. Refreshing now re-measures each band and every trigger bound
+    // to one — including the pins inside them, which otherwise hold offsets
+    // from the old width for the whole debounce and drag their pinned element
+    // visibly out of place. The full teardown/re-init below stays debounced;
+    // this only re-measures what is already built.
+    ScrollTrigger.refresh();
     clearTimeout(timer);
     timer = setTimeout(() => {
       initHorizontalScroller();

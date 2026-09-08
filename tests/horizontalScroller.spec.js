@@ -148,6 +148,63 @@ test("scales each card down per step away from the slot", async ({ page }) => {
   scales.forEach((scale, index) => expect(scale).toBeCloseTo(falloff ** index, 2));
 });
 
+test("keeps the track mapped to the page after a width change", async ({ page }) => {
+  // Park inside the wheel's pinned range, where a stale measurement is most
+  // visible: the stage is pinned and the hub's rotation is being scrubbed.
+  const { top, panelLeft } = await page.locator("[data-rotary-wheel-init]").evaluate((el) => {
+    const wrap = el.closest("[data-hscroll-init]");
+    const track = wrap.querySelector("[data-hscroll-track]");
+    return {
+      top: wrap.getBoundingClientRect().top + window.scrollY,
+      panelLeft: el.getBoundingClientRect().left - track.getBoundingClientRect().left,
+    };
+  });
+
+  await scrollTo(page, top + panelLeft + 800);
+
+  // The band's contract, re-read from the live DOM rather than from anything
+  // the script cached: scrollLeft is how far the page has scrolled into the
+  // band, clamped to the track's overflow. `start` is measured while the wrap
+  // has no JS height, so a resize that collapses the document can bake a wrong
+  // one — this is what catches that.
+  const mapping = () =>
+    page.locator(band).evaluate((wrap) => {
+      const vp = wrap.querySelector("[data-hscroll-viewport]");
+      const track = wrap.querySelector("[data-hscroll-track]");
+      const start = wrap.getBoundingClientRect().top + window.scrollY;
+      const distance = Math.max(0, track.scrollWidth - vp.clientWidth);
+      return {
+        actual: Math.round(vp.scrollLeft),
+        expected: Math.round(Math.min(distance, Math.max(0, window.scrollY - start))),
+      };
+    });
+
+  const stageLeft = () =>
+    page.locator("[data-rotary-wheel-stage]").evaluate((el) =>
+      Math.round(el.getBoundingClientRect().left),
+    );
+
+  const parkedStage = await stageLeft();
+
+  await page.setViewportSize({ width: 1150, height: 800 });
+
+  // Sample across the rebuild's debounce window, not just after it settles:
+  // the wobble is the transient, and the stage must not drift while the band
+  // is still holding old numbers.
+  const drift = [];
+  for (let i = 0; i < 6; i += 1) {
+    await page.waitForTimeout(60);
+    drift.push(Math.abs((await stageLeft()) - parkedStage));
+  }
+  await page.waitForTimeout(600);
+  drift.push(Math.abs((await stageLeft()) - parkedStage));
+
+  expect(Math.max(...drift)).toBeLessThanOrEqual(2);
+
+  const settled = await mapping();
+  expect(Math.abs(settled.actual - settled.expected)).toBeLessThanOrEqual(2);
+});
+
 test("redirects nested draw-path connectors onto the band's scroller", async ({ page }) => {
   const inBand = await page.locator("[data-hscroll-track] [data-draw-scroll-wrap]").evaluate((wrap) => {
     const trigger = wrap._drawTl?.scrollTrigger;

@@ -31,6 +31,14 @@ const OPACITY_FALLOFF = 0.7;
  *   [data-highlight-drum-counter] text set to the 1-based active index
  *   [data-highlight-drum-total]   text set to the number of stats
  *
+ * Each item may also carry [data-highlight-drum-gradient="<from>,<to>"] — the
+ * two colour stops of the section's background for that stat, bottom stop
+ * first. When every item has one, the section's gradient scrubs between
+ * neighbouring pairs on the same progress that turns the drum, so the colour
+ * is mid-blend exactly while the numbers are. Miss the attribute on any item
+ * and the whole gradient is left alone, so the section keeps whatever the
+ * Designer gave it.
+ *
  * Item count comes from the DOM, so stats can be added or removed in the
  * Designer without touching this file.
  *
@@ -52,6 +60,8 @@ export function initHighlightDrum() {
     // resting state rather than from mid-scroll values.
     section._highlightDrumTrigger?.kill();
     section._highlightDrumTrigger = null;
+    section.style.removeProperty("--highlight-drum-grad-from");
+    section.style.removeProperty("--highlight-drum-grad-to");
 
     const items = [...section.querySelectorAll("[data-highlight-drum-item]")];
     const titles = [...section.querySelectorAll("[data-highlight-drum-title]")];
@@ -77,6 +87,13 @@ export function initHighlightDrum() {
     const setters = items.map((item) => ({
       transform: gsap.quickSetter(item, "css"),
     }));
+
+    // [[from, to], ...] in item order, or null if any item is missing its pair.
+    const palette = readPalette(items);
+    if (palette) {
+      section.style.setProperty("--highlight-drum-grad-from", palette[0][0]);
+      section.style.setProperty("--highlight-drum-grad-to", palette[0][1]);
+    }
 
     const lastIndex = items.length - 1;
     if (total) total.textContent = pad(items.length);
@@ -126,6 +143,26 @@ export function initHighlightDrum() {
       });
 
       setActive(clampIndex(Math.round(position), lastIndex));
+
+      if (!palette) return;
+
+      // Flat colour per stat under reduced motion — the same snap the drum
+      // makes — otherwise blend across the segment the drum is turning
+      // through, so gradient and numbers are mid-transition together.
+      const segment = flat
+        ? clampIndex(Math.round(position), lastIndex)
+        : clampIndex(Math.floor(position), lastIndex - 1);
+      const t = flat ? 0 : clamp(position - segment);
+      const next = palette[Math.min(segment + 1, lastIndex)];
+
+      section.style.setProperty(
+        "--highlight-drum-grad-from",
+        blend(palette[segment][0], next[0], t),
+      );
+      section.style.setProperty(
+        "--highlight-drum-grad-to",
+        blend(palette[segment][1], next[1], t),
+      );
     };
 
     const trigger = ScrollTrigger.create({
@@ -140,6 +177,36 @@ export function initHighlightDrum() {
     section._highlightDrumTrigger = trigger;
     render(trigger.progress);
   });
+}
+
+// Straight-line RGB takes orange to teal through grey, and the halfway frame
+// reads as olive mud. oklab is perceptually even, so the same blend keeps its
+// chroma the whole way across. color-mix does it in the browser rather than
+// here, which also keeps the written value a colour the Designer can read.
+// Anything older than Chrome 111 / Safari 16.2 gets the RGB path instead —
+// an unsupported colour would invalidate the whole gradient, not just a stop.
+const CAN_MIX =
+  typeof CSS !== "undefined" &&
+  CSS.supports?.("color", "color-mix(in oklab, red 50%, blue)");
+
+function blend(from, to, t) {
+  if (t === 0) return from;
+  if (t === 1) return to;
+
+  return CAN_MIX
+    ? `color-mix(in oklab, ${to} ${(t * 100).toFixed(2)}%, ${from})`
+    : gsap.utils.interpolate(from, to, t);
+}
+
+function readPalette(items) {
+  const palette = items.map((item) =>
+    (item.getAttribute("data-highlight-drum-gradient") || "")
+      .split(",")
+      .map((color) => color.trim())
+      .filter(Boolean),
+  );
+
+  return palette.every((pair) => pair.length === 2) ? palette : null;
 }
 
 function pad(value) {

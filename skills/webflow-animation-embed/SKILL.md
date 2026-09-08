@@ -61,6 +61,22 @@ a small helper module. Follow this shape:
    declaration and execution visually separate so the file reads top-to-bottom as
    spec-then-run.
 
+10. **Prioritize a ticker callback that something else reads.** If a component writes
+    per-frame state that a ScrollTrigger then reads — the horizontal band writing
+    `viewport.scrollLeft` for the triggers scoped to it is the case in this repo — add
+    it with the prioritize flag:
+
+    ```js
+    gsap.ticker.add(render, false, true);
+    ```
+
+    Plain `gsap.ticker.add(render)` appends to the tail of the queue. That is fine on
+    first load, but a re-init removes the callback and re-adds it *behind* ScrollTrigger's
+    own ticker listener, which is registered once and never moves. The read then happens
+    before the write and every dependent trigger runs one frame stale — invisible while
+    the page is still, a few-pixel shimmy while it scrolls. Anything that re-initializes
+    on resize is exposed to this.
+
 ## Steps
 
 1. Add or edit a component file in `src/animations/`, following the convention

@@ -9,16 +9,25 @@ import { test, expect } from "@playwright/test";
 const BUNDLE_PATH = fileURLToPath(new URL("../../dist/animations.min.js", import.meta.url));
 const SECTION = ".section_highlights";
 
+// The stops are hex at rest and rgba() mid-blend — a custom property is only a
+// string, so the browser never normalises one. Resolving each through a real
+// colour declaration gives both forms back as the same rgb() triple.
 function readStops(page) {
   return page.evaluate((sel) => {
-    const section = document.querySelector(sel);
-    const styles = getComputedStyle(section);
-    const parse = (value) =>
-      (value.match(/[\d.]+/g) || []).slice(0, 3).map(Number);
-    return {
-      from: parse(styles.getPropertyValue("--highlight-drum-grad-from")),
-      to: parse(styles.getPropertyValue("--highlight-drum-grad-to")),
+    const probe = document.createElement("span");
+    document.body.appendChild(probe);
+    const toRgb = (value) => {
+      probe.style.color = value;
+      return getComputedStyle(probe).color.match(/[\d.]+/g).slice(0, 3).map(Number);
     };
+
+    const styles = getComputedStyle(document.querySelector(sel));
+    const stops = {
+      from: toRgb(styles.getPropertyValue("--highlight-drum-grad-from").trim()),
+      to: toRgb(styles.getPropertyValue("--highlight-drum-grad-to").trim()),
+    };
+    probe.remove();
+    return stops;
   }, SECTION);
 }
 
@@ -104,8 +113,9 @@ test("blends the gradient continuously while the drum turns", async ({ page }) =
     window.__gradFrames = [];
     const section = document.querySelector(sel);
     const tick = () => {
-      const value = getComputedStyle(section).getPropertyValue("--highlight-drum-grad-from");
-      window.__gradFrames.push((value.match(/[\d.]+/g) || []).slice(0, 3).map(Number));
+      window.__gradFrames.push(
+        getComputedStyle(section).getPropertyValue("--highlight-drum-grad-from").trim(),
+      );
       requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
@@ -119,10 +129,7 @@ test("blends the gradient continuously while the drum turns", async ({ page }) =
   }
   await page.waitForTimeout(400);
 
-  const distinct = await page.evaluate(() => {
-    const seen = new Set(window.__gradFrames.map((rgb) => rgb.join(",")));
-    return seen.size;
-  });
+  const distinct = await page.evaluate(() => new Set(window.__gradFrames).size);
 
   // A stepped gradient produces two distinct colours across this scroll; a
   // scrubbed one produces a new colour on most frames.

@@ -157,11 +157,11 @@ export function initHighlightDrum() {
 
       section.style.setProperty(
         "--highlight-drum-grad-from",
-        gsap.utils.interpolate(palette[segment][0], next[0], t),
+        blend(palette[segment][0], next[0], t),
       );
       section.style.setProperty(
         "--highlight-drum-grad-to",
-        gsap.utils.interpolate(palette[segment][1], next[1], t),
+        blend(palette[segment][1], next[1], t),
       );
     };
 
@@ -177,6 +177,25 @@ export function initHighlightDrum() {
     section._highlightDrumTrigger = trigger;
     render(trigger.progress);
   });
+}
+
+// Straight-line RGB takes orange to teal through grey, and the halfway frame
+// reads as olive mud. oklab is perceptually even, so the same blend keeps its
+// chroma the whole way across. color-mix does it in the browser rather than
+// here, which also keeps the written value a colour the Designer can read.
+// Anything older than Chrome 111 / Safari 16.2 gets the RGB path instead —
+// an unsupported colour would invalidate the whole gradient, not just a stop.
+const CAN_MIX =
+  typeof CSS !== "undefined" &&
+  CSS.supports?.("color", "color-mix(in oklab, red 50%, blue)");
+
+function blend(from, to, t) {
+  if (t === 0) return from;
+  if (t === 1) return to;
+
+  return CAN_MIX
+    ? `color-mix(in oklab, ${to} ${(t * 100).toFixed(2)}%, ${from})`
+    : gsap.utils.interpolate(from, to, t);
 }
 
 function readPalette(items) {

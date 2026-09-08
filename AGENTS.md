@@ -28,7 +28,8 @@ For every feature, fix, refactor, or maintenance task:
 7. Commit with a clear conventional commit message.
 8. Push the branch to origin.
 9. Open a pull request targeting `main`.
-10. Never merge the PR — the user reviews and merges it.
+10. Never merge the PR — the user reviews and merges it. The one exception is a
+    bug fix that passes every auto-merge gate in `skills/fix-bug/SKILL.md`.
 11. After the PR is merged: switch back to `main`, pull the latest
     `origin/main`, delete the local branch, and delete the remote branch if it
     was not deleted automatically.
@@ -59,3 +60,7 @@ Bug fixes use `fix/` branches and follow `skills/fix-bug/SKILL.md`. The short fo
 - Review the diff and strip debug code before committing.
 - Preserve any unrelated uncommitted changes already in the working tree — never
   discard them, and never fold them into the fix commit.
+- A bug fix may merge its own PR only when it passes every gate in the skill —
+  green CI, a regression spec that fails on `main` and passes on the branch, a
+  small diff confined to `src/` and `tests/`, and acceptance criteria that came
+  from the user. Any gate failing means hand the PR off for review.

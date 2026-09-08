@@ -92,7 +92,9 @@ branch. Follow the existing component conventions in
 ### 7. Checks
 
 Run every check that is relevant to what changed, and report exactly which ones you
-ran:
+ran. `.github/workflows/ci.yml` runs the build and the local e2e suite on every PR —
+run them locally too rather than waiting on CI, but CI's result is the one that gates
+an auto-merge.
 
 | Check | Command | When |
 | --- | --- | --- |
@@ -103,8 +105,10 @@ ran:
 | Browser check | manual, via `npm run dev` or `npm run webflow` | Always for visual/scroll bugs. |
 | Responsive check | manual, at the breakpoints named in the report | Whenever layout or breakpoints are involved. |
 
-Add or extend a Playwright spec in `tests/` when the bug is reproducible headlessly —
-a regression test is the best proof the fix holds.
+Add or extend a Playwright spec in `tests/` when the bug is reproducible headlessly.
+A spec that **fails on `main` and passes on the branch** is the only objective proof
+the fix works, and it is a hard requirement for auto-merge (see step 10). Write the
+spec before the fix, watch it fail, then fix. Record both results.
 
 Then check the result against the step 1 acceptance criteria, one by one. If any
 criterion fails, go back to step 5. Do not report the task as complete, and do not
@@ -143,12 +147,42 @@ Rewrite the PR body to be the full record:
 
 Mark the PR ready for review (`gh pr ready`).
 
-### 10. Hand off — do not merge
+### 10. Merge or hand off
 
-Per this repo's Git rules, the user reviews and merges. Stop here and report the PR
-link. Do not merge, and do not push to `main`.
+A bug fix may merge itself **only** when every one of these gates passes. They are
+all-or-nothing: one failure means hand off. Never argue a gate away, and never merge
+because the fix "looks obviously right".
 
-### 11. After the user merges
+| # | Gate | How to verify |
+| --- | --- | --- |
+| 1 | CI is green on the PR | `gh pr checks <pr> --required` — GitHub's status, not your own test run. |
+| 2 | A regression spec fails on `main` and passes on the branch | Both results recorded in the PR, from step 7. |
+| 3 | The diff touches only `src/` and `tests/` | `git diff --name-only main...HEAD`. Any change to `package.json`, `vite.config.js`, either Playwright config, `.github/`, `dist/`, `skills/`, or `docs/` disqualifies. |
+| 4 | The diff is at most 50 changed lines | `git diff --shortstat main...HEAD`. |
+| 5 | The acceptance criteria came from the user | Criteria you inferred yourself do not count — ask the user to confirm them, or hand off. |
+| 6 | Every acceptance criterion is met by an automated check | If any criterion can only be confirmed by eye, hand off. |
+| 7 | The root cause is in this repo | Anything rooted in Webflow markup, styling, or hosting always hands off. |
+
+Rationale, so these are not treated as red tape: gates 1 and 2 are the only checks in
+this workflow that are not self-attested. Gate 6 exists because most bugs in this repo
+are visual, and "I looked at it and it seemed fixed" is not evidence. Gates 3, 4 and 5
+keep the blast radius small and stop a mis-framed problem statement from auto-shipping.
+
+**If all gates pass:**
+
+```bash
+gh pr merge <pr> --squash --delete-branch
+```
+
+Then report what merged, which gates passed, and the CI run link.
+
+**If any gate fails:** mark the PR ready, stop, and report the PR link plus exactly
+which gate failed and why. Do not merge, and never push to `main` directly.
+
+When in doubt, hand off. An unnecessary review costs the user a minute; a bad
+auto-merge ships to the live Webflow site.
+
+### 11. After the merge
 
 ```bash
 git checkout main

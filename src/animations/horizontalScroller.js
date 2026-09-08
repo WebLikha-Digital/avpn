@@ -115,7 +115,16 @@ export function initHorizontalScroller() {
 
     measure();
     ScrollTrigger.addEventListener("refreshInit", onRefreshInit);
-    gsap.ticker.add(render);
+    // Prioritized, so this callback sits at the head of the ticker queue and
+    // always writes `scrollLeft` before ScrollTrigger reads it. Without the
+    // flag the order silently inverts on a rebuild: `teardown` removes this
+    // callback and init re-adds it at the tail, behind ScrollTrigger's own
+    // ticker listener, which was registered once and never moves. Everything
+    // pinned to this scroller then renders from the previous frame's
+    // `scrollLeft` — measured as `WT` on every frame after a resize where a
+    // fresh load gives `TW`, which reads as a few-pixel shimmy while the page
+    // is moving and disappears the moment it stops.
+    gsap.ticker.add(render, false, true);
     wrap.setAttribute("data-hscroll-active", "");
 
     wrap._horizontalScroller = { viewport, track, render, onRefreshInit };

@@ -95,3 +95,68 @@ test("holds the wheel steady through a width change", async ({ page }) => {
     "the track should still map to the page position after a resize",
   ).toBeLessThanOrEqual(DRIFT_TOLERANCE);
 });
+
+test("holds the pin steady while scrolling after a width change", async ({ page }) => {
+  // The bug this covers is invisible at rest. Sampling settled positions — jump,
+  // wait, read — shows zero drift even when it is broken, because the ticker and
+  // the pin converge as soon as motion stops. It only shows up frame by frame
+  // while the page is actually moving, so this scrolls with the wheel and reads
+  // the stage on every animation frame.
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect
+    .poll(() => page.evaluate((s) => Boolean(document.querySelector(s)?._horizontalScroller), BAND))
+    .toBe(true);
+  await page.waitForTimeout(900);
+
+  // The rebuild is what inverts the callback order, so the resize has to happen
+  // before the scroll rather than during it.
+  await page.setViewportSize({ width: 1358, height: 900 });
+  await page.waitForTimeout(1400);
+
+  const geo = await page.evaluate((sel) => {
+    const band = document.querySelector(sel);
+    const panel = band.querySelector("[data-rotary-wheel-init]");
+    const track = band.querySelector("[data-hscroll-track]");
+    const stage = band.querySelector("[data-rotary-wheel-stage]");
+    return {
+      top: band.getBoundingClientRect().top + window.scrollY,
+      panelLeft: panel.getBoundingClientRect().left - track.getBoundingClientRect().left,
+      pinDistance: panel.offsetWidth - stage.offsetWidth,
+    };
+  }, BAND);
+
+  await page.evaluate((y) => window.scrollTo({ top: y, behavior: "instant" }), geo.top + geo.panelLeft - 400);
+  await page.waitForTimeout(700);
+
+  await page.evaluate((sel) => {
+    window.__pinFrames = [];
+    const stage = document.querySelector(sel).querySelector("[data-rotary-wheel-stage]");
+    const tick = () => {
+      window.__pinFrames.push({ y: window.scrollY, left: stage.getBoundingClientRect().left });
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, BAND);
+
+  await page.mouse.move(600, 450);
+  for (let i = 0; i < 55; i += 1) {
+    await page.mouse.wheel(0, 60);
+    await page.waitForTimeout(40);
+  }
+  await page.waitForTimeout(500);
+
+  const pinFrom = geo.top + geo.panelLeft;
+  const pinTo = pinFrom + geo.pinDistance;
+  const spread = await page.evaluate(([from, to]) => {
+    // Only frames where the pin is engaged; the margin keeps the entry and exit
+    // transitions out of the sample.
+    const inPin = window.__pinFrames.filter((f) => f.y > from + 120 && f.y < to - 120);
+    if (inPin.length < 50) return null;
+    const lefts = inPin.map((f) => f.left);
+    return +(Math.max(...lefts) - Math.min(...lefts)).toFixed(1);
+  }, [pinFrom, pinTo]);
+
+  expect(spread, "not enough frames sampled inside the pin").not.toBeNull();
+  expect(spread, "the pinned stage should not move while it is pinned").toBeLessThanOrEqual(1);
+});

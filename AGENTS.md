@@ -60,7 +60,10 @@ Bug fixes use `fix/` branches and follow `skills/fix-bug/SKILL.md`. The short fo
 - Review the diff and strip debug code before committing.
 - Preserve any unrelated uncommitted changes already in the working tree — never
   discard them, and never fold them into the fix commit.
+- For a scroll-driven or animated bug, sample per animation frame during real
+  continuous motion. Reading a settled position passes on a broken pin.
 - A bug fix may merge its own PR only when it passes every gate in the skill —
   green CI, a regression spec that fails on `main` and passes on the branch, a
-  small diff confined to `src/` and `tests/`, and acceptance criteria that came
-  from the user. Any gate failing means hand the PR off for review.
+  small diff confined to `src/`, `tests/`, and the rebuilt bundle, and acceptance
+  criteria that came from the user. Any gate failing means hand the PR off for
+  review.

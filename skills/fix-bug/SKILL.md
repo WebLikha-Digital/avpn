@@ -57,16 +57,20 @@ Name it after the symptom, not the guessed cause: `fix/mobile-header-overflow`,
 
 ### 4. Open a draft PR early
 
-Push the empty branch and open a draft PR so it becomes the running record:
+GitHub refuses a PR with nothing in it (`No commits between main and fix/...`), so give
+the branch an empty commit to hang the PR on:
 
 ```bash
+git commit --allow-empty -m "chore: open <branch> for <summary>"
 git push -u origin fix/<branch>
 gh pr create --draft --base main --title "fix: <summary>" --body "<problem + acceptance criteria>"
 ```
 
-Seed the body with the step 1 summary. If `gh` is unavailable or unauthenticated,
-skip this and open the PR at step 8 instead — note in the final report that the PR
-was opened late.
+Seed the body with the step 1 summary. The empty commit gets absorbed when the PR is
+squash-merged, so it costs nothing in history.
+
+If `gh` is unavailable or unauthenticated, skip this and open the PR at step 8 instead —
+note in the final report that the PR was opened late.
 
 ### 5. Reproduce, then find the root cause
 
@@ -78,6 +82,17 @@ a before state.
   `localhost:4173` — use this when the bug only appears with real Webflow markup.
 - Use browser tooling to inspect the failing element, console errors, and computed
   layout at the reported breakpoint.
+
+Two traps worth knowing before you spend an hour on either:
+
+- **`index.html` is a playground, not the site.** It carries one band and one wheel;
+  the published page carries two bands and three wheels, with different markup. Confirm
+  a reported bug against the published page before concluding anything about it.
+- **A backgrounded browser tab cannot measure animation.** `requestAnimationFrame` is
+  frozen there, so `gsap.ticker` never runs, every rAF-driven read returns a stale or
+  zero value, and an rAF-awaiting call hangs until it times out. This rules out the
+  Chrome MCP tab, which runs backgrounded — check `document.visibilityState` if a
+  measurement looks impossibly clean. Playwright's own browser is fine.
 
 State the root cause explicitly before writing the fix. "Changing this line made the
 symptom go away" is not a root cause.
@@ -100,15 +115,69 @@ an auto-merge.
 | --- | --- | --- |
 | Build | `npm run build` | Always — the bundle is the deliverable. |
 | E2E (local) | `npm run test:e2e` | Always for animation/behaviour changes. |
-| E2E (live site) | `npm run test:e2e:live` | When the bug was reported on the published site. |
+| E2E (live site) | `npm run test:e2e:live` | When the bug was reported on the published site — which is most of them. |
 | Headed debugging | `npm run test:e2e:headed` / `npm run test:e2e:ui` | While diagnosing a failing spec. |
 | Browser check | manual, via `npm run dev` or `npm run webflow` | Always for visual/scroll bugs. |
 | Responsive check | manual, at the breakpoints named in the report | Whenever layout or breakpoints are involved. |
+
+A live spec must fulfil the bundle from `dist/` itself:
+
+```js
+await page.route("**/animations.min.js", (route) =>
+  route.fulfill({ path: BUNDLE_PATH, contentType: "application/javascript" }));
+```
+
+The published page's footer tag points at `http://localhost:4173/animations.min.js`, and
+Chrome blocks that from an `https://` page as a private-network request — `Permission was
+denied for this request to access the 'loopback' address space`. A profile that has been
+granted the permission loads it fine, which makes this look like it works right up until
+it runs somewhere clean. `tests/live/foreword.spec.js` and
+`tests/live/programmesHighlights.spec.js` both use the `page.route` form. Run
+`npm run build` first, since `dist/` is what gets served.
 
 Add or extend a Playwright spec in `tests/` when the bug is reproducible headlessly.
 A spec that **fails on `main` and passes on the branch** is the only objective proof
 the fix works, and it is a hard requirement for auto-merge (see step 10). Write the
 spec before the fix, watch it fail, then fix. Record both results.
+
+#### Motion bugs need per-frame samples
+
+For anything scroll-driven or animated, **sampling settled positions is not evidence.**
+Scroll somewhere, wait, read the value back, and a broken pin reads perfect — the
+ticker and the trigger converge the instant motion stops. The symptom exists only
+while the page is moving.
+
+This is not hypothetical: it is how a wheel-pin bug on this site was twice reported
+fixed when it was not. Settled sampling showed 0px drift in every condition; per-frame
+sampling during a continuous scroll showed 14px.
+
+So for a motion bug, drive real continuous motion and read on every frame:
+
+```js
+await page.evaluate(() => {
+  window.__frames = [];
+  const el = document.querySelector("<selector>");
+  const tick = () => {
+    window.__frames.push({ y: window.scrollY, left: el.getBoundingClientRect().left });
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+});
+
+await page.mouse.move(600, 450);
+for (let i = 0; i < 55; i += 1) {
+  await page.mouse.wheel(0, 60);
+  await page.waitForTimeout(40);
+}
+```
+
+Then assert on the spread across the frames that fall inside the range you care about,
+not on a single reading. `page.mouse.wheel` rather than `window.scrollTo`, because the
+bug may only appear under real scroll input.
+
+When the order of per-frame work is in question, log it. Pushing a marker into an array
+from each callback and grouping by frame is enough to show, for instance, a write and a
+read swapping places after a rebuild.
 
 Then check the result against the step 1 acceptance criteria, one by one. If any
 criterion fails, go back to step 5. Do not report the task as complete, and do not
@@ -124,7 +193,14 @@ Remove anything accidental: stray `console.log`, commented-out experiments, debu
 colours or outlines, temporary tunables, unrelated file changes, `test-results/`
 artifacts.
 
+Run `npm run build` and stage `dist/animations.min.js` alongside the source. Every
+commit in this repo's history ships the rebuilt bundle with the change that caused it —
+the bundle is the deliverable, and a source commit without it leaves the site on the
+old code.
+
 ```bash
+npm run build
+git add src/... tests/... dist/animations.min.js
 git commit -m "fix: <imperative summary>"
 git push
 ```
@@ -157,8 +233,8 @@ because the fix "looks obviously right".
 | --- | --- | --- |
 | 1 | CI is green on the PR | `gh pr checks <pr>` — GitHub's status, not your own test run. `main` has no branch protection, so nothing enforces this gate for you: check it, and never merge past a red or pending run. |
 | 2 | A regression spec fails on `main` and passes on the branch | Both results recorded in the PR, from step 7. |
-| 3 | The diff touches only `src/` and `tests/` | `git diff --name-only main...HEAD`. Any change to `package.json`, `vite.config.js`, either Playwright config, `.github/`, `dist/`, `skills/`, or `docs/` disqualifies. |
-| 4 | The diff is at most 50 changed lines | `git diff --shortstat main...HEAD`. |
+| 3 | The diff touches only `src/`, `tests/`, and `dist/animations.min.js` | `git diff --name-only main...HEAD`. `dist/` is allowed *only* as the rebuilt output of the source change in the same diff — never hand-edited. Any change to `package.json`, `vite.config.js`, either Playwright config, `.github/`, `skills/`, or `docs/` disqualifies. |
+| 4 | The diff is at most 50 changed lines, excluding `dist/` | `git diff --shortstat main...HEAD -- src tests`. The bundle is one minified line and would swamp the count. |
 | 5 | The acceptance criteria came from the user | Criteria you inferred yourself do not count — ask the user to confirm them, or hand off. |
 | 6 | Every acceptance criterion is met by an automated check | If any criterion can only be confirmed by eye, hand off. |
 | 7 | The root cause is in this repo | Anything rooted in Webflow markup, styling, or hosting always hands off. |

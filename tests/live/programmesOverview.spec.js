@@ -127,3 +127,61 @@ test("fills one row on hover and dims the rest", async ({ page }) => {
     .evaluate((el) => Number.parseFloat(getComputedStyle(el).opacity));
   expect(dimmed).toBeLessThan(0.5);
 });
+
+// Reloading inside the section used to walk its progress from 1 back to 0 over
+// about three seconds, untouched: the document keeps growing after load while
+// Locomotive restores the scroll position, so the triggers hold offsets from a
+// shorter page and the restore drags the scrub backwards. The wheel does
+// nothing until it settles, which reads as the section being broken.
+test("holds its progress through the post-load settle", async ({ page }) => {
+  const { top, distance } = await geometry(page);
+  await scrollTo(page, top + distance);
+
+  const progress = () =>
+    page.evaluate(
+      () =>
+        document.querySelector("[data-prog-overview-init]")?._progOverviewTimeline
+          ?.scrollTrigger?.progress ?? null,
+    );
+
+  expect(await progress()).toBeGreaterThan(0.9);
+
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+
+  // Sample across the whole window the drift used to happen in, not just once
+  // at the end — the old behaviour passed a settled reading taken late enough.
+  for (let step = 0; step < 10; step += 1) {
+    await page.waitForTimeout(500);
+    const value = await progress();
+    if (value === null) continue;
+    expect(value).toBeGreaterThan(0.9);
+  }
+});
+
+// The dashed line is drawn by the shared drawPathScroll component, through a
+// masked solid stroke — DrawSVGPlugin animates stroke-dasharray, which is also
+// what makes the line dashed, so one path cannot do both.
+test("draws the dashed path as the section scrubs", async ({ page }) => {
+  const { top, distance } = await geometry(page);
+
+  const drawn = "[data-draw-scroll-wrap].prog-overview_path [data-draw-scroll-path]";
+  await expect(page.locator(drawn)).toHaveCount(1);
+
+  const drawnLength = () =>
+    page
+      .locator(drawn)
+      .evaluate((el) => Number.parseFloat(getComputedStyle(el).strokeDasharray));
+
+  await scrollTo(page, top);
+  const atStart = await drawnLength();
+
+  await scrollTo(page, top + distance / 2);
+  const atMiddle = await drawnLength();
+
+  await scrollTo(page, top + distance);
+  const atEnd = await drawnLength();
+
+  expect(atMiddle).toBeGreaterThan(atStart);
+  expect(atEnd).toBeGreaterThan(atMiddle);
+});

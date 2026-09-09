@@ -15,6 +15,7 @@ import { initRotaryWheel } from "./animations/rotaryWheel.js";
 import { initStoriesStack } from "./animations/storiesStack.js";
 import { initProgrammesOverview } from "./animations/programmesOverview.js";
 import { initListHoverReveal } from "./animations/listHoverReveal.js";
+import { initListPreviewFollower } from "./animations/listPreviewFollower.js";
 import { initTunnel } from "./canvas/tunnel.js";
 import { initTunnel2 } from "./canvas/tunnel2.js";
 
@@ -39,6 +40,7 @@ function init() {
   initStoriesStack();
   initProgrammesOverview();
   initListHoverReveal();
+  initListPreviewFollower();
   initTunnel();
   initTunnel2();
   watchImagesForRefresh();

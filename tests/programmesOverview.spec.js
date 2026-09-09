@@ -146,11 +146,6 @@ test("fills one row on hover and dims the rest", async ({ page }) => {
   );
   expect(scaleY).toBeCloseTo(1, 1);
 
-  const thumbOpacity = await row
-    .locator("[data-hover-thumb]")
-    .evaluate((el) => Number.parseFloat(getComputedStyle(el).opacity));
-  expect(thumbOpacity).toBeCloseTo(1, 1);
-
   const neighbour = page.locator(rows).nth(0);
   const dimmed = await neighbour.evaluate((el) =>
     Number.parseFloat(getComputedStyle(el).opacity),
@@ -193,4 +188,50 @@ test("lights the same states from the keyboard", async ({ page }) => {
 
   await expect(row).toHaveAttribute("data-hover-state", "active");
   await expect(page.locator(list)).toHaveAttribute("data-hover-state", "active");
+});
+
+// The preview image is no longer painted in the row — listPreviewFollower
+// clones the row's visual into a fixed element that tracks the pointer, so the
+// row itself only carries the source copy, hidden.
+test("clones the hovered row's visual into the cursor follower", async ({ page }) => {
+  const { top, distance } = await geometry(page);
+  await scrollTo(page, top + distance);
+
+  const cursor = page.locator("[data-follower-cursor]");
+  const clones = cursor.locator("[data-follower-visual]");
+
+  await expect(clones).toHaveCount(0);
+
+  // The in-row copy is the source, never something the reader sees.
+  const inRow = page.locator("[data-follower-item] [data-follower-visual]").first();
+  await expect(inRow).toHaveCSS("display", "none");
+
+  await page.locator(rows).nth(1).hover();
+  await page.waitForTimeout(700);
+  await expect(clones).toHaveCount(1);
+
+  // Leaving the list clears it again.
+  await page.mouse.move(5, 5);
+  await page.waitForTimeout(900);
+  await expect(clones).toHaveCount(0);
+});
+
+// Moving down the list pushes the outgoing image up and brings the new one in
+// from below, so mid-swap both are in the cursor at once.
+test("swaps the visual when the pointer moves between rows", async ({ page }) => {
+  const { top, distance } = await geometry(page);
+  await scrollTo(page, top + distance);
+
+  const clones = page.locator("[data-follower-cursor] [data-follower-visual]");
+
+  await page.locator(rows).nth(1).hover();
+  await page.waitForTimeout(700);
+  await expect(clones).toHaveCount(1);
+
+  await page.locator(rows).nth(3).hover();
+  await page.waitForTimeout(150);
+  await expect(clones).toHaveCount(2);
+
+  await page.waitForTimeout(900);
+  await expect(clones).toHaveCount(1);
 });

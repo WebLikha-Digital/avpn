@@ -186,3 +186,33 @@ test("draws the path as the section scrubs", async ({ page }) => {
   expect(atMiddle).toBeGreaterThan(atStart);
   expect(atEnd).toBeGreaterThan(atMiddle);
 });
+
+// The preview image follows the cursor rather than sitting in the row: the
+// row's visual is a hidden source that gets cloned into a fixed element.
+test("follows the cursor with the hovered row's visual", async ({ page }) => {
+  const { top, distance } = await geometry(page);
+  await scrollTo(page, top + distance);
+
+  const clones = page.locator("[data-follower-cursor] [data-follower-visual]");
+
+  // scrollTo drives a real wheel at the middle of the viewport, which leaves
+  // the pointer sitting on a row — park it off the list before reading the
+  // resting state, or the follower is already holding that row's clone.
+  await page.mouse.move(5, 5);
+  await page.waitForTimeout(900);
+  await expect(clones).toHaveCount(0);
+
+  const row = page.locator(rows).nth(1);
+  await row.hover();
+  await page.waitForTimeout(800);
+
+  await expect(clones).toHaveCount(1);
+  // The highlight has to survive the follower — both components run on the
+  // same rows and neither reads the other's state.
+  await expect(row).toHaveAttribute("data-hover-state", "active");
+
+  const transform = await page
+    .locator("[data-follower-cursor]")
+    .evaluate((el) => getComputedStyle(el).transform);
+  expect(transform).not.toBe("none");
+});

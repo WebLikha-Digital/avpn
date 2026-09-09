@@ -35,10 +35,11 @@ const ENTER_SCALE = 0.7;
  * inside one paints as a single layer. A per-row fill is therefore stuck on the
  * same side of the cursor follower as the label. One bar beside the list is not.
  *
- * The bar is positioned against its offset parent on hover, so it tracks the
- * row's real on-screen box however the list has been transformed. It is placed
- * once per enter rather than per frame, so hovering *while* scrolling can leave
- * it a frame behind the row.
+ * The bar is positioned against its offset parent, so it tracks the row's real
+ * on-screen box however the list has been transformed, and it is re-placed on
+ * every frame for as long as a row is lit. Once per enter is not enough: the
+ * row moves under a stationary pointer whenever the page scrolls, and a section
+ * that scrubs its own list will slide the row clean out from under the bar.
  *
  * The list itself also carries data-hover-state="active" while any row is
  * hovered, which is what CSS hangs the sibling dimming off.
@@ -98,17 +99,34 @@ export function initListHoverReveal() {
 
     // The bar is absolutely positioned against its offset parent, so the row's
     // viewport box has to be translated into that parent's coordinates.
-    const placeBar = (row) => {
+    // quickSetter skips GSAP's per-call property parsing — this runs every
+    // frame for as long as a row is lit.
+    const setTop = gsap.quickSetter(bar || document.body, "top", "px");
+    const setHeight = gsap.quickSetter(bar || document.body, "height", "px");
+
+    let lastTop = null;
+    let lastHeight = null;
+
+    const placeBar = () => {
+      if (!active) return;
+
       const parent = bar.offsetParent || bar.parentElement;
       if (!parent) return;
 
-      const rowBox = row.getBoundingClientRect();
+      const rowBox = active.getBoundingClientRect();
       const parentBox = parent.getBoundingClientRect();
+      const top = rowBox.top - parentBox.top;
 
-      gsap.set(bar, {
-        top: rowBox.top - parentBox.top,
-        height: rowBox.height,
-      });
+      // Writing an unchanged value still costs a style recalc, and the row is
+      // stationary for most of the frames this runs on.
+      if (top !== lastTop) {
+        lastTop = top;
+        setTop(top);
+      }
+      if (rowBox.height !== lastHeight) {
+        lastHeight = rowBox.height;
+        setHeight(rowBox.height);
+      }
     };
 
     let active = null;
@@ -125,7 +143,16 @@ export function initListHoverReveal() {
       row._hoverRevealTimeline?.play();
 
       if (bar) {
-        placeBar(row);
+        // Per frame, not once on enter. The row moves under a stationary
+        // pointer whenever the page scrolls — this section's own scrub
+        // translates the whole list — so a bar placed only at enter time drifts
+        // off the row it is meant to be lighting, and ends up over its
+        // neighbour. Read the row's live box instead.
+        placeBar();
+        // Sweeping down the list calls this once per row, and the ticker keeps
+        // duplicates, so drop any previous registration first.
+        gsap.ticker.remove(placeBar);
+        gsap.ticker.add(placeBar);
         barTimeline?.play();
       }
     };
@@ -136,6 +163,7 @@ export function initListHoverReveal() {
       active._hoverRevealTimeline?.reverse();
       active = null;
       list.setAttribute("data-hover-state", "idle");
+      gsap.ticker.remove(placeBar);
       barTimeline?.reverse();
     };
 
@@ -173,7 +201,16 @@ export function initListHoverReveal() {
     list.addEventListener("focusout", onBlur);
 
     list.setAttribute("data-hover-state", "idle");
-    list._hoverReveal = { onOver, onOut, onFocus, onBlur, rows, bar, barTimeline };
+    list._hoverReveal = {
+      onOver,
+      onOut,
+      onFocus,
+      onBlur,
+      rows,
+      bar,
+      barTimeline,
+      placeBar,
+    };
   });
 }
 
@@ -242,6 +279,7 @@ function teardown(list) {
   });
 
   if (previous.bar) {
+    if (previous.placeBar) gsap.ticker.remove(previous.placeBar);
     previous.barTimeline?.kill();
     gsap.set(previous.bar, { clearProps: "top,height,transform" });
   }

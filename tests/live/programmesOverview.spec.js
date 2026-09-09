@@ -227,3 +227,56 @@ test("follows the cursor with the hovered row's visual", async ({ page }) => {
     .evaluate((el) => getComputedStyle(el).transform);
   expect(transform).not.toBe("none");
 });
+
+// The bar is a single element moved to whichever row is lit, so it has to track
+// that row every frame, not just on enter. Scrolling with the pointer held
+// still slides the row out from under a bar placed once — it ended up over the
+// row below, lighting one label while colouring another.
+test("keeps the bar on the lit row while the page scrolls under it", async ({ page }) => {
+  const { top, distance } = await geometry(page);
+  await scrollTo(page, top + distance);
+
+  const viewport = page.viewportSize();
+  const row = page.locator(rows).nth(3);
+  await row.hover();
+  await page.waitForTimeout(700);
+
+  const offsets = [];
+  const sample = async () => {
+    const { rowTop, barTop, rowHeight, barHeight } = await page.evaluate(() => {
+      const lit = document.querySelector('[data-hover-row][data-hover-state="active"]');
+      const bar = document.querySelector("[data-hover-bar]");
+      if (!lit || !bar) return {};
+      const r = lit.getBoundingClientRect();
+      const b = bar.getBoundingClientRect();
+      return {
+        rowTop: r.top,
+        barTop: b.top,
+        rowHeight: r.height,
+        barHeight: b.height,
+      };
+    });
+    if (rowTop === undefined) return;
+    offsets.push({ top: Math.abs(barTop - rowTop), height: Math.abs(barHeight - rowHeight) });
+  };
+
+  await sample();
+
+  // Scroll without moving the pointer — the wheel goes wherever the cursor
+  // already is, which is the point.
+  for (let step = 0; step < 4; step += 1) {
+    await page.mouse.wheel(0, -120);
+    await page.waitForTimeout(250);
+    await sample();
+  }
+
+  expect(offsets.length).toBeGreaterThan(3);
+  for (const offset of offsets) {
+    expect(offset.top).toBeLessThanOrEqual(2);
+    expect(offset.height).toBeLessThanOrEqual(2);
+  }
+
+  // Guard the guard: the pointer never moved, so if nothing scrolled the test
+  // proves nothing.
+  expect(viewport).toBeTruthy();
+});

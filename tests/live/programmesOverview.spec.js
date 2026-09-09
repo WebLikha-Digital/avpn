@@ -159,10 +159,11 @@ test("holds its progress through the post-load settle", async ({ page }) => {
   }
 });
 
-// The dashed line is drawn by the shared drawPathScroll component, through a
-// masked solid stroke — DrawSVGPlugin animates stroke-dasharray, which is also
-// what makes the line dashed, so one path cannot do both.
-test("draws the dashed path as the section scrubs", async ({ page }) => {
+// The line is drawn by the shared drawPathScroll component. It is a solid
+// stroke, so the path DrawSVGPlugin animates is the path you see — the earlier
+// dashed version needed a masked second copy, because stroke-dasharray is both
+// what DrawSVG animates and what makes a line dashed.
+test("draws the path as the section scrubs", async ({ page }) => {
   const { top, distance } = await geometry(page);
 
   const drawn = "[data-draw-scroll-wrap].prog-overview_path [data-draw-scroll-path]";

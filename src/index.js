@@ -13,6 +13,9 @@ import {
 } from "./animations/horizontalScroller.js";
 import { initRotaryWheel } from "./animations/rotaryWheel.js";
 import { initStoriesStack } from "./animations/storiesStack.js";
+import { initProgrammesOverview } from "./animations/programmesOverview.js";
+import { initListHoverReveal } from "./animations/listHoverReveal.js";
+import { initListPreviewFollower } from "./animations/listPreviewFollower.js";
 import { initTunnel } from "./canvas/tunnel.js";
 import { initTunnel2 } from "./canvas/tunnel2.js";
 
@@ -35,9 +38,13 @@ function init() {
   initForewordFade();
   initHighlightDrum();
   initStoriesStack();
+  initProgrammesOverview();
+  initListHoverReveal();
+  initListPreviewFollower();
   initTunnel();
   initTunnel2();
   watchImagesForRefresh();
+  watchDocumentHeight();
 }
 
 window.addEventListener(HSCROLL_REBUILT, initBandAware);
@@ -55,6 +62,49 @@ function watchImagesForRefresh() {
       { once: true }
     );
   });
+}
+
+/**
+ * Re-measure every trigger while the page is still growing.
+ *
+ * watchImagesForRefresh only binds to the <img> elements that exist at DOM
+ * ready, and window.load fires once. Neither covers the real behaviour of this
+ * page: for the first few seconds after a reload the document keeps getting
+ * taller — lazy images, fonts, the Webflow embeds — while Locomotive is
+ * restoring the previous scroll position.
+ *
+ * A trigger measured during that window holds a start offset from a shorter
+ * page. Everything below the growth then sits somewhere the triggers do not
+ * expect, and because the restore is still moving the scroll position, a
+ * scrubbed section plays itself: reloading inside Programmes Overview walked
+ * its progress from 1 back to 0 over about three seconds, untouched, with the
+ * wheel doing nothing until it settled.
+ *
+ * A ResizeObserver on the document element catches every one of those changes,
+ * whatever caused them. The refresh is debounced because the height arrives in
+ * bursts, and ScrollTrigger.refresh() is expensive — it re-measures every
+ * trigger on the page, including the pins inside the horizontal bands.
+ */
+function watchDocumentHeight() {
+  if (typeof ResizeObserver === "undefined") return;
+
+  // Stashed on the function so repeated init calls never stack observers.
+  watchDocumentHeight._observer?.disconnect();
+
+  let lastHeight = document.documentElement.scrollHeight;
+  let timer;
+
+  const observer = new ResizeObserver(() => {
+    const height = document.documentElement.scrollHeight;
+    if (height === lastHeight) return;
+    lastHeight = height;
+
+    clearTimeout(timer);
+    timer = setTimeout(() => ScrollTrigger.refresh(), 150);
+  });
+
+  observer.observe(document.documentElement);
+  watchDocumentHeight._observer = observer;
 }
 
 if (document.readyState === "loading") {

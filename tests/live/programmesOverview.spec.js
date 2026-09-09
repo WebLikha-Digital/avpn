@@ -280,3 +280,26 @@ test("keeps the bar on the lit row while the page scrolls under it", async ({ pa
   // proves nothing.
   expect(viewport).toBeTruthy();
 });
+
+// The path element is 300% of the section — far taller than the page can show —
+// and its containing block resolves to the section rather than the sticky, so
+// the sticky's own overflow does not clip it. Left unclipped it added ~2850px
+// of empty scroll under the footer. The section clips with `clip` rather than
+// `hidden`: `hidden` would make the section the sticky child's scroll
+// container, and a container that never scrolls means the child never sticks.
+test("does not add empty scroll below the page", async ({ page }) => {
+  const trailing = await page.evaluate(() => {
+    const sec = document.querySelector(".section_programmes-overview");
+    const bottom = Math.round(sec.getBoundingClientRect().bottom + window.scrollY);
+    return document.documentElement.scrollHeight - bottom;
+  });
+
+  expect(trailing).toBeLessThanOrEqual(1);
+
+  // The clip has to leave the pin working — that is the whole reason it is
+  // `clip` and not `hidden`.
+  await expect(page.locator("[data-prog-overview-sticky]")).toHaveCSS(
+    "position",
+    "sticky",
+  );
+});

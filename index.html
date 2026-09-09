@@ -379,9 +379,18 @@
 
       /* Programmes Overview. The section's own height is the scrub distance and
          the sticky child does the pinning, so --prog-overview-pin is how long
-         the sequence holds — the one number the Designer owns. */
+         the sequence holds — the one number the Designer owns.
+
+         The three colour tokens mirror the site's Webflow variables, which this
+         preview page has no access to. Keep them in step:
+           --po-orange  --_primitives---brand--secondary--orange-main
+           --po-white   --_primitives---colors--white
+           --po-navy    --_primitives---brand--primary--navy-main */
       .section_programmes-overview {
         --prog-overview-pin: 120vh;
+        --po-orange: #f27c38;
+        --po-white: #fff;
+        --po-navy: #002944;
         position: relative;
         display: block;
         height: auto;
@@ -537,7 +546,7 @@
         position: absolute;
         inset: 0;
         z-index: 0;
-        background: #16181a;
+        background: var(--po-orange);
         transform: scaleY(0);
         transform-origin: center;
       }
@@ -599,12 +608,14 @@
         opacity: 0.15;
       }
       [data-hover-row][data-hover-state="active"] .prog-overview_item-heading {
-        color: #fff;
+        color: var(--po-white);
       }
+      /* White disc on the orange bar. The arrow stays navy — white on white
+         would erase it. */
       [data-hover-row][data-hover-state="active"] .prog-overview_item-icon-wrapper {
-        background: #f2652a;
-        border-color: #f2652a;
-        color: #fff;
+        background: var(--po-white);
+        border-color: var(--po-white);
+        color: var(--po-navy);
       }
       [data-hover-row][data-hover-state="active"] .prog-overview_item-line {
         opacity: 0;

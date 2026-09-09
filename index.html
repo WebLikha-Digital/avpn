@@ -613,7 +613,22 @@
       /* Cursor follower (Osmo). The visual is hidden in the row and shown only
          inside the cursor: the row copy is the source the clone is taken from,
          never something the reader sees. */
-      .prog-overview_item-media { display: none; }
+      /* Placeholder imagery, one Unsplash photo per programme. The follower
+         clones the node, so the image has to travel with it — a positional
+         selector would stay behind in the list. Hence a class each. */
+      .prog-overview_item-media {
+        display: none;
+        background-size: cover;
+        background-position: 50% 50%;
+        background-repeat: no-repeat;
+      }
+      .prog-overview_item-media.is-ai-opportunity-fund { background-image: url("https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=600&q=80&auto=format&fit=crop"); }
+      .prog-overview_item-media.is-climate-x-health { background-image: url("https://images.unsplash.com/photo-1466611653911-95081537e5b7?w=600&q=80&auto=format&fit=crop"); }
+      .prog-overview_item-media.is-health-systems { background-image: url("https://images.unsplash.com/photo-1504813184591-01572f98c85f?w=600&q=80&auto=format&fit=crop"); }
+      .prog-overview_item-media.is-capacity-building { background-image: url("https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=600&q=80&auto=format&fit=crop"); }
+      .prog-overview_item-media.is-philanthropic-funds { background-image: url("https://images.unsplash.com/photo-1532629345422-7515f3d16bb6?w=600&q=80&auto=format&fit=crop"); }
+      .prog-overview_item-media.is-avpn-academy { background-image: url("https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=600&q=80&auto=format&fit=crop"); }
+      .prog-overview_item-media.is-aspire { background-image: url("https://images.unsplash.com/photo-1461088945293-0c17689e48ac?w=600&q=80&auto=format&fit=crop"); }
       .prog-overview_follower {
         position: fixed;
         top: 0;
@@ -1099,7 +1114,7 @@
         <div class="prog-overview_list" data-prog-overview-list data-hover-list-init data-follower-collection>
           <a class="prog-overview_item" href="#" data-hover-row data-follower-item>
             <span class="prog-overview_item-inner" data-prog-overview-row>
-            <span class="prog-overview_item-media" data-follower-visual>
+            <span class="prog-overview_item-media is-ai-opportunity-fund" data-follower-visual>
               <img class="prog-overview_item-image" alt="" loading="lazy" decoding="async" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect width='200' height='200' fill='%23e94f37'/%3E%3C/svg%3E" />
             </span>
             <span class="prog-overview_item-heading">AI Opportunity Fund</span>
@@ -1109,7 +1124,7 @@
           </a>
           <a class="prog-overview_item" href="#" data-hover-row data-follower-item>
             <span class="prog-overview_item-inner" data-prog-overview-row>
-            <span class="prog-overview_item-media" data-follower-visual>
+            <span class="prog-overview_item-media is-climate-x-health" data-follower-visual>
               <img class="prog-overview_item-image" alt="" loading="lazy" decoding="async" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect width='200' height='200' fill='%233f88c5'/%3E%3C/svg%3E" />
             </span>
             <span class="prog-overview_item-heading">Climate x Health Lighthouse</span>
@@ -1119,7 +1134,7 @@
           </a>
           <a class="prog-overview_item" href="#" data-hover-row data-follower-item>
             <span class="prog-overview_item-inner" data-prog-overview-row>
-            <span class="prog-overview_item-media" data-follower-visual>
+            <span class="prog-overview_item-media is-health-systems" data-follower-visual>
               <img class="prog-overview_item-image" alt="" loading="lazy" decoding="async" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect width='200' height='200' fill='%2344bba4'/%3E%3C/svg%3E" />
             </span>
             <span class="prog-overview_item-heading">Health System Strengthening</span>
@@ -1129,7 +1144,7 @@
           </a>
           <a class="prog-overview_item" href="#" data-hover-row data-follower-item>
             <span class="prog-overview_item-inner" data-prog-overview-row>
-            <span class="prog-overview_item-media" data-follower-visual>
+            <span class="prog-overview_item-media is-capacity-building" data-follower-visual>
               <img class="prog-overview_item-image" alt="" loading="lazy" decoding="async" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect width='200' height='200' fill='%23d3b53d'/%3E%3C/svg%3E" />
             </span>
             <span class="prog-overview_item-heading">Capacity Building &amp; Funding Plus Work</span>
@@ -1139,7 +1154,7 @@
           </a>
           <a class="prog-overview_item" href="#" data-hover-row data-follower-item>
             <span class="prog-overview_item-inner" data-prog-overview-row>
-            <span class="prog-overview_item-media" data-follower-visual>
+            <span class="prog-overview_item-media is-philanthropic-funds" data-follower-visual>
               <img class="prog-overview_item-image" alt="" loading="lazy" decoding="async" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect width='200' height='200' fill='%23a05fd3'/%3E%3C/svg%3E" />
             </span>
             <span class="prog-overview_item-heading">Philanthropic Funds</span>
@@ -1149,7 +1164,7 @@
           </a>
           <a class="prog-overview_item" href="#" data-hover-row data-follower-item>
             <span class="prog-overview_item-inner" data-prog-overview-row>
-            <span class="prog-overview_item-media" data-follower-visual>
+            <span class="prog-overview_item-media is-avpn-academy" data-follower-visual>
               <img class="prog-overview_item-image" alt="" loading="lazy" decoding="async" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect width='200' height='200' fill='%23393e41'/%3E%3C/svg%3E" />
             </span>
             <span class="prog-overview_item-heading">AVPN Academy</span>
@@ -1159,7 +1174,7 @@
           </a>
           <a class="prog-overview_item" href="#" data-hover-row data-follower-item>
             <span class="prog-overview_item-inner" data-prog-overview-row>
-            <span class="prog-overview_item-media" data-follower-visual>
+            <span class="prog-overview_item-media is-aspire" data-follower-visual>
               <img class="prog-overview_item-image" alt="" loading="lazy" decoding="async" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect width='200' height='200' fill='%2317a5a5'/%3E%3C/svg%3E" />
             </span>
             <span class="prog-overview_item-heading">ASPIRE</span>

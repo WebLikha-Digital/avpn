@@ -116,10 +116,21 @@ test("fills one row on hover and dims the rest", async ({ page }) => {
   await expect(row).toHaveAttribute("data-hover-state", "active");
   await expect(page.locator(list)).toHaveAttribute("data-hover-state", "active");
 
-  const scaleY = await row
-    .locator("[data-hover-bg]")
-    .evaluate((el) => new DOMMatrixReadOnly(getComputedStyle(el).transform).d);
-  expect(scaleY).toBeCloseTo(1, 1);
+  // One shared bar, moved to the hovered row and wiped open there.
+  const bar = page.locator("[data-hover-bar]");
+  const barState = await bar.evaluate((el) => ({
+    scaleY: new DOMMatrixReadOnly(getComputedStyle(el).transform).d,
+    top: Math.round(el.getBoundingClientRect().top),
+    height: Math.round(el.getBoundingClientRect().height),
+  }));
+  const rowBox = await row.evaluate((el) => ({
+    top: Math.round(el.getBoundingClientRect().top),
+    height: Math.round(el.getBoundingClientRect().height),
+  }));
+
+  expect(barState.scaleY).toBeCloseTo(1, 1);
+  expect(barState.top).toBe(rowBox.top);
+  expect(barState.height).toBe(rowBox.height);
 
   const dimmed = await page
     .locator(rows)

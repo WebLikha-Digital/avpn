@@ -23,8 +23,22 @@ const ENTER_SCALE = 0.7;
  * Webflow contract:
  *   [data-hover-list-init]   the list
  *   [data-hover-row]         one row; gets data-hover-state="active"|"idle"
- *   [data-hover-bg]          the fill that wipes open behind the row
+ *   [data-hover-bar]         one shared fill, a SIBLING of the list, moved to
+ *                            whichever row is hovered
+ *   [data-hover-bg]          per-row fill, used only when there is no shared bar
  *   [data-hover-thumb]       the image that slides in
+ *
+ * The shared bar exists because of stacking, not tidiness. Anything that has to
+ * paint *under* a floating element while the row's text paints *over* it cannot
+ * live inside the list: a scroll reveal puts a transform on the list and on each
+ * row's inner wrapper, every transform opens a stacking context, and everything
+ * inside one paints as a single layer. A per-row fill is therefore stuck on the
+ * same side of the cursor follower as the label. One bar beside the list is not.
+ *
+ * The bar is positioned against its offset parent on hover, so it tracks the
+ * row's real on-screen box however the list has been transformed. It is placed
+ * once per enter rather than per frame, so hovering *while* scrolling can leave
+ * it a frame behind the row.
  *
  * The list itself also carries data-hover-state="active" while any row is
  * hovered, which is what CSS hangs the sibling dimming off.
@@ -55,6 +69,9 @@ export function initListHoverReveal() {
     const rows = [...list.querySelectorAll("[data-hover-row]")];
     if (!rows.length) return;
 
+    // Beside the list, not inside it — see the note on stacking above.
+    const bar = list.parentElement?.querySelector("[data-hover-bar]") || null;
+
     const styles = getComputedStyle(list);
     const duration =
       parseFloat(styles.getPropertyValue("--hover-reveal-duration")) ||
@@ -69,10 +86,30 @@ export function initListHoverReveal() {
 
     rows.forEach((row) => {
       row.setAttribute("data-hover-state", "idle");
+      // With a shared bar the row owns no fill of its own; the thumb tween is
+      // all that is left, and on a list that hands its image to the cursor
+      // follower there is not even that.
       row._hoverRevealTimeline = still
         ? null
-        : buildTimeline(row, duration, shift);
+        : buildTimeline(row, duration, shift, { skipBg: Boolean(bar) });
     });
+
+    const barTimeline = bar && !still ? buildBarTimeline(bar, duration) : null;
+
+    // The bar is absolutely positioned against its offset parent, so the row's
+    // viewport box has to be translated into that parent's coordinates.
+    const placeBar = (row) => {
+      const parent = bar.offsetParent || bar.parentElement;
+      if (!parent) return;
+
+      const rowBox = row.getBoundingClientRect();
+      const parentBox = parent.getBoundingClientRect();
+
+      gsap.set(bar, {
+        top: rowBox.top - parentBox.top,
+        height: rowBox.height,
+      });
+    };
 
     let active = null;
 
@@ -86,6 +123,11 @@ export function initListHoverReveal() {
       row.setAttribute("data-hover-state", "active");
       list.setAttribute("data-hover-state", "active");
       row._hoverRevealTimeline?.play();
+
+      if (bar) {
+        placeBar(row);
+        barTimeline?.play();
+      }
     };
 
     const clear = () => {
@@ -94,6 +136,7 @@ export function initListHoverReveal() {
       active._hoverRevealTimeline?.reverse();
       active = null;
       list.setAttribute("data-hover-state", "idle");
+      barTimeline?.reverse();
     };
 
     // pointerover/pointerout rather than enter/leave: these bubble, so one pair
@@ -130,7 +173,7 @@ export function initListHoverReveal() {
     list.addEventListener("focusout", onBlur);
 
     list.setAttribute("data-hover-state", "idle");
-    list._hoverReveal = { onOver, onOut, onFocus, onBlur, rows };
+    list._hoverReveal = { onOver, onOut, onFocus, onBlur, rows, bar, barTimeline };
   });
 }
 
@@ -143,8 +186,8 @@ export function initListHoverReveal() {
  * them here keeps the reverse landing exactly back on it rather than on
  * whatever the row happened to be showing when the timeline was built.
  */
-function buildTimeline(row, duration, shift) {
-  const bg = row.querySelector("[data-hover-bg]");
+function buildTimeline(row, duration, shift, { skipBg = false } = {}) {
+  const bg = skipBg ? null : row.querySelector("[data-hover-bg]");
   const thumb = row.querySelector("[data-hover-thumb]");
   if (!bg && !thumb) return null;
 
@@ -167,6 +210,19 @@ function buildTimeline(row, duration, shift) {
   return timeline;
 }
 
+/**
+ * The shared bar's wipe. Same shape as a row's own fill, built once because
+ * there is only ever one bar — moving it between rows is a position change, not
+ * a new animation.
+ */
+function buildBarTimeline(bar, duration) {
+  return gsap.timeline({ paused: true }).fromTo(
+    bar,
+    { scaleY: 0 },
+    { scaleY: 1, duration, ease: "power3.out" }
+  );
+}
+
 function teardown(list) {
   const previous = list._hoverReveal;
   if (!previous) return;
@@ -184,6 +240,11 @@ function teardown(list) {
       clearProps: "opacity,visibility,transform",
     });
   });
+
+  if (previous.bar) {
+    previous.barTimeline?.kill();
+    gsap.set(previous.bar, { clearProps: "top,height,transform" });
+  }
 
   list.removeAttribute("data-hover-state");
   list._hoverReveal = null;

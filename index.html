@@ -515,6 +515,7 @@
         left: 0;
         right: 0;
         top: 6%;
+        z-index: 2;
         margin: 0;
         padding: 0;
         list-style: none;
@@ -540,15 +541,22 @@
         justify-content: center;
         gap: 1rem;
       }
-      /* The fill is a child rather than the row's own background so it can wipe
-         open from the centre without the text scaling with it. */
-      .prog-overview_item-bg {
+      /* One shared fill, beside the list rather than in it. Stacking inside the
+         sticky is bar 0, cursor follower 1, list 2 — and the scroll reveal puts
+         a transform on both the list and each row's inner wrapper, which opens a
+         stacking context, so a fill living in the row could never be on the far
+         side of the follower from the label. JS moves this to the hovered row. */
+      .prog-overview_bar {
         position: absolute;
-        inset: 0;
+        left: 0;
+        right: 0;
+        top: 0;
+        height: 0;
         z-index: 0;
         background: var(--po-orange);
         transform: scaleY(0);
         transform-origin: center;
+        pointer-events: none;
       }
       .prog-overview_item-media {
         position: absolute;
@@ -571,7 +579,7 @@
       }
       .prog-overview_item-heading {
         position: relative;
-        z-index: 1;
+        z-index: 2;
         margin: 0;
         font-size: 1.5rem;
         font-weight: 700;
@@ -581,7 +589,7 @@
       }
       .prog-overview_item-icon-wrapper {
         position: relative;
-        z-index: 1;
+        z-index: 2;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -610,7 +618,7 @@
         position: fixed;
         top: 0;
         left: 0;
-        z-index: 100;
+        z-index: 1;
         width: 260px;
         height: 260px;
         overflow: hidden;
@@ -1086,10 +1094,11 @@
             accelerate solutions to pressing social and environmental challenges.</p>
         </div>
 
+        <div class="prog-overview_bar" data-hover-bar></div>
+
         <div class="prog-overview_list" data-prog-overview-list data-hover-list-init data-follower-collection>
           <a class="prog-overview_item" href="#" data-hover-row data-follower-item>
             <span class="prog-overview_item-inner" data-prog-overview-row>
-            <span class="prog-overview_item-bg" data-hover-bg></span>
             <span class="prog-overview_item-media" data-follower-visual>
               <img class="prog-overview_item-image" alt="" loading="lazy" decoding="async" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect width='200' height='200' fill='%23e94f37'/%3E%3C/svg%3E" />
             </span>
@@ -1100,7 +1109,6 @@
           </a>
           <a class="prog-overview_item" href="#" data-hover-row data-follower-item>
             <span class="prog-overview_item-inner" data-prog-overview-row>
-            <span class="prog-overview_item-bg" data-hover-bg></span>
             <span class="prog-overview_item-media" data-follower-visual>
               <img class="prog-overview_item-image" alt="" loading="lazy" decoding="async" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect width='200' height='200' fill='%233f88c5'/%3E%3C/svg%3E" />
             </span>
@@ -1111,7 +1119,6 @@
           </a>
           <a class="prog-overview_item" href="#" data-hover-row data-follower-item>
             <span class="prog-overview_item-inner" data-prog-overview-row>
-            <span class="prog-overview_item-bg" data-hover-bg></span>
             <span class="prog-overview_item-media" data-follower-visual>
               <img class="prog-overview_item-image" alt="" loading="lazy" decoding="async" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect width='200' height='200' fill='%2344bba4'/%3E%3C/svg%3E" />
             </span>
@@ -1122,7 +1129,6 @@
           </a>
           <a class="prog-overview_item" href="#" data-hover-row data-follower-item>
             <span class="prog-overview_item-inner" data-prog-overview-row>
-            <span class="prog-overview_item-bg" data-hover-bg></span>
             <span class="prog-overview_item-media" data-follower-visual>
               <img class="prog-overview_item-image" alt="" loading="lazy" decoding="async" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect width='200' height='200' fill='%23d3b53d'/%3E%3C/svg%3E" />
             </span>
@@ -1133,7 +1139,6 @@
           </a>
           <a class="prog-overview_item" href="#" data-hover-row data-follower-item>
             <span class="prog-overview_item-inner" data-prog-overview-row>
-            <span class="prog-overview_item-bg" data-hover-bg></span>
             <span class="prog-overview_item-media" data-follower-visual>
               <img class="prog-overview_item-image" alt="" loading="lazy" decoding="async" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect width='200' height='200' fill='%23a05fd3'/%3E%3C/svg%3E" />
             </span>
@@ -1144,7 +1149,6 @@
           </a>
           <a class="prog-overview_item" href="#" data-hover-row data-follower-item>
             <span class="prog-overview_item-inner" data-prog-overview-row>
-            <span class="prog-overview_item-bg" data-hover-bg></span>
             <span class="prog-overview_item-media" data-follower-visual>
               <img class="prog-overview_item-image" alt="" loading="lazy" decoding="async" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect width='200' height='200' fill='%23393e41'/%3E%3C/svg%3E" />
             </span>
@@ -1155,7 +1159,6 @@
           </a>
           <a class="prog-overview_item" href="#" data-hover-row data-follower-item>
             <span class="prog-overview_item-inner" data-prog-overview-row>
-            <span class="prog-overview_item-bg" data-hover-bg></span>
             <span class="prog-overview_item-media" data-follower-visual>
               <img class="prog-overview_item-image" alt="" loading="lazy" decoding="async" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect width='200' height='200' fill='%2317a5a5'/%3E%3C/svg%3E" />
             </span>

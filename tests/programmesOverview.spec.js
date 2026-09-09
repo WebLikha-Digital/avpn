@@ -140,11 +140,21 @@ test("fills one row on hover and dims the rest", async ({ page }) => {
   await expect(row).toHaveAttribute("data-hover-state", "active");
   await expect(page.locator(list)).toHaveAttribute("data-hover-state", "active");
 
-  const bg = row.locator("[data-hover-bg]");
-  const scaleY = await bg.evaluate(
-    (el) => new DOMMatrixReadOnly(getComputedStyle(el).transform).d,
-  );
-  expect(scaleY).toBeCloseTo(1, 1);
+  // One shared bar, moved to the hovered row and wiped open there.
+  const bar = page.locator("[data-hover-bar]");
+  const barState = await bar.evaluate((el) => ({
+    scaleY: new DOMMatrixReadOnly(getComputedStyle(el).transform).d,
+    top: Math.round(el.getBoundingClientRect().top),
+    height: Math.round(el.getBoundingClientRect().height),
+  }));
+  const rowBox = await row.evaluate((el) => ({
+    top: Math.round(el.getBoundingClientRect().top),
+    height: Math.round(el.getBoundingClientRect().height),
+  }));
+
+  expect(barState.scaleY).toBeCloseTo(1, 1);
+  expect(barState.top).toBe(rowBox.top);
+  expect(barState.height).toBe(rowBox.height);
 
   const neighbour = page.locator(rows).nth(0);
   const dimmed = await neighbour.evaluate((el) =>
@@ -169,8 +179,8 @@ test("puts the row back when the pointer leaves the list", async ({ page }) => {
   await expect(row).toHaveAttribute("data-hover-state", "idle");
   await expect(page.locator(list)).toHaveAttribute("data-hover-state", "idle");
 
-  const scaleY = await row
-    .locator("[data-hover-bg]")
+  const scaleY = await page
+    .locator("[data-hover-bar]")
     .evaluate((el) => new DOMMatrixReadOnly(getComputedStyle(el).transform).d);
   expect(scaleY).toBeCloseTo(0, 1);
 });
@@ -234,4 +244,38 @@ test("swaps the visual when the pointer moves between rows", async ({ page }) =>
 
   await page.waitForTimeout(900);
   await expect(clones).toHaveCount(1);
+});
+
+// The label has to read over the cursor image while the bar stays under it.
+// Stacking inside the sticky: bar 0, follower 1, list 2. The bar can only be
+// below the follower by living outside the list — the scroll reveal transforms
+// the list and each row's inner wrapper, and a transform opens a stacking
+// context that would trap the bar on the label's side.
+test("stacks the label over the image and the bar under it", async ({ page }) => {
+  const { top, distance } = await geometry(page);
+  await scrollTo(page, top + distance);
+
+  const layers = await page.evaluate(() => {
+    const read = (selector) => {
+      const el = document.querySelector(selector);
+      return el ? getComputedStyle(el).zIndex : null;
+    };
+    return {
+      bar: read("[data-hover-bar]"),
+      follower: read("[data-follower-cursor]"),
+      list: read("[data-prog-overview-list]"),
+    };
+  });
+
+  expect(Number(layers.bar)).toBeLessThan(Number(layers.follower));
+  expect(Number(layers.follower)).toBeLessThan(Number(layers.list));
+
+  // The bar must not be a descendant of the list, or its z-index is scoped to
+  // the list's stacking context and the ordering above means nothing.
+  const barInsideList = await page.evaluate(() =>
+    document
+      .querySelector("[data-prog-overview-list]")
+      .contains(document.querySelector("[data-hover-bar]")),
+  );
+  expect(barInsideList).toBe(false);
 });

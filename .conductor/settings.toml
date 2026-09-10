@@ -1,0 +1,19 @@
+"$schema" = "https://conductor.build/schemas/settings.repo.schema.json"
+
+[scripts]
+# New workspaces are fresh worktrees with no node_modules.
+setup = "npm install"
+
+# Port 4173 is fixed: the published Webflow page names it in its footer script
+# tag, so it cannot move to $CONDUCTOR_PORT, and only one checkout may serve it
+# at a time. Nonconcurrent makes Conductor enforce that instead of leaving it to
+# be remembered — starting the server in a second workspace stops the first.
+run_mode = "nonconcurrent"
+
+[scripts.run.webflow]
+# Serves this workspace's dist/ to the published site and rebuilds on save.
+# Local only: a cloud sandbox cannot serve a browser on your machine.
+available_in = [ "local" ]
+command = "npm run webflow"
+default = true
+icon = "cloud"

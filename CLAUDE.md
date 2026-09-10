@@ -9,22 +9,63 @@ Designer can't do natively. See `README.md` for the build/structure overview.
 Claude orchestrates; Codex implements repository code.
 
 ```
-Claude: classify → branch → handoff → Webflow → PR → review → merge
-Codex:  inspect repo → code → test → commit → push → report back
+Claude: classify → branch → delegate → wait → validate → commit → push → PR
+Codex:  inspect → implement → add tests → report
 ```
 
 **Claude owns** Webflow Designer and Webflow MCP work, page structure, classes,
 attributes, variables, components, embeds, visual and responsive QA in Webflow, task
-classification and acceptance criteria, and the Git lifecycle around the branch —
-creating it, opening the PR, running the review, merging, and cleaning up.
+classification and acceptance criteria, the whole Git lifecycle — branch, commit,
+push, PR, review, merge, cleanup — and every check Codex cannot run.
 
-**Codex owns** repository code: JavaScript, GSAP logic, repo CSS, utilities, tests,
-build config, refactors, and bug fixes in repo code — plus the commit and push on the
-branch Claude created.
+**Codex owns** writing repository code: JavaScript, GSAP logic, repo CSS, utilities,
+tests, build config, refactors, and bug fixes in repo code. It reports; it does not
+commit, push, or open a PR.
 
-Claude does not make competing edits to files Codex is implementing. If the Codex CLI
-is unavailable or fails to run, Claude implements the change directly and says so in
-the PR body — the delegation rule is not a reason to leave work undone.
+### What Codex cannot do here
+
+Measured in this repo with `codex exec --sandbox workspace-write`: writing a
+workspace file and `npm run build` both succeed, but `git config --local` fails with
+`could not lock config file .git/config: Operation not permitted`, and binding
+`127.0.0.1:4199` fails with `EPERM`.
+
+Playwright binds a port, so **`npm run test:e2e` can never run inside Codex.** The
+split is forced by capability, not preference. Never write a handoff that tells Codex
+to commit, push, or run the end-to-end suite — it cannot comply, and saying so invites
+a false report.
+
+### Delegating
+
+Delegate one way only, from the prepared branch:
+
+```bash
+codex exec --sandbox workspace-write --json "<scoped task>"
+```
+
+Keep it attached. Only process exit plus `turn.completed`, `turn.failed` or `error`
+counts as done; `thread.started` and `turn.started` are acknowledgements, not results.
+
+**Never delegate through the Agent tool** (`subagent_type: codex:codex-rescue`) **or
+the `/codex:rescue` command.** The Agent tool is background-only in Claude Code,
+silently drops `--wait` and `--fresh`, and keeps writing to the shared checkout
+minutes after the handoff appears to have returned — overwriting whatever Claude did
+in the meantime. That is not hypothetical; it is what happened. The Codex plugin stays
+installed for ad-hoc use by a person, but nothing in this workflow goes through it.
+
+Claude does not edit delegated files while the process is alive. If a run has to be
+abandoned, kill it and confirm no `codex` process is still running against this
+checkout before taking over.
+
+**Fallback.** If `codex exec` is missing, unauthenticated, or reaches a terminal
+failure — `turn.failed`, `error`, or a non-zero exit — Claude implements the change
+directly and says so in the PR body. Delegation is not a reason to leave work undone.
+
+Start the fallback only once the process has actually exited. While a run is alive,
+wait for it; if it must be abandoned, kill it and confirm no `codex` process survives
+first. Editing the delegated files alongside a live run is what produced the overwrite
+this contract exists to prevent.
+
+See `docs/claude-codex-handoff-resolution.md` for how this contract was arrived at.
 
 ## Task routing
 
@@ -71,7 +112,9 @@ For every feature, fix, refactor, or maintenance task:
 6. Define the acceptance criteria and get the user's OK (see **Approval**).
 7. Route the work: Webflow to Claude, repository code to Codex via
    `skills/codex-handoff/SKILL.md`.
-8. Review the resulting diff; strip debug, temporary, and unrelated changes.
+8. Review the returned diff, then run the checks Codex could not — `npm run test:e2e`
+   plus browser and responsive verification. Strip debug, temporary, and unrelated
+   changes, then commit and push.
 9. Open a pull request targeting `main`.
 10. Run the automated review in `skills/review-pr/SKILL.md`.
 11. Never merge the PR — the user reviews and merges it. The one exception is a

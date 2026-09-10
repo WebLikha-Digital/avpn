@@ -43,35 +43,47 @@ target is fitted straight to the last waypoint and stays there.
 Inside `.section_wrapper.is-1` (which carries `data-flip-scale-init`):
 
 ```
-section.section_sticky-picture
-  └ .padding-global.z-index-2 › .container-large
-      ├ .sticky-picture_component            the foreword itself
-      └ .sticky-picture_breaker              [data-flip-scale-wrapper]  ← start
-          └ .sticky-picture_breaker-target   [data-flip-scale-target]
-              └ img.sticky-picture_breaker-image
+section.section_sticky-picture              the foreword; overflow: clip
 section.section_image-breaker
-  └ .image-breaker_frame                     [data-flip-scale-wrapper]  ← end
+  ├ .padding-global › .container-large
+  │   └ .image-breaker_start                [data-flip-scale-wrapper]  ← start
+  │       └ .image-breaker_target           [data-flip-scale-target]
+  │           └ img.image-breaker_image
+  └ .image-breaker_frame                    [data-flip-scale-wrapper]  ← end
 section.section_explore-links
 ```
 
-`.image-breaker_frame` is empty by design. It is a measuring box, not a
-container — the picture that lands in it lives in the start waypoint.
+Both waypoints live in `.section_image-breaker`, and that placement is
+load-bearing rather than tidy-minded. `.section_sticky-picture` is
+`overflow: clip` — the arc above the foreword depends on it — so a target that
+starts inside that section is clipped out of sight the moment it travels below
+the section box. The geometry stays perfectly correct while nothing is drawn,
+which is a hard failure to read from the numbers. Keep the whole animation in an
+unclipped section.
+
+The start box reads as "the picture at the end of the letter" because the
+breaker section follows the foreword immediately and the box is centred in the
+same `container-large` the letter uses.
 
 Measurements:
 
 | Class | Desktop | ≤767px |
 | --- | --- | --- |
-| `.sticky-picture_breaker` | `22rem`, `aspect-ratio: 4 / 3` | `15rem` |
+| `.image-breaker_start` | `22rem`, `aspect-ratio: 4 / 3`, `margin-bottom: 12rem` | `15rem`, `margin-bottom: 7rem` |
 | `.image-breaker_frame` | `100%`, `aspect-ratio: 16 / 9`, `max-height: 85vh` | `aspect-ratio: 4 / 3` |
+| `.section_image-breaker` | `6rem` padding top and bottom | `4rem` |
 
-`.sticky-picture_breaker-target` is `position: absolute; inset: 0` with
-`overflow: hidden` and a `1.5rem` radius, so the transform has a box to clip to.
-The start waypoint must stay `position: relative` — the target is positioned
-against it.
+`.image-breaker_start`'s bottom margin is what sets the scrub length: the
+timeline runs centre to centre, so a bigger gap means a longer, slower reveal.
+At 1440 the current numbers give roughly 700px of scrub.
+
+`.image-breaker_target` is `position: absolute; inset: 0` with `overflow: hidden`
+and a `1.5rem` radius, so the transform has a box to clip to. The start box must
+stay `position: relative` — the target is positioned against it.
 
 ## Changing the picture
 
-Replace the image on `img.sticky-picture_breaker-image` in the Designer. Nothing
+Replace the image on `img.image-breaker_image` in the Designer. Nothing
 in the code refers to the asset. Use something wide: the end waypoint is 16:9 on
 desktop and the image is `object-fit: cover`.
 
@@ -80,6 +92,19 @@ desktop and the image is `object-fit: cover`.
 **The picture jumps instead of travelling.** The two waypoints are too close, or
 something between them has an animation that changes page height mid-scrub.
 Scrolled distance has to match centre-to-centre distance.
+
+**Everything measures correctly but nothing is visible.** An ancestor is
+clipping. Walk up from the target and look for a non-`visible` `overflow`:
+
+```js
+let el = document.querySelector("[data-flip-scale-target]").parentElement;
+while (el) { const o = getComputedStyle(el).overflow;
+  if (o !== "visible") console.log(el.className, o); el = el.parentElement; }
+```
+
+This is exactly what `.section_sticky-picture` did to the first build of this
+section. Move the waypoints into an unclipped section rather than removing the
+clip — the arc needs it.
 
 **It lands off the frame.** Something re-laid-out after init without a resize —
 a late-loading font or image inside the section. Force a `ScrollTrigger.refresh()`

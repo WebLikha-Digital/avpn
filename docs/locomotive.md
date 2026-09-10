@@ -401,10 +401,10 @@ await page.route("**/animations.min.js", (route) =>
 ```
 
 This is more robust than fighting browser flags, and it pins each run to your
-exact local build. The `webServer` entry still runs `npm run webflow`
-(`reuseExistingServer: true`, so it adopts one you already have running) purely
-to guarantee `dist/` is freshly built — `build({ watch: {} })` completes an
-initial build before the server comes up.
+exact local build. The live config's `globalSetup` calls Vite's `build()` API
+once before Playwright starts, so `dist/` is current without launching a server
+or binding port 4173. Every live spec must keep its route fulfilment; nothing in
+the automated live run fetches the bundle from localhost.
 
 ### Why image requests are deliberately delayed
 

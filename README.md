@@ -47,6 +47,9 @@ dist/          bundled output pasted into Webflow custom code
 - [`docs/signature-events.md`](docs/signature-events.md) — the Signature Events
   band: element tree, measurements, the parallax wordmark
   (`horizontalParallax.js`) and the per-card brand shape (`shapeSwap.js`).
+- [`docs/image-breaker.md`](docs/image-breaker.md) — the image breaker that
+  closes the CEO's Foreword: how the Flip waypoints work, the Webflow contract,
+  measurements, and troubleshooting.
 - [`docs/programmes-overview.md`](docs/programmes-overview.md) — the Programmes
   Overview section: element tree, the three placements that are load-bearing
   (path, hover bar, row reveal), measurements, and the CSS embed.
@@ -116,8 +119,11 @@ npm run test:e2e:install # install the local Chromium browser once
 
 ## Browser testing
 
-Playwright Test is configured in `playwright.config.js` and starts the Vite
-preview on port `4174` for each run. The tests cover component boot, SplitText
+Playwright Test is configured in `playwright.config.js` and starts its own Vite
+dev server for each run, on a port derived from the checkout's absolute path
+(41000-42999). Each worktree therefore gets its own stable port, and a server
+belonging to another checkout is never reused. Override with `PW_PORT` when a
+port must be pinned; the run prints the URL it serves. The tests cover component boot, SplitText
 initialization, scroll state changes, WebGL canvas pixels, and a 390px mobile
 viewport. It also checks missing image manifests, resize reinitialization,
 decorative canvas accessibility metadata, and reduced-motion usability.
@@ -125,10 +131,34 @@ Screenshots and traces are retained only when a test fails.
 
 Install Chromium once with `npm run test:e2e:install`, then use
 `npm run test:e2e`. Use `npm run test:e2e:ui` while tuning timing or easing;
-use `npx playwright codegen http://127.0.0.1:4174` to explore selectors for a
+use `npx playwright codegen <the URL the run printed>` to explore selectors for a
 new interaction test. Keep assertions tied to the `data-*` contract, not
 Webflow-generated classes.
 
 `npm run webflow` is the Webflow loop: the published site pulls the bundle off
 this machine, so a save is live on refresh with no republish. See
 `skills/webflow-animation-embed/SKILL.md` for the script tag and its caveats.
+
+### Port 4173 has exactly one owner
+
+The Webflow project's footer requests `http://localhost:4173/animations.min.js`.
+That port is fixed — the published site names it — and only one checkout may
+hold it at a time.
+
+Whoever runs `npm run webflow` owns it: the main checkout when working in Warp,
+or the active Conductor workspace when working there. Never run the Webflow dev
+server from the main checkout and a workspace at the same time; the published
+page has no way to tell whose bundle it got, and the wrong one looks like a bug
+in the code. Check the port is free before starting, and stop the server that
+holds it rather than starting a second one:
+
+```bash
+lsof -nP -iTCP:4173 -sTCP:LISTEN
+```
+
+Never copy workspace files back into the main checkout just to test them — serve
+the workspace's own bundle instead.
+
+This applies to hand-driven development only. The automated `npm run test:e2e:live`
+run never touches 4173: it builds in global setup and each spec fulfils the
+bundle request from `dist/`. `npm run test:e2e` binds its own derived port.

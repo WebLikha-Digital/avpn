@@ -133,7 +133,9 @@ denied for this request to access the 'loopback' address space`. A profile that 
 granted the permission loads it fine, which makes this look like it works right up until
 it runs somewhere clean. `tests/live/foreword.spec.js` and
 `tests/live/programmesHighlights.spec.js` both use the `page.route` form. Run
-`npm run build` first, since `dist/` is what gets served.
+`npm run test:e2e:live` normally: its global setup calls Vite's `build()` API before
+the browser starts, and the config does not start a server or bind port 4173. Every live
+spec must still fulfil the bundle route from `dist/` itself.
 
 Add or extend a Playwright spec in `tests/` when the bug is reproducible headlessly.
 A spec that **fails on `main` and passes on the branch** is the only objective proof

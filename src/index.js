@@ -3,6 +3,7 @@ import { initLocomotiveScroll } from "./lib/locomotive.js";
 import { initDrawPathScroll } from "./animations/drawPathScroll.js";
 import { initSplitReveal } from "./animations/splitReveal.js";
 import { initMarqueeScrollDirection } from "./animations/marqueeScrollDirection.js";
+import { initContentReveal } from "./animations/contentReveal.js";
 import { initForewordFade } from "./animations/forewordAnim.js";
 import { initHighlightDrum } from "./animations/highlightDrum.js";
 import { initHorizontalParallax } from "./animations/horizontalParallax.js";
@@ -35,6 +36,7 @@ function init() {
   initHorizontalScroller();
   initBandAware();
   initMarqueeScrollDirection();
+  initContentReveal();
   initForewordFade();
   initHighlightDrum();
   initStoriesStack();

@@ -36,6 +36,64 @@ test("gives split masks descender room without changing line spacing", async ({ 
   expect(spacing.paddingBottom + spacing.marginBottom).toBeCloseTo(0, 5);
 });
 
+test("keeps a parked line outside its padded mask while the page scrolls", async ({
+  page,
+}) => {
+  // The descender padding grows the mask's visible box, which eats into the
+  // offset that hides a line before its reveal fires. A settled reading cannot
+  // catch that, so sample every frame across a full scroll.
+  //
+  // "Parked" is derived, not hard-coded: a line is parked at whatever its own
+  // largest observed offset turns out to be, so retuning the reveal's yPercent
+  // does not silently disarm this test. The reading kept is the intrusion —
+  // how far a parked line's top sits *above* its mask's bottom edge. At or
+  // below zero means no sliver of text ever shows.
+  const worst = await page.evaluate(async () => {
+    const masks = [...document.querySelectorAll(".line-mask")];
+    const travel = document.documentElement.scrollHeight - window.innerHeight;
+    const readings = masks.map(() => []);
+
+    for (let step = 0; step <= 120; step++) {
+      window.scrollTo(0, (travel * step) / 120);
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+
+      masks.forEach((mask, index) => {
+        const line = mask.firstElementChild;
+        if (!line) return;
+
+        const lineBox = line.getBoundingClientRect();
+        if (lineBox.height === 0) return;
+
+        readings[index].push({
+          shift: new DOMMatrixReadOnly(getComputedStyle(line).transform).f,
+          intrusion: mask.getBoundingClientRect().bottom - lineBox.top,
+        });
+      });
+    }
+
+    let intrusion = -Infinity;
+    let parkedSamples = 0;
+
+    for (const perMask of readings) {
+      if (!perMask.length) continue;
+      const parked = Math.max(...perMask.map((reading) => reading.shift));
+      if (parked <= 0) continue;
+
+      for (const reading of perMask) {
+        if (reading.shift < parked * 0.98) continue;
+        parkedSamples++;
+        intrusion = Math.max(intrusion, reading.intrusion);
+      }
+    }
+
+    return { intrusion, parkedSamples, maskCount: masks.length };
+  });
+
+  expect(worst.maskCount, "the preview should build split masks").toBeGreaterThan(0);
+  expect(worst.parkedSamples, "the scroll should pass parked lines").toBeGreaterThan(0);
+  expect(worst.intrusion).toBeLessThanOrEqual(0);
+});
+
 test("WebGL previews allocate live render surfaces", async ({ page }) => {
   const canvases = page.locator("canvas");
   const surfaces = await canvases.evaluateAll((items) =>

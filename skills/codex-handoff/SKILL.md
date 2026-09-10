@@ -6,6 +6,46 @@ Use this whenever a task is code-only, or when the repository half of a mixed ta
 ready to implement. Claude classifies the task, gets the user's OK, creates the
 branch, does any Webflow work first, and only then writes the handoff below.
 
+## How to launch it
+
+**Never spawn `codex-rescue` through the Agent tool.** It is background-only there,
+its `--wait` and `--fresh` flags are silently ignored, and it keeps writing to the
+shared checkout after the handoff appears to have returned — overwriting whatever
+Claude does in the meantime. That is not hypothetical; it is what went wrong and
+produced `docs/claude-codex-handoff-resolution.md`.
+
+Preferred, from the prepared branch:
+
+```bash
+codex exec --sandbox workspace-write --json "<the handoff below>"
+```
+
+Keep the process attached. Only process exit together with `turn.completed`,
+`turn.failed` or `error` is a result; `thread.started` and `turn.started` mean work
+began, nothing more. The fallback is `/codex:rescue --wait --fresh <scoped task>`.
+
+Check `/codex:status` first. If a job is already live against this checkout, wait for
+it or `/codex:cancel <job-id>` and confirm it stopped — do not start a second writer.
+
+## What Codex cannot do here
+
+Measured with `codex exec --sandbox workspace-write` in this repository:
+
+| Operation | Result |
+| --- | --- |
+| Write a workspace file | exit 0 |
+| `npm run build` | exit 0 |
+| `git status` | exit 0 |
+| `git config --local` | exit 255, `could not lock config file .git/config: Operation not permitted` |
+| Bind `127.0.0.1:4199` | `EPERM` |
+
+Playwright's `webServer` binds a port, so `npm run test:e2e` cannot run inside Codex
+at all. Do not ask for it. Do not ask for a commit, a push, or a PR either — `.git` is
+read-only. Asking for something the sandbox forbids invites a report that claims it
+happened.
+
+Codex writes the code and the tests. Claude runs the suite and owns Git.
+
 ## Before handing off
 
 Three things must be true, or the handoff is premature:
@@ -87,8 +127,8 @@ instructions.
 - Preserve unrelated uncommitted changes.
 - Do not add debug code to the final implementation.
 - Do not add `Co-authored-by` or other co-author attribution.
-- Do not open or merge the PR.
-- Do not push directly to `main`.
+- Do not create branches, commit, push, or open a PR.
+- Do not continue working in the background after returning a result.
 
 For GSAP or scroll-driven work:
 
@@ -99,47 +139,28 @@ For GSAP or scroll-driven work:
 
 ## Validation
 
-Run all applicable repository checks.
-
-At minimum:
+Run this, and report its real result:
 
 ```bash
 npm run build
-npm run test:e2e
 ```
 
-`npm run test:e2e` needs browsers installed once per machine —
-`npm run test:e2e:install` — so run that first if Playwright reports a missing
-browser.
+Do **not** attempt `npm run test:e2e`. Playwright binds a local port and your sandbox
+refuses with `EPERM`, so it cannot run here. Write or update the specs; Claude runs
+them. Never run `npm run test:e2e:live` — it targets the live Webflow site and is only
+run deliberately, by a human.
 
-Do not run `npm run test:e2e:live`. It targets the live Webflow site and is only run
-deliberately, by a human.
-
-Also run any targeted tests relevant to the change.
-
-For browser-facing animation changes, verify the behavior in the browser when the
-available environment allows it.
-
-Never claim a check passed unless it actually ran.
-
-If a required check cannot run, report why.
+Never claim a check passed unless it actually ran. If something cannot run, say so and
+name the limitation.
 
 ## Git behavior
 
-Work on the task branch named above.
+Do not touch Git. `.git` is read-only in your sandbox — `git status` works, writes do
+not. Do not create a branch, commit, push, or open a PR.
 
-If that branch does not exist, stop and report that the implementation needs a task
-branch rather than creating an unrelated workflow.
-
-After implementation:
-
-1. review the diff
-2. remove debug or temporary code
-3. commit the focused change using a conventional commit
-4. push the task branch
-5. return control to Claude
-
-Claude opens the PR. Do not merge.
+Claude has already prepared the branch named above. Leave your work uncommitted in the
+working tree and report what you changed. Claude reviews the diff, runs the remaining
+checks, commits and pushes.
 
 ## Return to Claude
 
@@ -173,25 +194,25 @@ Write `None` if no Webflow changes are required.
 
 Only include relevant implementation risks, assumptions, or follow-up concerns.
 
-### GIT
+### HANDBACK
 
-Branch:
-Commit: (`none` if nothing was committed)
-Push status:
-Working tree: (`clean`, or what is left uncommitted and why)
+Files left modified in the working tree:
+Anything intentionally left unfinished:
+Validation Claude still needs to run:
 
 ---
 
 ## Reading the report
 
-**`DONE`** — verify the claims rather than trusting them. Check the diff yourself,
-confirm the commit is on the branch and pushed, and confirm every `PASS` line is a
-check that plausibly ran. Then open the PR and run `skills/review-pr/SKILL.md`.
+**`DONE`** — verify the claims rather than trusting them. Read the diff yourself, and
+treat any `PASS` line as a claim to check, not a result to accept. Then run the suite,
+commit, push, open the PR, and run `skills/review-pr/SKILL.md`. Codex's specs have
+arrived failing before now; it cannot run them.
 
 **`NEEDS_WEBFLOW_CHANGE`** — Codex found the fix belongs on the Webflow side, or that
 code cannot proceed until Webflow changes. Make the Webflow change, then re-hand off
-with the new state described in **Relevant context**. Read the `GIT` block: it says
-whether anything was committed or left in the working tree.
+with the new state described in **Relevant context**. Read the `HANDBACK` block: it
+says what is sitting in the working tree.
 
 **`BLOCKED`** — Codex could not proceed. If the blocker is missing information or an
 ambiguous criterion, resolve it and re-hand off. If it needs the user's judgment,

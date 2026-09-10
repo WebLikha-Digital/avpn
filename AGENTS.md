@@ -10,15 +10,20 @@ Claude orchestrates this project and owns everything on the Webflow side. You ow
 repository code.
 
 ```
-Claude: classify → branch → handoff → Webflow → PR → review → merge
-Codex:  inspect repo → code → test → commit → push → report back
+Claude: classify → branch → delegate → wait → validate → commit → push → PR
+Codex:  inspect → implement → add tests → report
 ```
 
 You implement changes to JavaScript, GSAP logic, repo CSS, utilities, tests, build
-config, refactors, and bug fixes in repository code. You commit and push the branch
-Claude created. You do not open, review, or merge the pull request, and you never
-change anything in Webflow — if a task cannot be solved in repo code, report that
-Webflow work is required rather than working around it.
+config, refactors, and bug fixes in repository code. You never change anything in
+Webflow — if a task cannot be solved in repo code, report that Webflow work is
+required rather than working around it.
+
+**You do not touch Git.** Your sandbox mounts `.git` read-only, so writes fail with
+`could not lock config file .git/config: Operation not permitted`. Do not create a
+branch, commit, push, or open a PR. Leave your work uncommitted in the working tree
+and report it; Claude reviews the diff, runs the remaining checks, and takes it from
+there.
 
 Claude sends work through `skills/codex-handoff/SKILL.md`. That handoff carries the
 task, acceptance criteria, branch name, and the report format to return. Follow it.
@@ -33,48 +38,40 @@ When a bug is reported, follow `skills/fix-bug/SKILL.md`.
 
 ## Validation
 
-Run the checks that actually apply to the change, at minimum:
-
 ```bash
 npm run build
-npm run test:e2e
 ```
 
-`npm run test:e2e` needs browsers installed once per machine:
-`npm run test:e2e:install`.
+That works in your sandbox. `npm run test:e2e` does **not**: Playwright starts a local
+server and binding a port fails with `EPERM`. Write and update the specs — they are
+still your job — but do not try to run them, and never report them as passing. Claude
+runs the suite.
 
-Never run `npm run test:e2e:live` — it points at the live Webflow site and is only
-run deliberately, by a human.
+Never run `npm run test:e2e:live` either; it points at the live Webflow site and is
+only run deliberately, by a human.
 
-Never claim a check passed unless it ran. If a required check cannot run, say why.
+Never claim a check passed unless it ran. If a check cannot run, say why.
 
 ## Git
 
-Feature-branch workflow. Never make feature commits directly on `main`.
-
-Claude creates the branch before handing work to you. Work on that branch.
+Claude prepares the branch before handing work to you and owns every Git operation
+after it. You work in the tree you are given.
 
 If no task branch exists yet, stop and report that the implementation needs one —
-do not create a branch or invent a workflow of your own.
-
-Branch prefixes by kind: `feat/` new features, `fix/` bug fixes, `refactor/` code
-restructuring, `chore/` maintenance.
+do not create one.
 
 After implementing:
 
-1. Review the diff.
+1. Review your own diff.
 2. Remove debug and temporary code.
-3. Commit the focused change with a clear conventional commit message.
-4. Push the task branch to origin.
-5. Return control to Claude with the report from the handoff skill.
+3. Return control to Claude with the report from the handoff skill.
 
-Keep the branch to one logical change. Preserve any unrelated uncommitted changes
-already in the working tree — never discard them, and never fold them into the
-commit.
+Keep the change to one logical unit. Preserve any unrelated uncommitted changes
+already in the working tree — never discard them.
 
-- Never add a `Co-authored-by` trailer (or any co-author attribution) to commits.
-- Never push to `main`.
-- Never open or merge the pull request.
+- Never write to `.git`: no branch, no commit, no push, no PR.
+- Never continue working in the background after you have returned a result. A late
+  write into a shared checkout overwrites whatever Claude did in the meantime.
 
 ### Bug fixes
 
@@ -83,8 +80,9 @@ Bug fixes use `fix/` branches and follow `skills/fix-bug/SKILL.md`. The short fo
 - Reproduce or confirm the bug before changing anything.
 - Keep the branch to the one bug — no unrelated refactors or cleanup.
 - Add a regression test whenever the bug can be reproduced in automation. It should
-  fail against the broken behavior and pass after the fix.
-- Run the repo's real checks and report only checks that actually ran.
+  fail against the broken behavior and pass after the fix — Claude confirms both, since
+  you cannot run the suite.
+- Run `npm run build` and report only checks that actually ran.
 - The fix is not done until it meets the acceptance criteria; never hide or skip a
   failing test.
 - For a scroll-driven or animated bug, sample per animation frame during real

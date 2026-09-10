@@ -26,11 +26,14 @@ section.section_programmes-highlights.prog-highlights_scroller   [data-hscroll-i
     ├ div.prog-highlights_line.is-line-3                     [data-draw-scroll-wrap]
     ├ div.prog-highlights_panel.is-intro                              60vw
     │ └ div.prog-highlights_intro-content
-    │   ├ div.prog-highlights_eyebrow
-    │   │ └ div.prog-highlights_eyebrow-icon
-    │   ├ h2.prog-highlights_title.heading-style-h2        "Programmes"
-    │   ├ h2.prog-highlights_title.heading-style-h2        "Highlights"
-    │   └ p.prog-highlights_body.text-size-regular
+    │   ├ h2.prog-highlights_title.heading-style-h2
+    │   │ ├ span.prog-highlights-heading_line
+    │   │ │ ├ div                                          "Programmes"   [data-split="heading"]
+    │   │ │ └ span.prog-highlights-heading_shape
+    │   │ └ span.prog-highlights-heading_line
+    │   │   ├ img.prog-highlights-heading_image
+    │   │   └ div                                          "Highlights"   [data-split="heading"]
+    │   └ p.text-size-regular                                             [data-split="heading"]
     │
     ├ div.prog-highlights_panel.is-intro-media          calc(40vw + 15rem)
     │ └ div.prog-highlights_intro-media
@@ -39,6 +42,9 @@ section.section_programmes-highlights.prog-highlights_scroller   [data-hscroll-i
     ├ div.prog-highlights_panel.is-title                             100vw
     │ └ div.prog-highlights_copy
     │   └ h3.prog-highlights_copy-heading.heading-style-h6
+    │     ├ span.prog-highlights_copy-line × 3
+    │     └ span.prog-highlights_copy-line_shapes    (on the last line only)
+    │       └ span.prog-highlights_copy-line_shape.is-half-circle / .is-circle
     │
     ├ div.prog-highlights_panel.is-thematic.is-wheel                  [data-rotary-wheel-init]
     │ └ div.prog-highlights_stage                                     [data-rotary-wheel-stage]
@@ -65,10 +71,17 @@ nothing but that section's `prog-highlights_copy` heading — the `is-title`
 combo is shared by all three, so no per-section combo is needed.
 
 `prog-highlights_intro-media` now holds a real `img.prog-highlights_intro-image`.
-`prog-highlights_eyebrow-icon` is still a flat teal-main placeholder — swap in
-a real image via `set_image_asset` (or the Designer) once AVPN supplies one;
-the class already carries the sizing/radius/`background-size: cover` a
-background-image needs.
+
+The intro heading is one `h2` holding two `prog-highlights-heading_line` spans,
+not two sibling `h2`s, and each line carries a decoration in normal flow beside
+its text — a shape span on the first, an image on the second. The eyebrow and
+`prog-highlights_body` shown in earlier revisions of this doc are gone; the
+intro's body copy is a plain `p.text-size-regular`.
+
+The three `prog-highlights_copy-heading` elements are built the same way, out of
+`prog-highlights_copy-line` spans, with two decorative shape spans riding the
+last line of the first one. Note that the first is a `div` while the other two
+are `h3` — an inconsistency in the build, not a deliberate choice.
 
 Two things from the Figma were **not** built under this build's brief: the
 intro's arrow button, and nothing else outstanding. The curved copy around each
@@ -391,6 +404,37 @@ from Figma, so the curvature is an approximation of the intended beziers. If
 exact curves are wanted later, swap the `d` on each path — the structure,
 offsets and triggers do not change. Each export needs to be drawn at that line's
 own span: line 1 across three panels (~3.9:1), the others one panel each.
+
+---
+
+## The split reveal on the intro panel
+
+The intro heading and its paragraph reveal per line, masked, using the shared
+`splitReveal.js` component. Three elements carry `data-split="heading"`:
+
+- the text `div` inside each of the heading's two `prog-highlights-heading_line`
+  spans — "Programmes" and "Highlights"
+- `p.text-size-regular`, the intro body copy
+
+**The attribute goes on the inner text divs, not on the `h2`.** SplitText
+rewraps everything inside its target into its own line elements, and both of
+this heading's decorations — the shape span and the image — sit in normal flow
+as siblings of the text. Splitting the `h2` would pull them into the generated
+line wrappers and reflow them. Attributing the text divs leaves both where the
+Designer put them; verified by measuring their offsets before and after, which
+are identical.
+
+No authored start is needed. The panel sits inside the band, so `bandContext()`
+resolves the horizontal scroller and `splitReveal.js` defaults the start to
+`clamp(left 80%)` on the band's axis rather than `clamp(top 80%)` on the page's.
+
+The cards are deliberately excluded — `prog-highlights_card-heading` and
+`prog-highlights_card-body` carry no split attribute.
+
+The same reasoning applies to the three `prog-highlights_copy-heading` elements
+if a reveal is ever wanted on them: attribute the text inside each
+`prog-highlights_copy-line`, not the heading, or the shape spans on the last
+line get rewrapped.
 
 ---
 

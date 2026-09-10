@@ -236,10 +236,15 @@ After updating the instructions, test the contract with a harmless documentation
 | Sandbox: .git write | git config --local | exit 255, could not lock config file |
 | Sandbox: port bind | node net.listen 127.0.0.1:4199 | EPERM |
 | Sandbox: build | npm run build | exit 0 |
-| T5 no late write | hash the delegated file for 20 min after exit | running |
+| T5 no late write | watch for any codex process appearing for 20 min after exit | running |
 | Rule 1 enforcement | Agent call with subagent_type codex:codex-rescue | denied by a PreToolUse hook |
 
 A killed run is distinguished from a live one by a non-zero exit plus the absence of a terminal event.
+
+T5 was first written to hash the delegated file and failed at 60s — on an edit Claude
+made itself, not a late write from Codex. Hashing a file that the tester keeps editing
+measures the tester. The probe now watches for a `codex` process appearing after the
+run exits, which no amount of Claude's own activity can trip.
 
 Rule 1 is the only rule a test cannot cover, because it is an instruction to Claude
 rather than a property of the environment — and an instruction of exactly that kind is

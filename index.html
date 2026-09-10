@@ -107,6 +107,9 @@
       }
       /* Mask reveal: SplitText builds the per-line masks itself, so there is
          no hidden start state here — the resting state is simply visible. */
+      /* Descender clearance; replicate this structural rule in Webflow's
+         .page-style embed too. The negative margin preserves line spacing. */
+      .line-mask { padding-bottom: 0.1em; margin-bottom: -0.1em; }
       .mask-demo {
         container-type: inline-size;
         margin-bottom: 4rem;

@@ -47,6 +47,9 @@ dist/          bundled output pasted into Webflow custom code
 - [`docs/signature-events.md`](docs/signature-events.md) — the Signature Events
   band: element tree, measurements, the parallax wordmark
   (`horizontalParallax.js`) and the per-card brand shape (`shapeSwap.js`).
+- [`docs/programmes-overview.md`](docs/programmes-overview.md) — the Programmes
+  Overview section: element tree, the three placements that are load-bearing
+  (path, hover bar, row reveal), measurements, and the CSS embed.
 - [`docs/webflow-programmes-highlights-build.md`](docs/webflow-programmes-highlights-build.md)
   — how the Programmes Highlights section was actually built in the Webflow
   Designer: element tree, Client-First class names, variable/color mapping,

@@ -8,13 +8,7 @@ branch, does any Webflow work first, and only then writes the handoff below.
 
 ## How to launch it
 
-**Never spawn `codex-rescue` through the Agent tool.** It is background-only there,
-its `--wait` and `--fresh` flags are silently ignored, and it keeps writing to the
-shared checkout after the handoff appears to have returned — overwriting whatever
-Claude does in the meantime. That is not hypothetical; it is what went wrong and
-produced `docs/claude-codex-handoff-resolution.md`.
-
-Preferred, from the prepared branch:
+One path, from the prepared branch:
 
 ```bash
 codex exec --sandbox workspace-write --json "<the handoff below>"
@@ -22,10 +16,18 @@ codex exec --sandbox workspace-write --json "<the handoff below>"
 
 Keep the process attached. Only process exit together with `turn.completed`,
 `turn.failed` or `error` is a result; `thread.started` and `turn.started` mean work
-began, nothing more. The fallback is `/codex:rescue --wait --fresh <scoped task>`.
+began, nothing more.
 
-Check `/codex:status` first. If a job is already live against this checkout, wait for
-it or `/codex:cancel <job-id>` and confirm it stopped — do not start a second writer.
+**Never delegate through the Agent tool** (`subagent_type: codex:codex-rescue`) **or
+the `/codex:rescue` command.** The Agent tool is background-only in Claude Code, its
+`--wait` and `--fresh` flags are silently ignored there, and it keeps writing to the
+shared checkout after the handoff appears to have returned — overwriting whatever
+Claude does in the meantime. That is not hypothetical; it is what went wrong and
+produced `docs/claude-codex-handoff-resolution.md`. The plugin stays installed for
+ad-hoc use by a person; no handoff goes through it.
+
+Do not start a second writer against the same checkout. If a run must be abandoned,
+kill it and confirm no `codex` process survives before editing the delegated files.
 
 ## What Codex cannot do here
 

@@ -36,10 +36,7 @@ a false report.
 
 ### Delegating
 
-**Never spawn `codex-rescue` through the Agent tool.** It is background-only there,
-its `--wait` and `--fresh` flags are silently ignored, and it writes to the shared
-checkout minutes after the handoff appears to have returned — overwriting whatever
-Claude did in the meantime. Delegate one of these two ways instead:
+Delegate one way only, from the prepared branch:
 
 ```bash
 codex exec --sandbox workspace-write --json "<scoped task>"
@@ -47,11 +44,17 @@ codex exec --sandbox workspace-write --json "<scoped task>"
 
 Keep it attached. Only process exit plus `turn.completed`, `turn.failed` or `error`
 counts as done; `thread.started` and `turn.started` are acknowledgements, not results.
-The fallback is `/codex:rescue --wait --fresh <scoped task>`.
 
-Before any handoff, check `/codex:status` for a live job against this checkout. Claude
-does not edit delegated files while a Codex task is active; if one must be abandoned,
-`/codex:cancel <job-id>` and confirm it stopped first.
+**Never delegate through the Agent tool** (`subagent_type: codex:codex-rescue`) **or
+the `/codex:rescue` command.** The Agent tool is background-only in Claude Code,
+silently drops `--wait` and `--fresh`, and keeps writing to the shared checkout
+minutes after the handoff appears to have returned — overwriting whatever Claude did
+in the meantime. That is not hypothetical; it is what happened. The Codex plugin stays
+installed for ad-hoc use by a person, but nothing in this workflow goes through it.
+
+Claude does not edit delegated files while the process is alive. If a run has to be
+abandoned, kill it and confirm no `codex` process is still running against this
+checkout before taking over.
 
 If Codex is unavailable or reaches a terminal failure, Claude implements the change
 directly and says so in the PR body — the delegation rule is not a reason to leave

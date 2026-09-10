@@ -63,11 +63,11 @@ Claude: branch -> delegate -> wait/join -> validate -> commit -> push -> PR
 Codex:  inspect -> implement -> add/update tests -> report
 ```
 
-### Preferred execution: Claude runs Codex in the terminal
+### Execution: Claude runs Codex in the terminal
 
-The preferred integration is for Claude to launch Codex as a foreground,
-non-interactive terminal process instead of relying on the plugin's detached rescue
-task:
+Claude launches Codex as a foreground, non-interactive terminal process. This is the
+only delegation path. The Codex plugin stays installed for ad-hoc human use, but no
+part of this workflow goes through it:
 
 ```bash
 codex exec \
@@ -122,24 +122,32 @@ checks that require capabilities unavailable inside the Codex process.
 
 ## Handoff rules
 
-1. **Never spawn `codex-rescue` through the Agent tool.** It is background-only there, its `--wait` and `--fresh` flags are not honored, and it writes to the shared checkout after the handoff appears to have returned. This is the single rule that would have prevented the incident above. Delegate through `codex exec` in a Bash call, or through the `/codex:rescue` slash command.
-2. Before starting any handoff, sweep for live jobs with `/codex:status`. An attached `codex exec` says nothing about a previously detached task still running against the same checkout.
-3. Prefer a foreground `codex exec --sandbox workspace-write --json` process for an implementation handoff. Run it from the branch or isolated worktree prepared by Claude.
-4. Keep the terminal process attached. Do not launch it with shell backgrounding, detach it, or continue to the fallback implementation while it is active.
-5. Treat only process exit accompanied by `turn.completed`, `turn.failed`, or `error` as a terminal result. `thread.started`, `turn.started`, and other progress events are non-terminal.
-6. If the existing plugin must be used instead, invoke it with explicit wait and fresh-task semantics:
+1. **Delegate only with `codex exec`.** Never through the Agent tool
+   (`subagent_type: codex:codex-rescue`) and never through `/codex:rescue`. The Agent
+   tool is background-only in Claude Code, silently drops `--wait` and `--fresh`, and
+   keeps writing to the shared checkout after the handoff appears to have returned —
+   that is what caused the incident above. The plugin remains installed but is not
+   part of this workflow.
+2. Run it in the foreground, from the branch or isolated worktree Claude prepared:
 
-   ```text
-   /codex:rescue --wait --fresh <scoped task>
+   ```bash
+   codex exec --sandbox workspace-write --json "<scoped task>"
    ```
 
-7. A plugin message that only says a task started is not completion. Claude must wait for the final task result or query its status.
-8. If a plugin task does not return normally, run `/codex:status` before editing any delegated file.
-9. If the plugin task is still active, either continue waiting or run `/codex:cancel <task-id>`.
-10. After cancellation, confirm the process or plugin task is terminal before Claude edits the same files.
-11. Do not allow Claude and Codex to write to the same checkout concurrently. Prefer an isolated Git worktree when concurrent work is necessary.
-12. Keep every handoff narrowly scoped. Name the files or component boundary, expected behavior, tests to add, and files that must not be changed.
-13. Treat Codex's check results as evidence, not final acceptance. Claude remains responsible for required validation in the environment that has the necessary browser, port, Git, and network access.
+3. Keep the process attached. Do not background it with `&`, do not detach it, and do
+   not start fallback work while it is alive.
+4. Treat only process exit accompanied by `turn.completed`, `turn.failed` or `error`
+   as a terminal result. `thread.started`, `turn.started` and other progress events
+   are acknowledgements that work began, nothing more.
+5. If a run has to be abandoned, kill the process and confirm no `codex` process is
+   still running against this checkout before Claude edits the delegated files. An
+   attached run can only orphan if the terminal dies, but check rather than assume.
+6. Never let Claude and Codex write to the same checkout at once. Use an isolated Git
+   worktree when concurrent work is genuinely needed.
+7. Keep every handoff narrowly scoped. Name the files or component boundary, the
+   expected behavior, the tests to add, and the files that must not change.
+8. Treat Codex's check results as evidence, not acceptance. Claude reruns anything
+   that needs a port, a browser, or `.git`.
 
 ## Changes to make in this repository
 
@@ -149,12 +157,12 @@ At minimum:
 
 - Ban spawning `codex-rescue` through the Agent tool, and say why: background-only, flags ignored, shared checkout.
 - Remove commit, push, and pull-request duties from the Codex handoff.
-- Make foreground `codex exec --json` the default for handoffs that can modify files.
-- Retain the plugin rescue command only as a fallback and require `--wait --fresh` when it is used.
+- Make foreground `codex exec --json` the only path for handoffs that can modify files.
+- Remove the plugin rescue command from the documented workflow entirely.
 - Define a task-start acknowledgement as a non-terminal response.
-- Add the status/cancel/confirm barrier before Claude takes over delegated files.
+- Require confirming no Codex process is live before Claude takes over delegated files.
 - State that Claude performs final validation and Git operations.
-- Preserve the existing fallback path, but permit fallback only after Codex has reached a terminal state or has been cancelled and confirmed stopped.
+- Preserve Claude's own fallback implementation path, but permit it only after Codex has reached a terminal state or has been killed and confirmed stopped.
 - Preserve the repository's branch naming, focused-change, conventional-commit, and no-merge rules.
 - For bug fixes, preserve all requirements in `skills/fix-bug/SKILL.md`; only reassign who executes each step.
 
@@ -185,10 +193,7 @@ after returning a result.
 These can improve the integration, but they do not replace the workflow changes:
 
 - Enable network access for `workspace-write` only if the security policy permits it. This can resolve package or GitHub connectivity but does not make `.git` writable.
-- Change the plugin so it honors the configured approval policy and forwards approval requests instead of forcing a non-interactive policy.
-- Make foreground execution the default and require an explicit flag for background work.
-- Add a reliable wait/join operation that cannot return a task-start acknowledgement as success.
-- Run every background write task in an isolated Git worktree and return a patch or commit for review.
+- Run every write task in an isolated Git worktree and return a patch for review.
 - Expose the worker's actual working directory, sandbox, approval, and network capabilities in its result.
 
 Avoid using unrestricted access as the primary fix. It increases risk without resolving the asynchronous lifecycle and shared-checkout race.
@@ -198,13 +203,13 @@ Avoid using unrestricted access as the primary fix. It increases risk without re
 The revised workflow is complete when all of the following are true:
 
 - Claude can hand a scoped implementation to Codex and receive either a final result or an explicit terminal failure.
-- The preferred handoff runs as an attached `codex exec --json` process and exposes a terminal JSON event.
+- Every handoff runs as an attached `codex exec --json` process and exposes a terminal JSON event.
 - Claude never treats a task-start acknowledgement as a completed handoff.
 - Claude does not edit delegated files while the Codex task is still active.
-- A failed or timed-out handoff is cancelled and confirmed stopped before fallback work begins.
+- A failed or timed-out handoff is killed and confirmed stopped before fallback work begins.
 - Codex is not instructed to perform Git writes that its sandbox prevents.
 - Claude runs final required checks and owns commit, push, and PR operations.
-- A simulated slow handoff cannot overwrite Claude's later work, because no handoff starts while `/codex:status` shows a live job against the same checkout.
+- A simulated slow handoff cannot overwrite Claude's later work, because every handoff is attached and no fallback begins until the process has exited.
 - The bug-fix workflow still records actual versus expected behavior, reproduction, acceptance criteria, real checks, and PR status without claiming checks that did not run.
 
 ## Validation scenario
@@ -216,8 +221,7 @@ After updating the instructions, test the contract with a harmless documentation
 3. Confirm Claude observes progress events and waits for process exit plus a terminal event.
 4. While the process is active, confirm Claude does not edit the delegated file.
 5. Repeat once with process termination; confirm Codex is stopped before Claude edits.
-6. If the plugin remains supported, repeat with `/codex:rescue --wait --fresh` and verify the status/cancel barrier.
-7. Claude reviews the diff, runs the required checks, commits, pushes, and opens the PR.
+6. Claude reviews the diff, runs the required checks, commits, pushes, and opens the PR.
 
 ### What has already been run
 
@@ -226,7 +230,6 @@ executed against this checkout. Each stayed attached, streamed
 `thread.started` → `turn.started` → `item.*`, and ended on `turn.completed` with the
 process exiting. The capability results are in **Measured sandbox limits** above.
 
-Still to exercise: the cancellation barrier (step 5) and the plugin path with
-`/codex:rescue --wait --fresh` (step 6).
+Still to exercise: the termination barrier (step 5).
 
 If this scenario cannot be completed reliably, keep Codex limited to read-only review or patch suggestions until the plugin provides trustworthy task lifecycle control or isolated worktrees.

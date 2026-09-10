@@ -4,6 +4,25 @@ This repo holds animation JS for the AVPN site, built in Webflow by Weblikha. We
 owns layout/content (no CMS in use); this repo only owns custom motion code Webflow's
 Designer can't do natively. See `README.md` for the build/structure overview.
 
+## Your role
+
+Claude orchestrates this project and owns everything on the Webflow side. You own
+repository code.
+
+```
+Claude: classify → branch → handoff → Webflow → PR → review → merge
+Codex:  inspect repo → code → test → commit → push → report back
+```
+
+You implement changes to JavaScript, GSAP logic, repo CSS, utilities, tests, build
+config, refactors, and bug fixes in repository code. You commit and push the branch
+Claude created. You do not open, review, or merge the pull request, and you never
+change anything in Webflow — if a task cannot be solved in repo code, report that
+Webflow work is required rather than working around it.
+
+Claude sends work through `skills/codex-handoff/SKILL.md`. That handoff carries the
+task, acceptance criteria, branch name, and the report format to return. Follow it.
+
 ## Skills
 
 Before doing work related to animations, builds, or Webflow embedding, check
@@ -12,58 +31,68 @@ the index and conventions.
 
 When a bug is reported, follow `skills/fix-bug/SKILL.md`.
 
+## Validation
+
+Run the checks that actually apply to the change, at minimum:
+
+```bash
+npm run build
+npm run test:e2e
+```
+
+`npm run test:e2e` needs browsers installed once per machine:
+`npm run test:e2e:install`.
+
+Never run `npm run test:e2e:live` — it points at the live Webflow site and is only
+run deliberately, by a human.
+
+Never claim a check passed unless it ran. If a required check cannot run, say why.
+
 ## Git
 
 Feature-branch workflow. Never make feature commits directly on `main`.
 
-For every feature, fix, refactor, or maintenance task:
+Claude creates the branch before handing work to you. Work on that branch.
 
-1. Start from `main`.
-2. Pull the latest changes from `origin/main`.
-3. Create a branch from `main`.
-4. Prefix the branch by kind: `feat/` new features, `fix/` bug fixes,
-   `refactor/` code restructuring, `chore/` maintenance.
-5. Keep the branch focused on one logical change.
-6. Make and review the changes.
-7. Commit with a clear conventional commit message.
-8. Push the branch to origin.
-9. Open a pull request targeting `main`.
-10. Never merge the PR — the user reviews and merges it. The one exception is a
-    bug fix that passes every auto-merge gate in `skills/fix-bug/SKILL.md`.
-11. After the PR is merged: switch back to `main`, pull the latest
-    `origin/main`, delete the local branch, and delete the remote branch if it
-    was not deleted automatically.
+If no task branch exists yet, stop and report that the implementation needs one —
+do not create a branch or invent a workflow of your own.
 
-If `main` already has uncommitted changes, branch first and carry those changes
-into the new branch before committing.
+Branch prefixes by kind: `feat/` new features, `fix/` bug fixes, `refactor/` code
+restructuring, `chore/` maintenance.
 
-If a feature branch already has commits for the task at hand, keep using it
-rather than opening another branch for the same logical change.
+After implementing:
+
+1. Review the diff.
+2. Remove debug and temporary code.
+3. Commit the focused change with a clear conventional commit message.
+4. Push the task branch to origin.
+5. Return control to Claude with the report from the handoff skill.
+
+Keep the branch to one logical change. Preserve any unrelated uncommitted changes
+already in the working tree — never discard them, and never fold them into the
+commit.
 
 - Never add a `Co-authored-by` trailer (or any co-author attribution) to commits.
-- Pushing a feature branch and opening its PR needs no separate approval; pushing
-  to `main` itself is never done.
+- Never push to `main`.
+- Never open or merge the pull request.
 
 ### Bug fixes
 
 Bug fixes use `fix/` branches and follow `skills/fix-bug/SKILL.md`. The short form:
 
-- Restate actual vs. expected behavior, reproduction steps, and acceptance criteria
-  before writing code.
 - Reproduce or confirm the bug before changing anything.
-- Open a draft PR early so the PR is the running record of the fix.
 - Keep the branch to the one bug — no unrelated refactors or cleanup.
-- Run the repo's real checks (`npm run build`, `npm run test:e2e`, plus browser and
-  responsive checks) and report only checks that actually ran.
+- Add a regression test whenever the bug can be reproduced in automation. It should
+  fail against the broken behavior and pass after the fix.
+- Run the repo's real checks and report only checks that actually ran.
 - The fix is not done until it meets the acceptance criteria; never hide or skip a
   failing test.
-- Review the diff and strip debug code before committing.
-- Preserve any unrelated uncommitted changes already in the working tree — never
-  discard them, and never fold them into the fix commit.
 - For a scroll-driven or animated bug, sample per animation frame during real
   continuous motion. Reading a settled position passes on a broken pin.
-- A bug fix may merge its own PR only when it passes every gate in the skill —
-  green CI, a regression spec that fails on `main` and passes on the branch, a
-  small diff confined to `src/`, `tests/`, and the rebuilt bundle, and acceptance
-  criteria that came from the user. Any gate failing means hand the PR off for
-  review.
+
+### GSAP and scroll-driven work
+
+- Clean up created animations, ScrollTriggers, listeners, and observers.
+- Guard against duplicate initialization.
+- Account for responsive lifecycle behavior across breakpoints.
+- Verify behavior during continuous motion, not only at settled positions.

@@ -139,6 +139,31 @@
         font-weight: 700;
         letter-spacing: -0.06em;
       }
+      .content-reveal-previews {
+        display: grid;
+        gap: 35vh;
+        margin-bottom: 35vh;
+      }
+      .content-reveal-demo {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 1rem;
+      }
+      .content-reveal-demo > *,
+      .content-reveal-demo [data-reveal-group-nested] > * {
+        display: block;
+        padding: 2rem 1rem;
+        border-radius: 0.75rem;
+        background: #f7f1ea;
+        color: #003c3c;
+        text-align: center;
+      }
+      .content-reveal-demo [data-reveal-group-nested] {
+        display: grid;
+        gap: 0.75rem;
+        padding: 0;
+        background: transparent;
+      }
 
       /* --- Key Highlights drum ------------------------------------------
          Mirrors the Webflow classes (layout) plus the .page-style embed
@@ -756,6 +781,39 @@
         <div data-marquee-collection-target class="marquee-demo__collection">
           AVPN · ASIA VENTURE PHILANTHROPY NETWORK ·
         </div>
+      </div>
+    </div>
+
+    <p>Content reveal — direct children fade and rise in sequence when their
+      group reaches the viewport. The first group matches the default setup for
+      the Explore links; the following groups demonstrate ignored and nested
+      items.</p>
+
+    <div class="content-reveal-previews">
+      <div class="content-reveal-demo" data-reveal-group data-testid="reveal-flat">
+        <a href="#">Explore 01</a>
+        <a href="#">Explore 02</a>
+        <a href="#">Explore 03</a>
+        <a href="#">Explore 04</a>
+      </div>
+
+      <div class="content-reveal-demo" data-reveal-group data-testid="reveal-ignore">
+        <div>Included 01</div>
+        <div data-ignore="true">Ignored</div>
+        <div>Included 02</div>
+        <div>Included 03</div>
+      </div>
+
+      <div class="content-reveal-demo" data-reveal-group data-testid="reveal-nested">
+        <div>Before nested</div>
+        <div>
+          <div data-reveal-group-nested data-stagger="150" data-distance="3em">
+            <span>Nested 01</span>
+            <span>Nested 02</span>
+            <span>Nested 03</span>
+          </div>
+        </div>
+        <div>After nested</div>
       </div>
     </div>
 

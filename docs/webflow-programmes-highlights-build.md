@@ -80,8 +80,7 @@ intro's body copy is a plain `p.text-size-regular`.
 
 The three `prog-highlights_copy-heading` elements are built the same way, out of
 `prog-highlights_copy-line` spans, with two decorative shape spans riding the
-last line of the first one. Note that the first is a `div` while the other two
-are `h3` — an inconsistency in the build, not a deliberate choice.
+last line of the first one. All three are `h3`.
 
 Two things from the Figma were **not** built under this build's brief: the
 intro's arrow button, and nothing else outstanding. The curved copy around each

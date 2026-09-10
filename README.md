@@ -47,6 +47,9 @@ dist/          bundled output pasted into Webflow custom code
 - [`docs/signature-events.md`](docs/signature-events.md) — the Signature Events
   band: element tree, measurements, the parallax wordmark
   (`horizontalParallax.js`) and the per-card brand shape (`shapeSwap.js`).
+- [`docs/image-breaker.md`](docs/image-breaker.md) — the image breaker that
+  closes the CEO's Foreword: how the Flip waypoints work, the Webflow contract,
+  measurements, and troubleshooting.
 - [`docs/programmes-overview.md`](docs/programmes-overview.md) — the Programmes
   Overview section: element tree, the three placements that are load-bearing
   (path, hover bar, row reveal), measurements, and the CSS embed.
@@ -116,8 +119,11 @@ npm run test:e2e:install # install the local Chromium browser once
 
 ## Browser testing
 
-Playwright Test is configured in `playwright.config.js` and starts the Vite
-preview on port `4174` for each run. The tests cover component boot, SplitText
+Playwright Test is configured in `playwright.config.js` and starts its own Vite
+dev server for each run, on a port derived from the checkout's absolute path
+(41000-42999). Each worktree therefore gets its own stable port, and a server
+belonging to another checkout is never reused. Override with `PW_PORT` when a
+port must be pinned; the run prints the URL it serves. The tests cover component boot, SplitText
 initialization, scroll state changes, WebGL canvas pixels, and a 390px mobile
 viewport. It also checks missing image manifests, resize reinitialization,
 decorative canvas accessibility metadata, and reduced-motion usability.
@@ -125,7 +131,7 @@ Screenshots and traces are retained only when a test fails.
 
 Install Chromium once with `npm run test:e2e:install`, then use
 `npm run test:e2e`. Use `npm run test:e2e:ui` while tuning timing or easing;
-use `npx playwright codegen http://127.0.0.1:4174` to explore selectors for a
+use `npx playwright codegen <the URL the run printed>` to explore selectors for a
 new interaction test. Keep assertions tied to the `data-*` contract, not
 Webflow-generated classes.
 

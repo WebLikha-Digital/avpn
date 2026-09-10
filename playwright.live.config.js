@@ -12,12 +12,7 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
-  webServer: {
-    command: "npm run webflow",
-    url: "http://localhost:4173/animations.min.js",
-    reuseExistingServer: true,
-    timeout: 30_000,
-  },
+  globalSetup: "./tests/live/globalSetup.js",
   projects: [
     {
       name: "chromium",

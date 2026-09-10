@@ -236,7 +236,7 @@ After updating the instructions, test the contract with a harmless documentation
 | Sandbox: .git write | git config --local | exit 255, could not lock config file |
 | Sandbox: port bind | node net.listen 127.0.0.1:4199 | EPERM |
 | Sandbox: build | npm run build | exit 0 |
-| T5 no late write | watch for any codex process appearing for 20 min after exit | running |
+| T5 no late write | watch for any codex process appearing for 20 min after exit | none appeared, exit 0 |
 | Rule 1 enforcement | Agent call with subagent_type codex:codex-rescue | denied by a PreToolUse hook |
 
 A killed run is distinguished from a live one by a non-zero exit plus the absence of a terminal event.
@@ -256,8 +256,10 @@ That hook lives in `.claude/settings.local.json`, which is gitignored. **It prot
 this machine only.** A teammate cloning the repo gets the prose rule and no guard. Move
 the hook to `.claude/settings.json` if that matters.
 
-Every step of the validation scenario below has now been exercised except the
+Every step of the validation scenario below has been exercised except the
 isolated-worktree path, which is only needed if concurrent work is ever required.
+T5 closes the original incident directly: the attached run left nothing behind that
+could write to the checkout later.
 
 If this scenario cannot be completed reliably, keep Codex limited to read-only review
 or patch suggestions until `codex exec` provides trustworthy lifecycle control or

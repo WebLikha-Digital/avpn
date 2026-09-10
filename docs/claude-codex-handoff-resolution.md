@@ -225,11 +225,35 @@ After updating the instructions, test the contract with a harmless documentation
 
 ### What has already been run
 
-Steps 2 and 3 are done. Three foreground `codex exec --sandbox <mode> --json` runs were
-executed against this checkout. Each stayed attached, streamed
-`thread.started` → `turn.started` → `item.*`, and ended on `turn.completed` with the
-process exiting. The capability results are in **Measured sandbox limits** above.
+#### Contract tests
 
-Still to exercise: the termination barrier (step 5).
+| Test | Method | Result |
+| --- | --- | --- |
+| T1 termination barrier | kill an attached codex exec mid-run | exit 143, no surviving 'codex exec' process |
+| T2 terminal states | force turn.failed via an invalid model; kill a run | turn.completed, turn.failed and error all observed; a killed run emits NO terminal event and leaves turn.started as its last line, exit 143 |
+| T3 full handoff | this edit | see below |
+| T4 fallback trigger | env PATH=/nonexistent codex exec | exit 127, 'No such file or directory' |
+| Sandbox: .git write | git config --local | exit 255, could not lock config file |
+| Sandbox: port bind | node net.listen 127.0.0.1:4199 | EPERM |
+| Sandbox: build | npm run build | exit 0 |
+| T5 no late write | hash the delegated file for 20 min after exit | running |
+| Rule 1 enforcement | Agent call with subagent_type codex:codex-rescue | denied by a PreToolUse hook |
 
-If this scenario cannot be completed reliably, keep Codex limited to read-only review or patch suggestions until the plugin provides trustworthy task lifecycle control or isolated worktrees.
+A killed run is distinguished from a live one by a non-zero exit plus the absence of a terminal event.
+
+Rule 1 is the only rule a test cannot cover, because it is an instruction to Claude
+rather than a property of the environment — and an instruction of exactly that kind is
+what failed the first time. It is therefore backed by a `PreToolUse` hook on `Agent`
+that denies any call whose `subagent_type` matches `codex-rescue`, with the reason and
+the correct command in the denial message.
+
+That hook lives in `.claude/settings.local.json`, which is gitignored. **It protects
+this machine only.** A teammate cloning the repo gets the prose rule and no guard. Move
+the hook to `.claude/settings.json` if that matters.
+
+Every step of the validation scenario below has now been exercised except the
+isolated-worktree path, which is only needed if concurrent work is ever required.
+
+If this scenario cannot be completed reliably, keep Codex limited to read-only review
+or patch suggestions until `codex exec` provides trustworthy lifecycle control or
+isolated worktrees.

@@ -23,6 +23,19 @@ test("boots every preview component", async ({ page }) => {
   await expect(page.locator("[data-tunnel2-init] canvas")).toHaveCount(1);
 });
 
+test("gives split masks descender room without changing line spacing", async ({ page }) => {
+  const spacing = await page.locator(".mask-demo__inner .line-mask").first().evaluate((mask) => {
+    const styles = getComputedStyle(mask);
+    return {
+      paddingBottom: Number.parseFloat(styles.paddingBottom),
+      marginBottom: Number.parseFloat(styles.marginBottom),
+    };
+  });
+
+  expect(spacing.paddingBottom).toBeGreaterThan(0);
+  expect(spacing.paddingBottom + spacing.marginBottom).toBeCloseTo(0, 5);
+});
+
 test("WebGL previews allocate live render surfaces", async ({ page }) => {
   const canvases = page.locator("canvas");
   const surfaces = await canvases.evaluateAll((items) =>

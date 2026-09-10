@@ -101,7 +101,7 @@ export function initSplitReveal() {
         }
 
         return gsap.from(targets, {
-          yPercent: 110,
+          yPercent: 120,
           duration: config.duration,
           stagger: config.stagger,
           ease: "expo.out",

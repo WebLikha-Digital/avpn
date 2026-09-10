@@ -103,6 +103,13 @@ That server is only for a person's local-development browser. The automated
 the footer's bundle request directly from `dist/`; it never starts, needs, or
 reuses port 4173.
 
+Port 4173 is fixed and single-owner. The published page names it, so it cannot
+move, and only one checkout may serve it at a time — the main checkout when
+working in Warp, or the active Conductor workspace when working there. Check it
+is free with `lsof -nP -iTCP:4173 -sTCP:LISTEN` before starting, and stop
+whatever holds it rather than starting a second server. Never copy workspace
+files into the main checkout to test them; serve the workspace's own bundle.
+
 Publish **once** after the script tag is added; after that, JS changes need no
 republish. Custom code doesn't run in the Designer canvas, so test against
 `avpn-25-26.webflow.io`, not Designer preview.

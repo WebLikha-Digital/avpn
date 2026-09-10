@@ -138,3 +138,27 @@ Webflow-generated classes.
 `npm run webflow` is the Webflow loop: the published site pulls the bundle off
 this machine, so a save is live on refresh with no republish. See
 `skills/webflow-animation-embed/SKILL.md` for the script tag and its caveats.
+
+### Port 4173 has exactly one owner
+
+The Webflow project's footer requests `http://localhost:4173/animations.min.js`.
+That port is fixed — the published site names it — and only one checkout may
+hold it at a time.
+
+Whoever runs `npm run webflow` owns it: the main checkout when working in Warp,
+or the active Conductor workspace when working there. Never run the Webflow dev
+server from the main checkout and a workspace at the same time; the published
+page has no way to tell whose bundle it got, and the wrong one looks like a bug
+in the code. Check the port is free before starting, and stop the server that
+holds it rather than starting a second one:
+
+```bash
+lsof -nP -iTCP:4173 -sTCP:LISTEN
+```
+
+Never copy workspace files back into the main checkout just to test them — serve
+the workspace's own bundle instead.
+
+This applies to hand-driven development only. The automated `npm run test:e2e:live`
+run never touches 4173: it builds in global setup and each spec fulfils the
+bundle request from `dist/`. `npm run test:e2e` binds its own derived port.

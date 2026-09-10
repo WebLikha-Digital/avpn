@@ -33,6 +33,10 @@ Skill tool or pulled in by Codex via AGENTS.md.
   convention (GSAP-based DOM/scroll animation).
 - `threejs-canvas/` — same conventions, adapted for WebGL/canvas components
   (render loop lifecycle, GPU resource disposal, resize/visibility handling).
+- `codex-handoff/` — how Claude hands repository code work to Codex, what the handoff
+  must contain, and the report Codex returns.
+- `review-pr/` — the automated PR review: independent reviewer, verdicts, the
+  CHANGES_REQUIRED loop and its cap, and what may merge itself.
 - `fix-bug/` — the workflow to follow when a bug is reported: acceptance criteria,
   `fix/` branch, early draft PR, reproduce-then-fix, the checks this repo actually
   has, and the post-merge cleanup.

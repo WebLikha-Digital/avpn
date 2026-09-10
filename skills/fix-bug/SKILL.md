@@ -223,6 +223,12 @@ Rewrite the PR body to be the full record:
 
 Mark the PR ready for review (`gh pr ready`).
 
+Then run the automated review in `skills/review-pr/SKILL.md`. It runs in a fresh
+subagent that sees only the diff, the acceptance criteria, and CI — not this
+workflow's reasoning. A `CHANGES_REQUIRED` verdict goes back through the fix loop; a
+`BLOCKED` verdict hands off to the user. Only a `PASS` reaches the gates below, and a
+`PASS` on its own still does not authorize a merge — every gate must pass too.
+
 ### 10. Merge or hand off
 
 A bug fix may merge itself **only** when every one of these gates passes. They are

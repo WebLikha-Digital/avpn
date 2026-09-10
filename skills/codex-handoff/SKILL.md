@@ -62,8 +62,12 @@ If Webflow markup, classes, or attributes need to change for the code to have
 something to bind to, make those changes first and describe them in **Relevant
 context**. Codex cannot see Webflow.
 
-If the Codex CLI is unavailable or fails, implement the change yourself and note that
-in the PR body. Do not leave the task unstarted.
+If `codex exec` is missing, unauthenticated, or reaches a terminal failure —
+`turn.failed`, `error`, or a non-zero exit — implement the change yourself and note
+that in the PR body. Do not leave the task unstarted.
+
+Begin only after the process has exited. If a run has to be abandoned, kill it and
+confirm no `codex` process survives before touching the delegated files.
 
 ## Handoff template
 

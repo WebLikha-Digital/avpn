@@ -56,9 +56,14 @@ Claude does not edit delegated files while the process is alive. If a run has to
 abandoned, kill it and confirm no `codex` process is still running against this
 checkout before taking over.
 
-If Codex is unavailable or reaches a terminal failure, Claude implements the change
-directly and says so in the PR body — the delegation rule is not a reason to leave
-work undone.
+**Fallback.** If `codex exec` is missing, unauthenticated, or reaches a terminal
+failure — `turn.failed`, `error`, or a non-zero exit — Claude implements the change
+directly and says so in the PR body. Delegation is not a reason to leave work undone.
+
+Start the fallback only once the process has actually exited. While a run is alive,
+wait for it; if it must be abandoned, kill it and confirm no `codex` process survives
+first. Editing the delegated files alongside a live run is what produced the overwrite
+this contract exists to prevent.
 
 See `docs/claude-codex-handoff-resolution.md` for how this contract was arrived at.
 

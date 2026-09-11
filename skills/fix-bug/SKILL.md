@@ -9,7 +9,8 @@ the acceptance criteria, and the PR exist before the fix does.
 
 **Ownership:** Claude owns requirements, acceptance criteria, clean `main`, the
 branch and draft PR, all Webflow and browser/E2E/live validation, review, Git, merge,
-and cleanup. Publishing is never part of a fix. Codex owns repository inspection,
+and cleanup, including publishing to the `webflow.io` staging subdomain when a
+Webflow-side change must be verified on the published page. Codex owns repository inspection,
 root-cause diagnosis, implementation, regression specs, applicable build/routing
 checks, self-review, and its report. Codex never edits Webflow, publishes, commits,
 pushes, creates branches, or opens PRs.
@@ -129,7 +130,7 @@ browser, responsive, E2E, and live checks. CI's result gates an auto-merge.
 | Build — Codex | `npm run build` | `src/**`, `package.json`, `vite.config.js`, or `dist/**` changed. |
 | Routing — Codex | `npm run test:routing` | `scripts/ci/**` changed. |
 | E2E (local) — Claude | `npm run test:e2e` | Always for animation/behaviour changes. |
-| E2E (live site) — Claude/human | `npm run test:e2e:live` | When deliberately validating a published-site bug. |
+| E2E (live site) — Claude/human | `npm run test:e2e:live` | When deliberately validating a published-site bug. If the fix changed Webflow, publish to staging first so the published markup matches. |
 | Headed debugging — Claude | `npm run test:e2e:headed` / `npm run test:e2e:ui` | While diagnosing a failing spec. |
 | Browser check — Claude | manual, via `npm run dev` or `npm run webflow` | Always for visual/scroll bugs. |
 | Responsive check — Claude | manual, at the report's breakpoints | Whenever layout or breakpoints are involved. |

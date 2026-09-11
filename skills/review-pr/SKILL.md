@@ -234,5 +234,7 @@ self-enforced.
 
 ## Publishing is separate
 
-Merging a PR does not ship to the live site — publishing from Webflow does. Never
-publish unless the task explicitly asks for it.
+Merging a PR does not ship to the live site — publishing from Webflow does. Claude
+may publish to the `webflow.io` staging subdomain to verify Webflow changes on the
+published page, and records that in the PR. Publishing to a custom domain still
+requires the task to ask for it.

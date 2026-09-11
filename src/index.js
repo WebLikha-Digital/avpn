@@ -16,6 +16,7 @@ import {
 } from "./animations/horizontalScroller.js";
 import { initRotaryWheel } from "./animations/rotaryWheel.js";
 import { initStoriesStack } from "./animations/storiesStack.js";
+import { initArcScrollTransition } from "./animations/arcScrollTransition.js";
 import { initProgrammesOverview } from "./animations/programmesOverview.js";
 import { initListHoverReveal } from "./animations/listHoverReveal.js";
 import { initListPreviewFollower } from "./animations/listPreviewFollower.js";
@@ -44,6 +45,7 @@ function init() {
   initClipReveal();
   initHighlightDrum();
   initStoriesStack();
+  initArcScrollTransition();
   initProgrammesOverview();
   initListHoverReveal();
   initListPreviewFollower();

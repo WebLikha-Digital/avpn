@@ -4,7 +4,8 @@ How Claude hands repository code work to Codex, and what Codex returns.
 
 Use this whenever a task is code-only, or when the repository half of a mixed task is
 ready to implement. Claude classifies the task, gets the user's OK, creates the
-branch, does any Webflow work first, and only then writes the handoff below.
+branch, does any Webflow work first (publishing to staging if the live check will
+need it), and only then writes the handoff below.
 
 ## How to launch it
 

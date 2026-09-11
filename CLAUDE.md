@@ -100,7 +100,8 @@ Classify before implementing.
 - **Code-only** — GSAP behavior, JS bugs, animation lifecycle, refactors, tests,
   build config, repo CSS. Claude hands off to Codex, unless it is **trivial** (below).
 - **Mixed** — Claude does the Webflow half, hands the repo half to Codex, then
-  validates the integrated result end to end.
+  validates the integrated result end to end — publishing to staging first when the
+  live check depends on the Webflow change.
 - **Trivial** — a mechanical repo edit Claude makes directly, without Codex. See
   **When Codex does not run**.
 
@@ -212,8 +213,10 @@ rather than opening another branch for the same logical change.
   `git diff --name-only main...HEAD | node scripts/ci/classify-paths.mjs`.
 - `main` has no branch protection. Nothing on GitHub enforces the merge gates — they
   are self-enforced, so never merge past a red or pending check.
-- Publishing the Webflow site is a separate act from merging a PR. Never publish
-  unless the task explicitly asks for it.
+- Publishing the Webflow site is a separate act from merging a PR. Claude may
+  publish to the `webflow.io` staging subdomain (`avpn-25-26.webflow.io`) whenever
+  Webflow changes need verification on the published page, and says so in the PR.
+  Publishing to a custom domain still requires the task to ask for it.
 
 ### Bug fixes
 

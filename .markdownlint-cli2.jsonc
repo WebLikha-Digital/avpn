@@ -1,0 +1,13 @@
+{
+  // Lightweight docs check for markdown-only PRs. Structural problems only;
+  // prose style is not linted.
+  "config": {
+    "default": true,
+    "MD013": false,
+    "MD024": { "siblings_only": true },
+    "MD033": false,
+    "MD040": false,
+    "MD041": false
+  },
+  "ignores": [".claude/**", "node_modules/**", "dist/**", "playwright-report/**", "test-results/**"]
+}

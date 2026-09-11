@@ -123,6 +123,7 @@ Project:
 AVPN animation repository used by the Webflow site.
 
 Relevant implementation details:
+
 - [relevant component / animation / section]
 - [relevant selectors or data attributes]
 - [relevant files if already known]

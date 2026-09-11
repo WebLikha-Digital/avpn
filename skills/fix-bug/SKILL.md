@@ -14,7 +14,7 @@ the acceptance criteria, and the PR exist before the fix does.
   so browser verification matters more than unit assertions here.
 - There is no linter and no type checker configured. Do not invent one, and do not
   claim a lint or type-check step ran. The real checks are listed under
-  [Checks](#checks).
+  [Checks](#7-checks).
 - Some bugs live in Webflow (markup, classes, custom attributes), not in this repo.
   If the root cause is in the Designer, say so and stop — an unrelated JS patch that
   papers over a Webflow structure problem is not a fix.

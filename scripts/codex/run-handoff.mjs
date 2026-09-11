@@ -16,7 +16,7 @@ function positiveNumber(value, flag) {
 
 export function parseArgs(argv) {
   const options = {
-    model: "gpt-5.6-sol",
+    model: "gpt-5.6-luna",
     sandbox: "workspace-write",
     timeoutMs: DEFAULT_TIMEOUT_MS,
     exitGraceMs: DEFAULT_EXIT_GRACE_MS,

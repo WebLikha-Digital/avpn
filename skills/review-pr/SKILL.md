@@ -176,7 +176,7 @@ Something concrete must change. Route each finding by ownership:
 
 - **repository code finding** → Claude turns it into a fix request and sends it to
   Codex by **resuming the original handoff session** with
-  `node scripts/codex/run-handoff.mjs --resume <thread_id> --model gpt-5.6-sol --sandbox workspace-write --prompt "<all findings>"`
+  `node scripts/codex/run-handoff.mjs --resume <thread_id> --model gpt-5.6-luna --sandbox workspace-write --prompt "<all findings>"`
   (see `skills/codex-handoff/SKILL.md` **Fix rounds**), naming the same branch. Codex
   fixes and runs the applicable build/routing self-validation; Claude runs
   `npm run test:e2e` when applicable, reviews the diff, commits, and pushes. Codex

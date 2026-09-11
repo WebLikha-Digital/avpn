@@ -39,7 +39,7 @@ a false report.
 Delegate one way only, from the prepared branch, through the supervised launcher:
 
 ```bash
-node scripts/codex/run-handoff.mjs --model gpt-5.6-sol --sandbox workspace-write --timeout-seconds 540 --prompt "<scoped task>"
+node scripts/codex/run-handoff.mjs --model gpt-5.6-luna --sandbox workspace-write --timeout-seconds 540 --prompt "<scoped task>"
 ```
 
 Use the nine-minute override for small foreground tasks so the command ends before
@@ -81,14 +81,14 @@ See `docs/claude-codex-handoff-resolution.md` for how this contract was arrived 
 
 ### Models
 
-Claude Opus orchestrates, plans, reviews, and merges. Every Codex task that modifies
-repository files runs on `gpt-5.6-sol` with `--sandbox workspace-write`. Read-only,
-non-intensive Codex tasks — inspection, summaries, inventory, log triage — may run on
-`gpt-5.6-luna` with `--sandbox read-only`; the read-only sandbox is what enforces the
-boundary. A Luna task never expands into a repository mutation: if it finds files need
-to change, it ends with a recommendation and Claude starts a fresh Sol task or resumes
-the branch's existing Sol session. Fix rounds use a new launcher invocation with
-`--resume <thread_id>`; the launcher supplies Codex's different resume syntax. See
+Claude Opus orchestrates, plans, reviews, and merges. Every Codex task runs on
+`gpt-5.6-luna`. The sandbox, not the model, sets the boundary: a task that modifies
+repository files runs with `--sandbox workspace-write`; read-only, non-intensive
+tasks — inspection, summaries, inventory, log triage — run with `--sandbox read-only`.
+A read-only task never expands into a repository mutation: if it finds files need to
+change, it ends with a recommendation and Claude starts a fresh workspace-write task
+or resumes the branch's existing session. Fix rounds use a new launcher invocation
+with `--resume <thread_id>`; the launcher supplies Codex's different resume syntax. See
 `skills/codex-handoff/SKILL.md`.
 
 ## Task routing

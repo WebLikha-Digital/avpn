@@ -30,12 +30,12 @@ task, acceptance criteria, branch name, and the report format to return. Follow 
 
 ## Models
 
-Claude Opus is the orchestrator, planner, reviewer, and merger. Every Codex task that
-modifies repository files uses `gpt-5.6-sol` with the workspace-write sandbox.
-Read-only, non-intensive inspection, summaries, inventory, and log triage may use
-`gpt-5.6-luna` only with the read-only sandbox. A Luna task never expands into file
-changes: if it finds a mutation is needed, recommend it so Claude can start a fresh
-Sol task or resume the branch's existing Sol session.
+Claude Opus is the orchestrator, planner, reviewer, and merger. Every Codex task
+uses `gpt-5.6-luna`. The sandbox sets the boundary: a task that modifies repository
+files uses the workspace-write sandbox; read-only, non-intensive inspection, summaries,
+inventory, and log triage use the read-only sandbox. A read-only task never expands
+into file changes: if it finds a mutation is needed, recommend it so Claude can start
+a fresh workspace-write task or resume the branch's existing session.
 
 ## Skills
 

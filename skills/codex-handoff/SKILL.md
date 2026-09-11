@@ -23,6 +23,23 @@ Agent tool; the Agent-tool ban below still stands.
 Only process exit together with `turn.completed`, `turn.failed` or `error` is a
 result; `thread.started` and `turn.started` mean work began, nothing more.
 
+Keep the `thread_id` from the `thread.started` event. It is the session id for
+**Fix rounds** below.
+
+## Fix rounds
+
+When the review returns `CHANGES_REQUIRED` on repository code, do not send a fresh
+handoff — Codex would rebuild its understanding of the branch from nothing. Resume
+the session that wrote the code:
+
+```bash
+codex exec resume <thread_id> --sandbox workspace-write --json "<the findings, as path:line — problem — fix, plus: fix these on the current branch, run npm run build, report in the same structure>"
+```
+
+Same rules as the first run: attached (or `run_in_background` if long), no repo edits
+while it is alive, same **Return to Claude** structure back. Resume only for the same
+branch and task; a different task gets a fresh `codex exec`.
+
 While a background run is alive: no edits to repository files, no `git` writes, no
 `npm run build`. Webflow Designer and MCP work may continue — it does not touch the
 checkout. Before touching files after a run ends, confirm no `codex` process

@@ -89,8 +89,10 @@ layout/content/style and repo code for behavior Webflow cannot do natively.
 
 ### When Codex does not run
 
-Spinning up Codex costs minutes. Do not pay it for a change that has no behavior in
-it. Claude edits directly when **all** of these hold:
+A delegated run is a full inspect-implement-validate cycle — measured at ~10
+minutes for a real component, of which only seconds are process start-up. Do not pay
+that for a change that has no behavior in it. Claude edits directly when **all** of
+these hold:
 
 - at most two files, plus the rebuilt bundle
 - no new logic — no new branch, loop, listener, timeline, ScrollTrigger, or
@@ -145,9 +147,12 @@ For every feature, fix, refactor, or maintenance task:
    plus browser and responsive verification. Strip debug, temporary, and unrelated
    changes, then commit and push.
 9. Open a pull request targeting `main`.
-10. Review the PR inline per `skills/review-pr/SKILL.md`, after CI settles.
-11. Merge the PR yourself once the review returns `PASS` and CI is green on the
-    PR's head commit (`gh pr merge <pr> --squash --delete-branch`). A bug fix must
+10. Review the PR inline per `skills/review-pr/SKILL.md`, after CI settles, and
+    post the verdict on the PR with `gh pr comment <pr> --body` — the review is
+    not done until that comment exists.
+11. Merge the PR yourself once the posted review says `PASS` and CI is green on
+    the PR's head commit (`gh pr merge <pr> --squash --delete-branch`). No review
+    comment on the head commit means no merge. A bug fix must
     additionally pass every gate in `skills/fix-bug/SKILL.md`. A `CHANGES_REQUIRED`
     or `BLOCKED` verdict, a red or pending check, or a failed bug-fix gate means
     hand the PR to the user instead — never merge past one.

@@ -22,9 +22,9 @@ Skill tool or pulled in by Codex via AGENTS.md.
 
 - **Claude Code** discovers skills via `.claude/skills`, which is a symlink to this
   folder — add a skill here and it's automatically available, no duplication.
-- **Codex** doesn't have a native skills mechanism, so `AGENTS.md` at the repo root
-  points it here and tells it to read the relevant `SKILL.md` before doing related
-  work.
+- **Codex** has its own skills and subagent mechanisms, but this repo does not use
+  them: `AGENTS.md` at the repo root points Codex here and tells it to read the
+  relevant `SKILL.md` before doing related work, so both agents follow one copy.
 
 ## Current skills
 
@@ -35,8 +35,9 @@ Skill tool or pulled in by Codex via AGENTS.md.
   (render loop lifecycle, GPU resource disposal, resize/visibility handling).
 - `codex-handoff/` — how Claude hands repository code work to Codex, what the handoff
   must contain, and the report Codex returns.
-- `review-pr/` — the automated PR review: independent reviewer, verdicts, the
-  CHANGES_REQUIRED loop and its cap, and what may merge itself.
+- `review-pr/` — the PR review Claude runs inline after CI settles: what it reads,
+  the verdict posted on the PR, the CHANGES_REQUIRED loop and its cap, and when
+  Claude merges.
 - `fix-bug/` — the workflow to follow when a bug is reported: acceptance criteria,
   `fix/` branch, early draft PR, reproduce-then-fix, the checks this repo actually
   has, and the post-merge cleanup.

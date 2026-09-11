@@ -165,6 +165,10 @@ rather than opening another branch for the same logical change.
 - Never add a `Co-authored-by` trailer (or any co-author attribution) to commits.
 - Pushing a feature branch and opening its PR needs no separate approval; pushing
   to `main` itself is never done.
+- "CI is green" means every workflow that ran on the head commit passed. Code or
+  config changes run `CI` (`build-and-test`); markdown-only changes skip it and run
+  `Docs` (`markdown-lint`) instead; a PR touching both runs both. A skipped
+  workflow is not a failure, but a PR with no check at all is not green either.
 - `main` has no branch protection. Nothing on GitHub enforces the merge gates — they
   are self-enforced, so never merge past a red or pending check.
 - Publishing the Webflow site is a separate act from merging a PR. Never publish

@@ -137,4 +137,3 @@ already wired.
 | Gaps look different at different depths | This is normal perspective projection. Compare panels at the same depth before treating it as a layout issue. |
 | Nothing renders | The mount has no CSS height, WebGL is unavailable, or the authored mount is a `<canvas>` instead of a `div`. |
 | Live page looks unchanged | Rebuild the bundle, make sure the Webflow footer points to the local/hosted bundle being tested, then refresh the published page. |
-

@@ -3,11 +3,16 @@ name: CI
 # The gate for auto-merging a bug fix. If these checks are not green, no fix
 # merges on its own — see skills/fix-bug/SKILL.md.
 
+# Markdown-only changes skip this workflow and run docs.yml instead.
 on:
   pull_request:
     branches: [main]
+    paths-ignore:
+      - "**.md"
   push:
     branches: [main]
+    paths-ignore:
+      - "**.md"
 
 jobs:
   build-and-test:

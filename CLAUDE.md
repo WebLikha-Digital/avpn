@@ -39,7 +39,7 @@ a false report.
 Delegate one way only, from the prepared branch:
 
 ```bash
-codex exec --sandbox workspace-write --json "<scoped task>"
+codex exec -m gpt-5.6-sol --sandbox workspace-write --json "<scoped task>"
 ```
 
 Run it through the Bash tool. Attached by default; for a run that may exceed the
@@ -71,6 +71,18 @@ this contract exists to prevent.
 
 See `docs/claude-codex-handoff-resolution.md` for how this contract was arrived at.
 
+### Models
+
+Claude Opus orchestrates, plans, reviews, and merges. Every Codex task that modifies
+repository files runs on `gpt-5.6-sol` with `--sandbox workspace-write`. Read-only,
+non-intensive Codex tasks — inspection, summaries, inventory, log triage — may run on
+`gpt-5.6-luna` with `--sandbox read-only`; the read-only sandbox is what enforces the
+boundary. A Luna task never expands into a repository mutation: if it finds files need
+to change, it ends with a recommendation and Claude starts a fresh Sol task or resumes
+the branch's existing Sol session. Fix rounds resume with
+`codex exec resume <thread_id> -m gpt-5.6-sol -c 'sandbox_mode="workspace-write"'` —
+`resume` has no `--sandbox` flag. See `skills/codex-handoff/SKILL.md`.
+
 ## Task routing
 
 Classify before implementing.
@@ -101,8 +113,14 @@ these hold:
   around it to understand the code
 
 Typical trivial edits: a tunable default or constant, a selector or attribute name,
-docs, `skills/`, `CLAUDE.md`, `AGENTS.md`, CI YAML, config values, dependency pins,
-a rebuilt `dist/`.
+docs, a typo or wording fix in `skills/`, `CLAUDE.md`, or `AGENTS.md`, a CI YAML
+value with no logic in it, config values, dependency pins, a rebuilt `dist/`.
+
+Workflow instructions — `AGENTS.md`, `CLAUDE.md`, `skills/**`, `.github/**`,
+`scripts/ci/**` — are operational code, not prose. A trivial edit to them skips the
+handoff, never the focused workflow review in `skills/review-pr/SKILL.md`
+**Review tiers**. A change that adds or alters a rule, a step, an owner, or a CI
+condition is not trivial.
 
 Everything else goes to Codex: new components or behavior, GSAP or three.js logic,
 lifecycle and cleanup, tests, refactors, bug fixes that need a root cause, build
@@ -142,16 +160,19 @@ For every feature, fix, refactor, or maintenance task:
 5. Keep the branch focused on one logical change.
 6. Define the acceptance criteria and get the user's OK (see **Approval**).
 7. Route the work: Webflow to Claude, repository code to Codex via
-   `skills/codex-handoff/SKILL.md`.
+   `skills/codex-handoff/SKILL.md`. For a bug fix, the draft PR from
+   `skills/fix-bug/SKILL.md` step 4 exists before the handoff; for other work it may
+   be opened after the first push.
 8. Review the returned diff, then run the checks Codex could not — `npm run test:e2e`
    plus browser and responsive verification. Strip debug, temporary, and unrelated
    changes, then commit and push.
 9. Open a pull request targeting `main`.
-10. Review the PR inline per `skills/review-pr/SKILL.md`, after CI settles, and
-    post the verdict on the PR with `gh pr comment <pr> --body` — the review is
-    not done until that comment exists.
-11. Merge the PR yourself once the posted review says `PASS` and CI is green on
-    the PR's head commit (`gh pr merge <pr> --squash --delete-branch`). No review
+10. Review the PR inline per `skills/review-pr/SKILL.md`, at the tier the CI
+    `classify` route selects, after `gate` settles, and post the verdict on the PR
+    with `gh pr comment <pr> --body` — the review is not done until that comment
+    exists.
+11. Merge the PR yourself once the posted review says `PASS` and the `gate` check
+    is green on the PR's head commit (`gh pr merge <pr> --squash --delete-branch`). No review
     comment on the head commit means no merge. A bug fix must
     additionally pass every gate in `skills/fix-bug/SKILL.md`. A `CHANGES_REQUIRED`
     or `BLOCKED` verdict, a red or pending check, or a failed bug-fix gate means
@@ -170,10 +191,17 @@ rather than opening another branch for the same logical change.
 - Never add a `Co-authored-by` trailer (or any co-author attribution) to commits.
 - Pushing a feature branch and opening its PR needs no separate approval; pushing
   to `main` itself is never done.
-- "CI is green" means every workflow that ran on the head commit passed. Code or
-  config changes run `CI` (`build-and-test`); markdown-only changes skip it and run
-  `Docs` (`markdown-lint`) instead; a PR touching both runs both. A skipped
-  workflow is not a failure, but a PR with no check at all is not green either.
+- "CI is green" means the `gate` job of the `CI` workflow passed on the head commit.
+  One workflow runs on every PR; its `classify` job routes the changed paths
+  (`scripts/ci/classify-paths.mjs`) and `gate` fails if any job the route requires
+  did not succeed. Routes: `runtime` (`src/**`, `tests/**`, `dist/**` with source,
+  `package.json`, lockfile, Vite and Playwright config) runs `build` and `e2e` in
+  parallel; `workflow` (`AGENTS.md`, `CLAUDE.md`, `skills/**`, `.github/**`,
+  `scripts/ci/**`) runs `docs` and `workflow` (routing tests + actionlint); `docs`
+  (other Markdown) runs `docs` only; `dist-orphan` (`dist/**` without a source
+  change) always fails. Unknown paths route `runtime`. A skipped job is not a pass:
+  `gate` treats a skipped required job as a failure. Check locally with
+  `git diff --name-only main...HEAD | node scripts/ci/classify-paths.mjs`.
 - `main` has no branch protection. Nothing on GitHub enforces the merge gates — they
   are self-enforced, so never merge past a red or pending check.
 - Publishing the Webflow site is a separate act from merging a PR. Never publish

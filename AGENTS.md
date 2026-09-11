@@ -28,6 +28,15 @@ there.
 Claude sends work through `skills/codex-handoff/SKILL.md`. That handoff carries the
 task, acceptance criteria, branch name, and the report format to return. Follow it.
 
+## Models
+
+Claude Opus is the orchestrator, planner, reviewer, and merger. Every Codex task that
+modifies repository files uses `gpt-5.6-sol` with the workspace-write sandbox.
+Read-only, non-intensive inspection, summaries, inventory, and log triage may use
+`gpt-5.6-luna` only with the read-only sandbox. A Luna task never expands into file
+changes: if it finds a mutation is needed, recommend it so Claude can start a fresh
+Sol task or resume the branch's existing Sol session.
+
 ## Skills
 
 Before doing work related to animations, builds, or Webflow embedding, check
@@ -38,19 +47,25 @@ When a bug is reported, follow `skills/fix-bug/SKILL.md`.
 
 ## Validation
 
-```bash
-npm run build
-```
-
-That works in your sandbox. `npm run test:e2e` does **not**: Playwright starts a local
-server and binding a port fails with `EPERM`. Write and update the specs — they are
-still your job — but do not try to run them, and never report them as passing. Claude
-runs the suite.
+Run `npm run build` whenever a change touches `src/**`, `package.json`,
+`vite.config.js`, or `dist/**`. Run `npm run test:routing` whenever it touches
+`scripts/ci/**`. Both work in your sandbox. Write or update regression specs, but do
+not run `npm run test:e2e`: Playwright starts a local server and binding a port fails
+with `EPERM`. Claude runs the suite.
 
 Never run `npm run test:e2e:live` either; it points at the live Webflow site and is
 only run deliberately, by a human.
 
 Never claim a check passed unless it ran. If a check cannot run, say why.
+
+Codex self-validation is evidence for Claude's review, never merge authorization.
+
+### Browser preview (future)
+
+If browser preview is ever enabled for Codex, it must be read-only and load this
+checkout's built `dist/animations.min.js`, not the published bundle. Animation
+measurements must use a visible foreground browser because a backgrounded tab freezes
+`requestAnimationFrame`.
 
 ## Git
 

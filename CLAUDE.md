@@ -116,7 +116,7 @@ For every feature, fix, refactor, or maintenance task:
    plus browser and responsive verification. Strip debug, temporary, and unrelated
    changes, then commit and push.
 9. Open a pull request targeting `main`.
-10. Run the automated review in `skills/review-pr/SKILL.md`.
+10. Review the PR inline per `skills/review-pr/SKILL.md`, after CI settles.
 11. Merge the PR yourself once the review returns `PASS` and CI is green on the
     PR's head commit (`gh pr merge <pr> --squash --delete-branch`). A bug fix must
     additionally pass every gate in `skills/fix-bug/SKILL.md`. A `CHANGES_REQUIRED`

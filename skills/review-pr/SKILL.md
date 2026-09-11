@@ -1,57 +1,58 @@
 # Review a Pull Request
 
-Every PR gets an automated review before it is considered complete. This skill
+Every PR gets a review before it is considered complete. This skill
 defines who reviews, what they judge, what verdict they return, and what happens
 next.
 
 Run this after the PR is open — for a bug fix, after step 9 of
 `skills/fix-bug/SKILL.md` and before the merge gates in step 10.
 
-## The reviewer must be a separate pass
+## Claude is the reviewer
 
-An agent cannot review its own work. Whoever implemented the change — Codex on a
-handoff, or Claude on Webflow work — has already decided the change is correct, and
-re-reading it in the same context produces agreement, not review.
+Claude reviews inline, in the orchestrating session. No subagent. A fresh subagent
+was measured at 1-3 minutes per round on a three-file docs diff, almost all of it
+cold-start reading rather than judgement, and the user found the loop too slow.
 
-So the review runs in a **fresh subagent** (`caveman:cavecrew-reviewer`, or
-`general-purpose` if that is not installed) which is given only:
+Independence comes from the split of labour, not from a separate process: in this
+repo Codex writes the repository code, so Claude reading that diff is already a
+second pair of eyes. For a change Claude authored itself — Webflow work, docs, a
+fallback implementation — the review is weaker and Claude should say so in the
+verdict, but it still runs.
 
-- the PR diff (`gh pr diff <pr>`)
+The review reads only:
+
+- the PR diff (`gh pr diff <pr>`) — read it fresh, as text, not from memory of
+  writing or delegating it
 - the task description and acceptance criteria
 - the final CI result, already settled (see **Wait for CI first**)
-- a pointer to the one skill file the change is governed by, if any — the reviewer
-  reads `src/` and `tests/` around the diff itself; it does not need `README.md` or
-  `AGENTS.md` unless the diff changes a convention those files describe
+- the one skill file the change is governed by, if any; `src/` and `tests/` around
+  the diff as needed. `README.md` and `AGENTS.md` only if the diff changes a
+  convention they describe
 
-Tell it which axes under **What the reviewer judges** the diff can actually reach, so
-it does not sweep the ones the change cannot touch. On a repeat round, also list the
-prior round's findings and which were accepted or rejected, with the reason — the
-reviewer starts cold every time and will otherwise re-raise a settled point.
+Judge only the axes under **What the reviewer judges** the diff can actually reach.
+On a repeat round, do not re-raise a finding that was accepted and fixed or rejected
+with a reason.
+
+The Codex report's `VALIDATION` block is evidence, not a review pass. Do not treat a
+Codex self-check, or your own reasoning while delegating, as having reviewed the
+diff.
 
 ## Wait for CI first
 
-Do not spawn the reviewer while CI is pending. A pending check counts as not passing,
-so an early reviewer either burns its run waiting or returns `CHANGES_REQUIRED` for a
-check that would have gone green a minute later — and that costs a whole extra round.
+Do not review while CI is pending. A pending check counts as not passing, so an
+early review returns `CHANGES_REQUIRED` for a check that would have gone green a
+minute later — and that costs a whole extra round.
 
-After pushing, block on CI from the orchestrating session:
+After pushing, block on CI:
 
 ```bash
 gh pr checks <pr> --watch --fail-fast
 ```
 
-Then pass the settled result (green, or the failing check by name) into the reviewer
-prompt. The reviewer still runs `gh pr checks <pr>` to confirm, but it should never
-be the one waiting.
-
-If CI is red, do not spawn a reviewer at all. Route the failure like a
-`CHANGES_REQUIRED` finding — the fix goes back through the handoff, gets pushed, and
-CI runs again — and only start the review once there is a green commit to judge.
-
-Do not paste the implementation transcript, the Codex report's reasoning, or your own
-argument for why the change is right. The reviewer reads the diff and judges it. A
-Codex self-check in its `VALIDATION` block is evidence, not a review pass, and does
-not substitute for this.
+Then review against the settled result. If CI is red, do not review at all. Route the
+failure like a `CHANGES_REQUIRED` finding — the fix goes back through the handoff,
+gets pushed, and CI runs again — and only start the review once there is a green
+commit to judge.
 
 ## What the reviewer does not do
 
@@ -127,7 +128,7 @@ Something concrete must change. Route each finding by ownership:
 - **Webflow finding** → Claude makes the Webflow change directly, then revalidates
   the integrated result.
 
-Then run a fresh review — a new subagent, same inputs, updated diff.
+Then review again — same inputs, updated diff, prior findings noted.
 
 **Cap the loop at three review rounds.** If round three does not return `PASS`, stop
 and return `BLOCKED`. A finding that survives three attempts is a design problem, not

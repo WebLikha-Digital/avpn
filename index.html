@@ -121,6 +121,52 @@
         text-transform: uppercase;
         text-align: center;
       }
+      [data-testid="shape-reveal"] {
+        display: grid;
+        gap: 1.25rem;
+        margin-bottom: 4rem;
+        container-type: inline-size;
+      }
+      [data-testid="shape-reveal"] .shape-reveal-demo__line {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.18em;
+        font-size: 7cqw;
+        line-height: 1;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+      [data-testid="shape-reveal"] [data-shape-reveal] {
+        display: inline-block;
+        flex: none;
+        width: 0.8em;
+        height: 0.8em;
+        background: #e94f37;
+      }
+      [data-testid="shape-reveal"] [data-shape-reveal="circle"] {
+        border-radius: 50%;
+        background: #3f88c5;
+      }
+      [data-testid="shape-reveal"] [data-shape-reveal="quarter"] {
+        border-radius: 100% 0 0;
+      }
+      [data-testid="shape-reveal"] [data-shape-reveal="half"] {
+        width: 0.4em;
+        border-radius: 0 999px 999px 0;
+        background: #44bba4;
+      }
+      [data-testid="shape-reveal"] [data-shape-reveal="photo"] {
+        width: 7rem;
+        height: 7rem;
+        border-radius: 50%;
+        background: none;
+        object-fit: cover;
+      }
+      [data-testid="shape-reveal"] .shape-reveal-demo__pair {
+        display: inline-flex;
+        gap: 0.08em;
+      }
       .marquee-demo {
         overflow: hidden;
         margin: 0 -2rem 4rem;
@@ -796,6 +842,41 @@
         >
           Our CEO's Foreword
         </div>
+      </div>
+    </div>
+
+    <p>Shape reveal — inline brand shapes and photographs enter with the
+      SplitText heading line. Shape and text delays can offset their timing.</p>
+
+    <div class="shape-reveal-demo" data-testid="shape-reveal">
+      <div class="shape-reveal-demo__line">
+        <span data-split="heading">Quarter turn</span>
+        <span
+          data-shape-reveal="quarter"
+          data-shape-origin="100% 100%"
+          data-shape-delay="0.1"
+          aria-hidden="true"
+        ></span>
+      </div>
+      <div class="shape-reveal-demo__line">
+        <img
+          data-shape-reveal="photo"
+          alt=""
+          src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='112' height='112' viewBox='0 0 112 112'%3E%3Crect width='112' height='112' fill='%23f7f1ea'/%3E%3Ccircle cx='56' cy='42' r='24' fill='%23003c3c'/%3E%3Cpath d='M18 112c5-28 19-42 38-42s33 14 38 42' fill='%23007b69'/%3E%3C/svg%3E"
+        />
+        <span data-split="heading" data-split-delay="0.1">Photo first</span>
+      </div>
+      <div class="shape-reveal-demo__line">
+        <span class="shape-reveal-demo__pair" aria-hidden="true">
+          <span data-shape-reveal="half" data-shape-pair="left"></span>
+          <span data-shape-reveal="half" data-shape-pair="right"></span>
+        </span>
+        <span data-split="heading">Paired halves</span>
+      </div>
+      <div class="shape-reveal-demo__line">
+        <span data-split="heading">Single shapes</span>
+        <span data-shape-reveal="half" aria-hidden="true"></span>
+        <span data-shape-reveal="circle" aria-hidden="true"></span>
       </div>
     </div>
 

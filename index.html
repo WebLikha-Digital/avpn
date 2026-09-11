@@ -210,38 +210,49 @@
         padding: 0;
         background: transparent;
       }
-      .flip-scale-demo {
-        margin-bottom: 4rem;
-      }
-      .flip-scale-demo__start,
-      .flip-scale-demo__end {
+      .section_image-breaker {
         position: relative;
-        box-shadow: 0 0 0 1px #777;
+        display: block;
+        height: 200vh;
+        padding: 0;
       }
-      .flip-scale-demo__start {
-        width: 22rem;
-        aspect-ratio: 4 / 3;
-        margin: 10vh auto 120vh;
-      }
-      .flip-scale-demo__end {
-        width: 100%;
-        aspect-ratio: 16 / 9;
-      }
-      .flip-scale-demo__target {
-        position: absolute;
-        inset: 0;
+      .image-breaker_sticky {
+        position: sticky;
+        top: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
         overflow: hidden;
-        border-radius: 1.5rem;
       }
-      .flip-scale-demo__target img {
+      .image-breaker_frame {
+        position: relative;
+        width: 100%;
+        max-height: 85vh;
+        aspect-ratio: 16 / 9;
+        overflow: hidden;
+        background: #e9e4dc;
+      }
+      .image-breaker_image {
         display: block;
         width: 100%;
         height: 100%;
         object-fit: cover;
       }
+      .image-breaker_start {
+        position: absolute;
+        inset: 0;
+        width: 22rem;
+        max-width: 100%;
+        aspect-ratio: 4 / 3;
+        margin: auto;
+        border-radius: 1.5rem;
+        pointer-events: none;
+        visibility: hidden;
+      }
       @media screen and (max-width: 767px) {
-        .flip-scale-demo__start { width: 15rem; }
-        .flip-scale-demo__end { aspect-ratio: 4 / 3; }
+        .image-breaker_frame { aspect-ratio: 4 / 3; }
+        .image-breaker_start { width: 15rem; }
       }
 
       /* --- Key Highlights drum ------------------------------------------
@@ -931,21 +942,22 @@
       </div>
     </div>
 
-    <p>Image breaker — the image starts in the small foreword frame and uses
-      <code>[data-flip-scale-*]</code> waypoints to grow into the full-width
-      frame below as the page scrolls.</p>
+    <p>Image breaker — a full-width frame stays sticky while
+      <code>[data-clip-reveal-*]</code> animates its clipped opening from the
+      hidden sizing box to the complete image.</p>
 
-    <div class="flip-scale-demo" data-flip-scale-init>
-      <div class="flip-scale-demo__start" data-flip-scale-wrapper>
-        <div class="flip-scale-demo__target" data-flip-scale-target>
+    <section class="section_image-breaker" data-clip-reveal-init>
+      <div class="image-breaker_sticky">
+        <div class="image-breaker_frame" data-clip-reveal-target>
           <img
+            class="image-breaker_image"
             alt="Abstract orange and teal image breaker preview"
             src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1600' height='900'%3E%3Crect width='1600' height='900' fill='%23002944'/%3E%3Ccircle cx='430' cy='440' r='360' fill='%23f27c38'/%3E%3Ccircle cx='1160' cy='390' r='470' fill='%23007b69'/%3E%3C/svg%3E"
           />
         </div>
+        <div class="image-breaker_start" data-clip-reveal-from></div>
       </div>
-      <div class="flip-scale-demo__end" data-flip-scale-wrapper></div>
-    </div>
+    </section>
 
 
     <p>Signature write-on — the Osmo <em>Draw Path on Scroll</em> resource

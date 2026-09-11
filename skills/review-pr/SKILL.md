@@ -106,6 +106,25 @@ Where the diff reaches them:
 The reviewer returns exactly one of `PASS`, `CHANGES_REQUIRED`, or `BLOCKED`, with
 findings as `path:line — problem — fix`.
 
+Post it on the PR before doing anything else with the verdict:
+
+```bash
+gh pr comment <pr> --body "$(cat <<'EOF'
+## Review — <PASS|CHANGES_REQUIRED|BLOCKED> @ <head sha>
+
+- Axes judged: ...
+- CI: <workflows that ran and their result>
+- Findings: <none | path:line — problem — fix, one per line>
+- Authorship: <Codex | Claude — independence weaker>
+EOF
+)"
+```
+
+The comment is the record that a review happened. Inline review is only prose in a
+session; without this it is easy to skip on a small PR and impossible to audit later.
+A merge with no review comment on the head commit is a contract violation, not a
+shortcut.
+
 ### PASS
 
 Only when all of these hold:
@@ -122,9 +141,11 @@ Only when all of these hold:
 Something concrete must change. Route each finding by ownership:
 
 - **repository code finding** → Claude turns it into a fix request and sends it to
-  Codex via `skills/codex-handoff/SKILL.md`, naming the same branch. Codex fixes and
-  runs `npm run build`; Claude runs `npm run test:e2e`, reviews the diff, commits,
-  and pushes. Codex cannot commit, push, or run the e2e suite in its sandbox.
+  Codex by **resuming the original handoff session** (`codex exec resume <id>`, see
+  `skills/codex-handoff/SKILL.md` **Fix rounds**), naming the same branch. Codex
+  fixes and runs `npm run build`; Claude runs `npm run test:e2e`, reviews the diff,
+  commits, and pushes. Codex cannot commit, push, or run the e2e suite in its
+  sandbox.
 - **Webflow finding** → Claude makes the Webflow change directly, then revalidates
   the integrated result.
 
@@ -151,7 +172,8 @@ Never merge a blocked PR.
 
 ## Merging
 
-A `PASS` plus green CI on the PR's head commit authorizes Claude to merge:
+A posted `PASS` comment on the PR's head commit plus green CI authorizes Claude to
+merge:
 
 ```bash
 gh pr merge <pr> --squash --delete-branch

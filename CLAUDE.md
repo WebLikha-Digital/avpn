@@ -85,7 +85,7 @@ layout/content/style and repo code for behavior Webflow cannot do natively.
 
 After classifying a task, state the classification and the acceptance criteria, then
 stop for the user's OK. Once approved, the rest of the chain — branch, handoff,
-Webflow work, PR, review — runs without further check-ins.
+Webflow work, PR, review, merge, cleanup — runs without further check-ins.
 
 ## Skills
 
@@ -117,11 +117,15 @@ For every feature, fix, refactor, or maintenance task:
    changes, then commit and push.
 9. Open a pull request targeting `main`.
 10. Run the automated review in `skills/review-pr/SKILL.md`.
-11. Never merge the PR — the user reviews and merges it. The one exception is a
-    bug fix that passes every auto-merge gate in `skills/fix-bug/SKILL.md`.
-12. After the PR is merged: switch back to `main`, pull the latest
-    `origin/main`, delete the local branch, and delete the remote branch if it
-    was not deleted automatically.
+11. Merge the PR yourself once the review returns `PASS` and CI is green on the
+    PR's head commit (`gh pr merge <pr> --squash --delete-branch`). A bug fix must
+    additionally pass every gate in `skills/fix-bug/SKILL.md`. A `CHANGES_REQUIRED`
+    or `BLOCKED` verdict, a red or pending check, or a failed bug-fix gate means
+    hand the PR to the user instead — never merge past one.
+12. After the merge: confirm it landed (`gh pr view <pr> --json state,mergedAt`),
+    switch back to `main`, pull the latest `origin/main`, delete the local branch,
+    and delete the remote branch if it was not deleted automatically. A `CLOSED`
+    PR is not a merged PR — never clean up a branch whose PR did not merge.
 
 If `main` already has uncommitted changes, branch first and carry those changes
 into the new branch before committing.
@@ -156,8 +160,8 @@ Bug fixes use `fix/` branches and follow `skills/fix-bug/SKILL.md`. The short fo
   discard them, and never fold them into the fix commit.
 - For a scroll-driven or animated bug, sample per animation frame during real
   continuous motion. Reading a settled position passes on a broken pin.
-- A bug fix may merge its own PR only when it passes every gate in the skill —
-  green CI, a regression spec that fails on `main` and passes on the branch, a
-  small diff confined to `src/`, `tests/`, and the rebuilt bundle, and acceptance
-  criteria that came from the user. Any gate failing means hand the PR off for
-  review.
+- A bug fix merges only when it passes every gate in the skill on top of the
+  general `PASS` + green CI rule — a regression spec that fails on `main` and
+  passes on the branch, a small diff confined to `src/`, `tests/`, and the rebuilt
+  bundle, and acceptance criteria that came from the user. Any gate failing means
+  hand the PR to the user.

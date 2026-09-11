@@ -150,21 +150,27 @@ Never merge a blocked PR.
 
 ## Merging
 
-**A `PASS` does not authorize a merge.** The user reviews and merges.
+A `PASS` plus green CI on the PR's head commit authorizes Claude to merge:
 
-The one exception is a bug fix that passes every auto-merge gate in
-`skills/fix-bug/SKILL.md` step 10 — green CI, a regression spec that fails on `main`
-and passes on the branch, a small diff confined to `src/`, `tests/`, and the rebuilt
-bundle, acceptance criteria that came from the user, every criterion covered by an
-automated check, and a root cause inside this repo. Those gates are all-or-nothing
-and a `PASS` here does not replace any of them; it is an additional requirement on
-top.
+```bash
+gh pr merge <pr> --squash --delete-branch
+```
 
-`feat/`, `refactor/`, and `chore/` PRs never merge themselves, however clean the
-review is. Report the verdict and the PR link, and stop.
+Confirm it landed with `gh pr view <pr> --json state,mergedAt` before cleaning up —
+a `CLOSED` PR with no `mergedAt` did not merge, and its branch must not be deleted.
 
-`main` has no branch protection, so nothing on GitHub enforces any of this. Never
-merge past a red or pending check.
+A bug fix must additionally pass every gate in `skills/fix-bug/SKILL.md` step 10 — a
+regression spec that fails on `main` and passes on the branch, a small diff confined
+to `src/`, `tests/`, and the rebuilt bundle, acceptance criteria that came from the
+user, every criterion covered by an automated check, and a root cause inside this
+repo. Those gates are all-or-nothing and a `PASS` here does not replace any of them.
+
+Never merge on `CHANGES_REQUIRED` or `BLOCKED`, past a red or pending check, or past
+a failed bug-fix gate. In those cases report the verdict and the PR link and hand it
+to the user.
+
+`main` has no branch protection, so nothing on GitHub enforces any of this. It is
+self-enforced.
 
 ## Publishing is separate
 

@@ -121,8 +121,9 @@ Only when all of these hold:
 Something concrete must change. Route each finding by ownership:
 
 - **repository code finding** → Claude turns it into a fix request and sends it to
-  Codex via `skills/codex-handoff/SKILL.md`, naming the same branch. Codex fixes,
-  reruns checks, commits, pushes.
+  Codex via `skills/codex-handoff/SKILL.md`, naming the same branch. Codex fixes and
+  runs `npm run build`; Claude runs `npm run test:e2e`, reviews the diff, commits,
+  and pushes. Codex cannot commit, push, or run the e2e suite in its sandbox.
 - **Webflow finding** → Claude makes the Webflow change directly, then revalidates
   the integrated result.
 

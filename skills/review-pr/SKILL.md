@@ -18,13 +18,35 @@ So the review runs in a **fresh subagent** (`caveman:cavecrew-reviewer`, or
 
 - the PR diff (`gh pr diff <pr>`)
 - the task description and acceptance criteria
-- the CI status (`gh pr checks <pr>`)
-- pointers to `AGENTS.md`, `README.md`, and the relevant `skills/`
+- the final CI result, already settled (see **Wait for CI first**)
+- a pointer to the one skill file the change is governed by, if any — the reviewer
+  reads `src/` and `tests/` around the diff itself; it does not need `README.md` or
+  `AGENTS.md` unless the diff changes a convention those files describe
 
 Tell it which axes under **What the reviewer judges** the diff can actually reach, so
 it does not sweep the ones the change cannot touch. On a repeat round, also list the
 prior round's findings and which were accepted or rejected, with the reason — the
 reviewer starts cold every time and will otherwise re-raise a settled point.
+
+## Wait for CI first
+
+Do not spawn the reviewer while CI is pending. A pending check counts as not passing,
+so an early reviewer either burns its run waiting or returns `CHANGES_REQUIRED` for a
+check that would have gone green a minute later — and that costs a whole extra round.
+
+After pushing, block on CI from the orchestrating session:
+
+```bash
+gh pr checks <pr> --watch --fail-fast
+```
+
+Then pass the settled result (green, or the failing check by name) into the reviewer
+prompt. The reviewer still runs `gh pr checks <pr>` to confirm, but it should never
+be the one waiting.
+
+If CI is red, do not spawn a reviewer at all. Route the failure like a
+`CHANGES_REQUIRED` finding — the fix goes back through the handoff, gets pushed, and
+CI runs again — and only start the review once there is a green commit to judge.
 
 Do not paste the implementation transcript, the Codex report's reasoning, or your own
 argument for why the change is right. The reviewer reads the diff and judges it. A

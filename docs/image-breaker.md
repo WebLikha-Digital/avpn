@@ -9,10 +9,17 @@ picture appears to travel up the page with the reader and open out.
 
 ## How it works
 
-GSAP's Flip plugin, not a scale tween. `Flip.fit()` measures the *next* waypoint
-box and writes the transform that lands the target exactly on it, so the end
-state is the real layout box at every viewport instead of a scale factor that has
-to be re-tuned per breakpoint.
+The script measures every waypoint, then gives the target one fixed base box: the
+widest waypoint's width at the first waypoint's aspect ratio. During the scrub it
+only changes a uniform `transform` (translation and scale) and a
+`clip-path: inset(...)`. The transform places the target at each waypoint while
+the inset reveals the waypoint's height from the vertical centre of the same
+`object-fit: cover` crop. The photo is never stretched, and its layout width and
+height do not change from frame to frame.
+
+The target's CSS corner radius is read before setup. The CSS radius is then
+disabled inline so it cannot double-clip: the clip path starts with the same
+visual radius and reaches zero at the full-width waypoint.
 
 The trick that makes it read as travel rather than a jump: each hop's tween
 duration is the **pixel distance between the two waypoint centres**, the ease is
@@ -22,6 +29,11 @@ number, so the target tracks the page.
 
 Because the durations are pixel measurements, the timeline is rebuilt on width
 changes (debounced), not just refreshed.
+
+If the target contains an image with `srcset`, the component also owns its
+`sizes` value. It uses the last waypoint's measured width (`100vw` when that
+waypoint spans the viewport), so the browser can select a source candidate for
+the full-width frame rather than the small starting frame.
 
 ## Webflow contract
 
@@ -36,7 +48,7 @@ A root with fewer than two waypoints, or with no target, is skipped silently —
 an unfinished section in the Designer does not throw.
 
 Under `prefers-reduced-motion: reduce` there is no ScrollTrigger at all: the
-target is fitted straight to the last waypoint and stays there.
+target is placed in the last waypoint state directly, with square corners.
 
 ## The Home page build
 
@@ -85,7 +97,8 @@ stay `position: relative` — the target is positioned against it.
 
 Replace the image on `img.image-breaker_image` in the Designer. Nothing
 in the code refers to the asset. Use something wide: the end waypoint is 16:9 on
-desktop and the image is `object-fit: cover`.
+desktop and the image is `object-fit: cover`. Keep Webflow's generated `srcset`;
+the component overrides `sizes` at runtime with the measured final width.
 
 ## Troubleshooting
 
@@ -109,6 +122,16 @@ clip — the arc needs it.
 **It lands off the frame.** Something re-laid-out after init without a resize —
 a late-loading font or image inside the section. Force a `ScrollTrigger.refresh()`
 once that content settles.
+
+**The image shakes or shimmers while opening.** Inspect the target's inline
+styles during continuous scroll. `width` and `height` should remain constant;
+only `transform` and `clip-path` should change. If layout dimensions change, an
+old bundle that still uses `Flip.fit()` is running.
+
+**The full-width image looks soft.** Inspect the inner image's `sizes` and
+`currentSrc`. `sizes` should be the measured last-waypoint width, or `100vw` for
+a viewport-wide frame. If it still describes the small start box, confirm the
+current bundle initialized this component after the `srcset` markup was present.
 
 **Nothing moves.** Check the target is a descendant of the *first* waypoint in
 document order, and that both waypoints are inside the same

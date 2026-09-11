@@ -5,6 +5,7 @@ const TARGET = "[data-flip-scale-target]";
 const LAST_WRAPPER = "[data-flip-scale-wrapper]:last-child";
 const EDGE_TOLERANCE = 1;
 const MONOTONIC_TOLERANCE = 1.5;
+const CLIP_TOLERANCE = 0.01;
 
 async function loadFixture(page) {
   await page.setViewportSize({ width: 1200, height: 800 });
@@ -17,17 +18,40 @@ async function loadFixture(page) {
     .toBe(true);
 }
 
-async function edgeDifference(page) {
+async function edgeDifference(page, wrapperSelector) {
   return page.evaluate(({ targetSelector, wrapperSelector }) => {
     const target = document.querySelector(targetSelector).getBoundingClientRect();
     const wrapper = document.querySelector(wrapperSelector).getBoundingClientRect();
+    const element = document.querySelector(targetSelector);
+    const insetY = parseFloat(element.style.clipPath.match(/^inset\(([^p]+)px/)?.[1] ?? 0);
+    const scale = target.width / element.offsetWidth;
+    const visible = {
+      top: target.top + insetY * scale,
+      right: target.right,
+      bottom: target.bottom - insetY * scale,
+      left: target.left,
+    };
     return Math.max(
-      Math.abs(target.top - wrapper.top),
-      Math.abs(target.right - wrapper.right),
-      Math.abs(target.bottom - wrapper.bottom),
-      Math.abs(target.left - wrapper.left),
+      Math.abs(visible.top - wrapper.top),
+      Math.abs(visible.right - wrapper.right),
+      Math.abs(visible.bottom - wrapper.bottom),
+      Math.abs(visible.left - wrapper.left),
     );
-  }, { targetSelector: TARGET, wrapperSelector: LAST_WRAPPER });
+  }, { targetSelector: TARGET, wrapperSelector });
+}
+
+function clipPathMetrics(clipPath) {
+  const [insetPart, radiusPart] = clipPath.slice(6, -1).split(/\s+round\s+/);
+  const values = insetPart.split(/\s+/).map(parseFloat);
+  const [top, right = top, bottom = top, left = right] = values;
+
+  return {
+    top,
+    right,
+    bottom: values.length === 2 ? top : bottom,
+    left: values.length < 4 ? right : left,
+    radius: radiusPart ? parseFloat(radiusPart) : 0,
+  };
 }
 
 test("grows monotonically during continuous scroll and fits the final waypoint", async ({ page }) => {
@@ -37,6 +61,29 @@ test("grows monotonically during continuous scroll and fits the final waypoint",
     start: root._flipScaleTimeline.scrollTrigger.start,
     end: root._flipScaleTimeline.scrollTrigger.end,
   }));
+
+  const steppedClipPaths = await page.locator(ROOT).evaluate((root) => {
+    const target = root.querySelector("[data-flip-scale-target]");
+    const clipPaths = [];
+    [0, 0.25, 0.5, 0.75, 1].forEach((progress) => {
+      root._flipScaleTimeline.progress(progress);
+      clipPaths.push(target.style.clipPath);
+    });
+    root._flipScaleTimeline.progress(0);
+    return clipPaths;
+  });
+  const steppedClips = steppedClipPaths.map(clipPathMetrics);
+  steppedClips.forEach(({ left, right }) => {
+    expect(Math.abs(left)).toBeLessThanOrEqual(CLIP_TOLERANCE);
+    expect(Math.abs(right)).toBeLessThanOrEqual(CLIP_TOLERANCE);
+  });
+  for (let index = 1; index < steppedClips.length; index += 1) {
+    expect(steppedClips[index].radius).toBeLessThanOrEqual(
+      steppedClips[index - 1].radius + CLIP_TOLERANCE,
+    );
+  }
+  expect(await edgeDifference(page, "[data-flip-scale-wrapper]:first-child"))
+    .toBeLessThanOrEqual(EDGE_TOLERANCE);
 
   await page.evaluate((y) => window.scrollTo({ top: y, behavior: "instant" }), bounds.start - 150);
   await page.waitForTimeout(500);
@@ -50,6 +97,11 @@ test("grows monotonically during continuous scroll and fits the final waypoint",
         scrollY: window.scrollY,
         width: rect.width,
         height: rect.height,
+        offsetWidth: target.offsetWidth,
+        offsetHeight: target.offsetHeight,
+        inlineWidth: target.style.width,
+        inlineHeight: target.style.height,
+        clipPath: target.style.clipPath,
       });
       if (window.__flipScaleFrames.length < 1000) requestAnimationFrame(sample);
     };
@@ -71,6 +123,24 @@ test("grows monotonically during continuous scroll and fits the final waypoint",
   expect(frames.length, "the target should be sampled throughout its scrub range").toBeGreaterThan(10);
   expect(frames.at(-1).width - frames[0].width).toBeGreaterThan(100);
 
+  const layoutBoxes = new Set(frames.map(
+    ({ offsetWidth, offsetHeight }) => `${offsetWidth}x${offsetHeight}`,
+  ));
+  const inlineSizes = new Set(frames.map(
+    ({ inlineWidth, inlineHeight }) => `${inlineWidth}x${inlineHeight}`,
+  ));
+  expect(layoutBoxes.size, "target layout dimensions must stay fixed during the scrub")
+    .toBe(1);
+  expect(inlineSizes.size, "width and height must not be rewritten during the scrub")
+    .toBe(1);
+  expect(frames.every(({ clipPath }) => clipPath.startsWith("inset("))).toBe(true);
+
+  const frameClips = frames.map(({ clipPath }) => clipPathMetrics(clipPath));
+  frameClips.forEach(({ left, right }) => {
+    expect(Math.abs(left)).toBeLessThanOrEqual(CLIP_TOLERANCE);
+    expect(Math.abs(right)).toBeLessThanOrEqual(CLIP_TOLERANCE);
+  });
+
   for (let index = 1; index < frames.length; index += 1) {
     expect(
       frames[index].width + MONOTONIC_TOLERANCE,
@@ -80,10 +150,52 @@ test("grows monotonically during continuous scroll and fits the final waypoint",
       frames[index].height + MONOTONIC_TOLERANCE,
       `height reversed at sampled frame ${index}`,
     ).toBeGreaterThanOrEqual(frames[index - 1].height);
+    expect(
+      frameClips[index].radius,
+      `corner radius increased at sampled frame ${index}`,
+    ).toBeLessThanOrEqual(frameClips[index - 1].radius + CLIP_TOLERANCE);
   }
 
   await page.evaluate((y) => window.scrollTo({ top: y, behavior: "instant" }), bounds.end + 100);
-  await expect.poll(() => edgeDifference(page)).toBeLessThanOrEqual(EDGE_TOLERANCE);
+  await expect.poll(() => edgeDifference(page, LAST_WRAPPER)).toBeLessThanOrEqual(EDGE_TOLERANCE);
+  await expect.poll(() => page.locator(TARGET).evaluate(
+    (target) => parseFloat(target.style.clipPath.match(/round ([^p]+)px/)?.[1] ?? 0),
+  )).toBe(0);
+});
+
+test("uses the CSS corner radius at the start and sizes the image for the final frame", async ({ page }) => {
+  await loadFixture(page);
+
+  const result = await page.locator(ROOT).evaluate(async (root) => {
+    const target = root.querySelector("[data-flip-scale-target]");
+    const image = target.querySelector("img");
+    const last = root.querySelector("[data-flip-scale-wrapper]:last-child");
+    target.style.removeProperty("border-radius");
+    const cssRadius = parseFloat(getComputedStyle(target).borderTopLeftRadius);
+    image.srcset = "/image-breaker-800.jpg 800w, /image-breaker-1600.jpg 1600w";
+    image.sizes = "720px";
+
+    const { initFlipScale } = await import("/src/animations/flipScale.js");
+    initFlipScale();
+    root._flipScaleTimeline.progress(0);
+
+    const targetRect = target.getBoundingClientRect();
+    const scale = targetRect.width / target.offsetWidth;
+    const elementRadius = parseFloat(target.style.clipPath.match(/round ([^p]+)px/)?.[1] ?? 0);
+    const lastRect = last.getBoundingClientRect();
+    const spansViewport =
+      Math.abs(lastRect.left) <= 1 && Math.abs(lastRect.right - innerWidth) <= 1;
+
+    return {
+      cssRadius,
+      visualRadius: elementRadius * scale,
+      sizes: image.sizes,
+      expectedSizes: spansViewport ? "100vw" : `${Math.round(lastRect.width)}px`,
+    };
+  });
+
+  expect(Math.abs(result.visualRadius - result.cssRadius)).toBeLessThanOrEqual(0.1);
+  expect(result.sizes).toBe(result.expectedSizes);
 });
 
 test("re-initializes and rebuilds on width changes without stacking triggers", async ({ page }) => {
@@ -126,7 +238,10 @@ test("reduced motion fits the target to the last waypoint without a scrub", asyn
   expect(await page.locator(ROOT).evaluate(
     (root) => root._flipScaleTimeline?.scrollTrigger ?? null,
   )).toBeNull();
-  await expect.poll(() => edgeDifference(page)).toBeLessThanOrEqual(EDGE_TOLERANCE);
+  await expect.poll(() => edgeDifference(page, LAST_WRAPPER)).toBeLessThanOrEqual(EDGE_TOLERANCE);
+  expect(await page.locator(TARGET).evaluate(
+    (target) => parseFloat(target.style.clipPath.match(/round ([^p]+)px/)?.[1] ?? 0),
+  )).toBe(0);
 });
 
 test("skips incomplete roots without throwing", async ({ page }) => {

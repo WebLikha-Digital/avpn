@@ -24,21 +24,21 @@ function nodeCommand(source) {
 
 test("builds an initial codex exec command", () => {
   assert.deepEqual(
-    buildCodexArgs({ model: "gpt-5.6-sol", sandbox: "workspace-write", prompt: "implement" }),
-    ["exec", "-m", "gpt-5.6-sol", "--sandbox", "workspace-write", "--json", "implement"],
+    buildCodexArgs({ model: "gpt-5.6-luna", sandbox: "workspace-write", prompt: "implement" }),
+    ["exec", "-m", "gpt-5.6-luna", "--sandbox", "workspace-write", "--json", "implement"],
   );
 });
 
 test("builds a resumed command with config sandbox syntax", () => {
   assert.deepEqual(
     buildCodexArgs({
-      model: "gpt-5.6-sol",
+      model: "gpt-5.6-luna",
       sandbox: "workspace-write",
       resume: "thread-id",
       prompt: "fix all findings",
     }),
     [
-      "exec", "resume", "thread-id", "-m", "gpt-5.6-sol", "-c",
+      "exec", "resume", "thread-id", "-m", "gpt-5.6-luna", "-c",
       'sandbox_mode="workspace-write"', "--json", "fix all findings",
     ],
   );
@@ -46,7 +46,7 @@ test("builds a resumed command with config sandbox syntax", () => {
 
 test("parses safe defaults and rejects an unsupported sandbox", () => {
   assert.deepEqual(parseArgs(["--prompt", "inspect"]), {
-    model: "gpt-5.6-sol",
+    model: "gpt-5.6-luna",
     sandbox: "workspace-write",
     timeoutMs: 1800000,
     exitGraceMs: 10000,

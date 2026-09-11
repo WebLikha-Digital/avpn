@@ -12,20 +12,22 @@ need it), and only then writes the handoff below.
 One path, from the prepared branch, through the lifecycle supervisor:
 
 ```bash
-node scripts/codex/run-handoff.mjs --model gpt-5.6-sol --sandbox workspace-write --timeout-seconds 540 --prompt "<the handoff below>"
+node scripts/codex/run-handoff.mjs --model gpt-5.6-luna --sandbox workspace-write --timeout-seconds 540 --prompt "<the handoff below>"
 ```
 
-Claude Opus is the orchestrator, planner, reviewer, and merger. Every task that
-modifies repository files runs on Sol. Read-only, non-intensive inspection, summaries,
-inventory, and log triage may instead run as:
+Claude Opus is the orchestrator, planner, reviewer, and merger. Every task runs on
+`gpt-5.6-luna`; the sandbox sets the boundary. A task that modifies repository files
+uses `--sandbox workspace-write`. Read-only, non-intensive inspection, summaries,
+inventory, and log triage instead run as:
 
 ```bash
 node scripts/codex/run-handoff.mjs --model gpt-5.6-luna --sandbox read-only --timeout-seconds 540 --prompt "<question>"
 ```
 
-The read-only sandbox enforces the boundary. A Luna task must not expand into a
+The read-only sandbox enforces the boundary. A read-only task must not expand into a
 repository mutation; if it finds changes are needed, it ends with a recommendation
-and Claude starts a fresh Sol task or resumes the branch's existing Sol session.
+and Claude starts a fresh workspace-write task or resumes the branch's existing
+session.
 
 For a small task, use the nine-minute override above and keep the Bash command in the
 foreground so it ends before Bash's 10-minute ceiling. A real handoff has taken 13
@@ -50,7 +52,7 @@ handoff — Codex would rebuild its understanding of the branch from nothing. Re
 the session that wrote the code:
 
 ```bash
-node scripts/codex/run-handoff.mjs --resume <thread_id> --model gpt-5.6-sol --sandbox workspace-write --prompt "<all findings from the round, plus: fix these on the current branch, run the applicable self-validation, report in the same structure>"
+node scripts/codex/run-handoff.mjs --resume <thread_id> --model gpt-5.6-luna --sandbox workspace-write --prompt "<all findings from the round, plus: fix these on the current branch, run the applicable self-validation, report in the same structure>"
 ```
 
 The launcher translates `--resume` to Codex's required `-c sandbox_mode` form. A fix

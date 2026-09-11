@@ -73,6 +73,10 @@ export function initSplitReveal() {
       heading.getAttribute("data-split-start") ||
       (band ? "clamp(left 80%)" : "clamp(top 80%)");
     const once = heading.getAttribute("data-split-once") !== "false";
+    const parsedDelay = Number.parseFloat(
+      heading.getAttribute("data-split-delay"),
+    );
+    const delay = Number.isFinite(parsedDelay) ? parsedDelay : 0;
     const animateOpacity = heading.getAttribute("data-split-opacity") === "true";
     const trigger = resolveTrigger(heading);
 
@@ -100,10 +104,11 @@ export function initSplitReveal() {
           });
         }
 
-        return gsap.from(targets, {
+        heading._splitTween = gsap.from(targets, {
           yPercent: 120,
           duration: config.duration,
           stagger: config.stagger,
+          delay,
           ease: "expo.out",
           scrollTrigger: {
             trigger,
@@ -112,6 +117,8 @@ export function initSplitReveal() {
             ...band,
           },
         });
+
+        return heading._splitTween;
       },
     });
   });

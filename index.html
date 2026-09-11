@@ -424,6 +424,33 @@
       /* Full-bleed so the panels' 100vw widths line up with the viewport,
          which the preview page's body padding would otherwise offset. */
       .hband { margin: 0 -2rem 2rem; }
+      .arc-demo {
+        position: relative;
+        display: block;
+        height: 120vh;
+        margin: 0 -2rem 2rem;
+        background: #183b45;
+        color: #f7f1ea;
+        overflow: hidden;
+      }
+      .arc-demo__content {
+        display: grid;
+        min-height: 100%;
+        place-items: center;
+        color: #f7f1ea;
+      }
+      .arc-demo [data-arc-scroll-transition] {
+        position: absolute;
+        inset: auto 0 0;
+        height: 100vh;
+        color: #f7f1ea;
+        pointer-events: none;
+        z-index: 10;
+      }
+      .arc-demo--reveal { background: #f7f1ea; color: #183b45; }
+      .arc-demo--reveal [data-arc-scroll-transition] { color: #183b45; }
+      [data-arc-scroll-transition] svg { display: block; width: 100%; height: 100%; }
+      [data-arc-scroll-transition] path { fill: currentColor; }
       .hband__panel {
         flex: none;
         height: 100%;
@@ -1192,6 +1219,16 @@
         </div>
       </div>
     </div>
+
+    <section class="arc-demo">
+      <div class="arc-demo__content">Arc scroll transition — cover</div>
+      <div data-arc-scroll-transition data-curve="12" aria-hidden="true"></div>
+    </section>
+
+    <section class="arc-demo arc-demo--reveal">
+      <div class="arc-demo__content">Arc scroll transition — reveal</div>
+      <div data-arc-scroll-transition data-mode="reveal" data-curve="12" aria-hidden="true"></div>
+    </section>
 
 
     <p>Signature Events — the same band, with a wordmark that drifts at its own

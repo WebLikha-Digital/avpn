@@ -11,8 +11,20 @@ branch, does any Webflow work first, and only then writes the handoff below.
 One path, from the prepared branch:
 
 ```bash
-codex exec --sandbox workspace-write --json "<the handoff below>"
+codex exec -m gpt-5.6-sol --sandbox workspace-write --json "<the handoff below>"
 ```
+
+Claude Opus is the orchestrator, planner, reviewer, and merger. Every task that
+modifies repository files runs on Sol. Read-only, non-intensive inspection, summaries,
+inventory, and log triage may instead run as:
+
+```bash
+codex exec -m gpt-5.6-luna --sandbox read-only --json "<question>"
+```
+
+The read-only sandbox enforces the boundary. A Luna task must not expand into a
+repository mutation; if it finds changes are needed, it ends with a recommendation
+and Claude starts a fresh Sol task or resumes the branch's existing Sol session.
 
 Run it through the Bash tool. Keep it attached by default. If the run may exceed the
 Bash tool's 10-minute ceiling — a new component, a refactor across files, anything
@@ -33,8 +45,10 @@ handoff — Codex would rebuild its understanding of the branch from nothing. Re
 the session that wrote the code:
 
 ```bash
-codex exec resume <thread_id> --sandbox workspace-write --json "<the findings, as path:line — problem — fix, plus: fix these on the current branch, run npm run build, report in the same structure>"
+codex exec resume <thread_id> -m gpt-5.6-sol -c 'sandbox_mode="workspace-write"' --json "<all findings from the round, plus: fix these on the current branch, run the applicable self-validation, report in the same structure>"
 ```
+
+`codex exec resume` takes the sandbox through `-c sandbox_mode`, not `--sandbox`.
 
 Same rules as the first run: attached (or `run_in_background` if long), no repo edits
 while it is alive, same **Return to Claude** structure back. Resume only for the same
@@ -76,17 +90,31 @@ at all. Do not ask for it. Do not ask for a commit, a push, or a PR either — `
 read-only. Asking for something the sandbox forbids invites a report that claims it
 happened.
 
-Codex writes the code and the tests. Claude runs the suite and owns Git.
+Codex writes the code and tests, self-reviews its full working-tree diff, and runs
+`npm run build` when the change touches `src/**`, `package.json`, `vite.config.js`, or
+`dist/**`. It runs `npm run test:routing` when the change touches `scripts/ci/**`.
+Claude runs the browser suite and owns Git. Codex self-validation is evidence for
+Claude's review, never merge authorization.
+
+### Browser preview (future)
+
+If browser preview is ever enabled for Codex, it must be read-only and load the
+branch's built `dist/animations.min.js` from this checkout, not the published bundle.
+Animation measurements require a visible foreground browser because a backgrounded
+tab freezes `requestAnimationFrame`.
 
 ## Before handing off
 
-Three things must be true, or the handoff is premature:
+Four things must be true, or the handoff is premature:
 
 1. The task is classified as code-only or the repo half of a mixed task
    (`CLAUDE.md`, **Task routing**).
 2. The acceptance criteria exist and the user has approved them.
 3. The task branch exists and is checked out. Codex works on the branch you made; it
    will stop rather than create one.
+4. For a bug fix, the draft PR and empty commit from
+   `skills/fix-bug/SKILL.md` step 4 exist before handoff. For other work, the draft PR
+   may be opened after the first push.
 
 If Webflow markup, classes, or attributes need to change for the code to have
 something to bind to, make those changes first and describe them in **Relevant
@@ -176,10 +204,11 @@ For GSAP or scroll-driven work:
 
 ## Validation
 
-Run this, and report its real result:
+Run the checks applicable to the changed paths, and report their real results:
 
 ```bash
-npm run build
+npm run build          # src/**, package.json, vite.config.js, or dist/**
+npm run test:routing   # scripts/ci/**
 ```
 
 Do **not** attempt `npm run test:e2e`. Playwright binds a local port and your sandbox
@@ -188,7 +217,8 @@ them. Never run `npm run test:e2e:live` — it targets the live Webflow site and
 run deliberately, by a human.
 
 Never claim a check passed unless it actually ran. If something cannot run, say so and
-name the limitation.
+name the limitation. Codex self-validation is evidence for Claude's review, never
+merge authorization.
 
 ## Git behavior
 

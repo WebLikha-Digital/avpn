@@ -7,6 +7,13 @@ detailed procedure behind the short Git rules in `AGENTS.md` / `CLAUDE.md`.
 Do not start editing code before step 4. The point of this skill is that the branch,
 the acceptance criteria, and the PR exist before the fix does.
 
+**Ownership:** Claude owns requirements, acceptance criteria, clean `main`, the
+branch and draft PR, all Webflow and browser/E2E/live validation, review, Git, merge,
+and cleanup. Publishing is never part of a fix. Codex owns repository inspection,
+root-cause diagnosis, implementation, regression specs, applicable build/routing
+checks, self-review, and its report. Codex never edits Webflow, publishes, commits,
+pushes, creates branches, or opens PRs.
+
 ## Context for this repo
 
 - No CMS and no framework: the deliverable is `dist/animations.min.js`, pasted into
@@ -14,15 +21,14 @@ the acceptance criteria, and the PR exist before the fix does.
   so browser verification matters more than unit assertions here.
 - There is no JavaScript linter and no type checker configured (only a markdown
   lint for docs). Do not invent one, and do not
-  claim a lint or type-check step ran. The real checks are listed under
-  [Checks](#7-checks).
+  claim a lint or type-check step ran. The real checks are listed in step 7.
 - Some bugs live in Webflow (markup, classes, custom attributes), not in this repo.
   If the root cause is in the Designer, say so and stop — an unrelated JS patch that
   papers over a Webflow structure problem is not a fix.
 
 ## Procedure
 
-### 1. Understand and restate the bug
+### 1. Understand and restate the bug — Claude
 
 Before touching git, write a short summary back to the user covering:
 
@@ -34,7 +40,7 @@ Before touching git, write a short summary back to the user covering:
 Ask for the missing pieces if the report is thin. The acceptance criteria are the
 contract for the rest of the workflow: everything later is measured against them.
 
-### 2. Prepare a clean `main`
+### 2. Prepare a clean `main` — Claude
 
 ```bash
 git status --porcelain    # must be empty, or see below
@@ -47,7 +53,7 @@ stash-and-forget, reset, or check out over them. Create the branch from the curr
 state so the changes are carried along, tell the user those changes are present, and
 keep them out of the bug-fix commit (stage only the files you touched for the fix).
 
-### 3. Branch
+### 3. Branch — Claude
 
 ```bash
 git checkout -b fix/<short-kebab-description>
@@ -56,7 +62,7 @@ git checkout -b fix/<short-kebab-description>
 Name it after the symptom, not the guessed cause: `fix/mobile-header-overflow`,
 `fix/tunnel-canvas-resize-blur`. One bug per branch.
 
-### 4. Open a draft PR early
+### 4. Open a draft PR early — Claude
 
 GitHub refuses a PR with nothing in it (`No commits between main and fix/...`), so give
 the branch an empty commit to hang the PR on:
@@ -70,13 +76,17 @@ gh pr create --draft --base main --title "fix: <summary>" --body "<problem + acc
 Seed the body with the step 1 summary. The empty commit gets absorbed when the PR is
 squash-merged, so it costs nothing in history.
 
-If `gh` is unavailable or unauthenticated, skip this and open the PR at step 8 instead —
-note in the final report that the PR was opened late.
+This draft PR and its empty commit must exist before the Codex handoff, as required by
+`skills/codex-handoff/SKILL.md` **Before handing off**.
 
-### 5. Reproduce, then find the root cause
+If `gh` is unavailable or unauthenticated, open the draft PR by another available
+GitHub path or stop: the Codex handoff does not begin without it.
+
+### 5. Reproduce, then find the root cause — Codex (Claude confirms in browser)
 
 Reproduce the bug before changing code. Verification of a fix is meaningless without
-a before state.
+a before state. Claude performs browser reproduction with the commands below and
+gives Codex the evidence; Codex inspects the repository and states the root cause.
 
 - `npm run dev` for the local Vite preview (`index.html`).
 - `npm run webflow` to serve the bundle to the live Webflow page from
@@ -98,28 +108,31 @@ Two traps worth knowing before you spend an hour on either:
 State the root cause explicitly before writing the fix. "Changing this line made the
 symptom go away" is not a root cause.
 
-### 6. Implement the smallest fix
+### 6. Implement the smallest fix — Codex
 
 Touch only what the root cause requires. No opportunistic renames, reformatting,
 dependency bumps, or refactors — those belong on their own `refactor/` or `chore/`
 branch. Follow the existing component conventions in
 `skills/webflow-animation-embed/SKILL.md` and `skills/threejs-canvas/SKILL.md`.
 
-### 7. Checks
+### 7. Checks — Codex writes specs and self-validates; Claude runs browser checks
 
-Run every check that is relevant to what changed, and report exactly which ones you
-ran. `.github/workflows/ci.yml` runs the build and the local e2e suite on every PR —
-run them locally too rather than waiting on CI, but CI's result is the one that gates
-an auto-merge.
+Run every check relevant to what changed and report exactly which ones ran. Codex
+writes or updates regression specs, runs `npm run build` for changes to `src/**`,
+`package.json`, `vite.config.js`, or `dist/**`, and runs `npm run test:routing` for
+changes to `scripts/ci/**`. Codex never runs either E2E command: local Playwright
+cannot bind a port in its sandbox, and the live suite is human-only. Claude runs the
+browser, responsive, E2E, and live checks. CI's result gates an auto-merge.
 
 | Check | Command | When |
 | --- | --- | --- |
-| Build | `npm run build` | Always — the bundle is the deliverable. |
-| E2E (local) | `npm run test:e2e` | Always for animation/behaviour changes. |
-| E2E (live site) | `npm run test:e2e:live` | When the bug was reported on the published site — which is most of them. |
-| Headed debugging | `npm run test:e2e:headed` / `npm run test:e2e:ui` | While diagnosing a failing spec. |
-| Browser check | manual, via `npm run dev` or `npm run webflow` | Always for visual/scroll bugs. |
-| Responsive check | manual, at the breakpoints named in the report | Whenever layout or breakpoints are involved. |
+| Build — Codex | `npm run build` | `src/**`, `package.json`, `vite.config.js`, or `dist/**` changed. |
+| Routing — Codex | `npm run test:routing` | `scripts/ci/**` changed. |
+| E2E (local) — Claude | `npm run test:e2e` | Always for animation/behaviour changes. |
+| E2E (live site) — Claude/human | `npm run test:e2e:live` | When deliberately validating a published-site bug. |
+| Headed debugging — Claude | `npm run test:e2e:headed` / `npm run test:e2e:ui` | While diagnosing a failing spec. |
+| Browser check — Claude | manual, via `npm run dev` or `npm run webflow` | Always for visual/scroll bugs. |
+| Responsive check — Claude | manual, at the report's breakpoints | Whenever layout or breakpoints are involved. |
 
 A live spec must fulfil the bundle from `dist/` itself:
 
@@ -140,8 +153,10 @@ spec must still fulfil the bundle route from `dist/` itself.
 
 Add or extend a Playwright spec in `tests/` when the bug is reproducible headlessly.
 A spec that **fails on `main` and passes on the branch** is the only objective proof
-the fix works, and it is a hard requirement for auto-merge (see step 10). Write the
-spec before the fix, watch it fail, then fix. Record both results.
+the fix works, and it is a hard requirement for auto-merge (see step 10). Codex writes
+the spec before implementing the fix. Claude runs it against `main` to confirm it
+fails, runs it against the branch to confirm it passes, and records both results in
+the PR body.
 
 #### Motion bugs need per-frame samples
 
@@ -186,11 +201,17 @@ Then check the result against the step 1 acceptance criteria, one by one. If any
 criterion fails, go back to step 5. Do not report the task as complete, and do not
 skip, delete, or `test.skip` a failing test to make the suite green.
 
-### 8. Review the diff, then commit
+### 8. Review the full working tree, then commit — Codex, then Claude
 
 ```bash
-git diff main...HEAD
+git status --porcelain
+git diff HEAD
+git diff --stat HEAD
 ```
+
+Codex uses these before handing back so staged and unstaged changes are both visible.
+`git diff main...HEAD` shows only commits and misses the changes Codex left in the
+working tree. Claude repeats the review, then owns staging, committing, and pushing.
 
 Remove anything accidental: stray `console.log`, commented-out experiments, debug
 colours or outlines, temporary tunables, unrelated file changes, `test-results/`
@@ -210,7 +231,7 @@ git push
 
 Conventional Commit, `fix:` type. Never add a `Co-authored-by` trailer.
 
-### 9. Update the PR and mark it ready
+### 9. Update the PR and mark it ready — Claude
 
 Rewrite the PR body to be the full record:
 
@@ -232,7 +253,7 @@ this workflow's reasoning. A `CHANGES_REQUIRED` verdict goes back through the fi
 `BLOCKED` verdict hands off to the user. Only a `PASS` reaches the gates below, and a
 `PASS` on its own still does not authorize a merge — every gate must pass too.
 
-### 10. Merge or hand off
+### 10. Merge or hand off — Claude
 
 A bug fix may merge itself **only** when every one of these gates passes. They are
 all-or-nothing: one failure means hand off. Never argue a gate away, and never merge
@@ -267,7 +288,7 @@ which gate failed and why. Do not merge, and never push to `main` directly.
 When in doubt, hand off. An unnecessary review costs the user a minute; a bad
 auto-merge ships to the live Webflow site.
 
-### 11. After the merge
+### 11. After the merge — Claude
 
 Confirm it actually merged first. A `CLOSED` PR with no `mergedAt` did not, and its
 branch stays.

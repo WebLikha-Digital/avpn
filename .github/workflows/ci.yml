@@ -1,64 +1,103 @@
 name: CI
 
-# The gate for auto-merging a bug fix. If these checks are not green, no fix
-# merges on its own — see skills/fix-bug/SKILL.md.
-
-# Markdown-only changes skip this workflow and run docs.yml instead.
+# Risk-tiered checks: runtime changes build and run Playwright; workflow changes
+# validate routing, Actions YAML, and Markdown; ordinary docs only lint Markdown.
+# A stable gate job verifies that every check required by the selected tier ran.
 on:
   pull_request:
     branches: [main]
-    paths-ignore:
-      - "**.md"
   push:
     branches: [main]
-    paths-ignore:
-      - "**.md"
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build-and-test:
+  classify:
+    name: classify
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-
+    outputs:
+      route: ${{ steps.paths.outputs.route }}
+      runtime: ${{ steps.paths.outputs.runtime }}
+      workflow: ${{ steps.paths.outputs.workflow }}
+      docs: ${{ steps.paths.outputs.docs }}
+      dist_orphan: ${{ steps.paths.outputs.dist_orphan }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
+      - name: Classify changed paths
+        id: paths
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            git diff --name-only "$BASE_SHA...${{ github.sha }}" > changed-files.txt
+          elif [[ "$BEFORE_SHA" =~ ^0+$ ]]; then
+            git diff --name-only HEAD~1 "${{ github.sha }}" > changed-files.txt
+          else
+            git diff --name-only "$BEFORE_SHA" "${{ github.sha }}" > changed-files.txt
+          fi
+          echo "Changed files:"
+          cat changed-files.txt
+          node scripts/ci/classify-paths.mjs < changed-files.txt
+          echo "Route: $(sed -n 's/^route=//p' "$GITHUB_OUTPUT" | tail -1)"
+
+  build:
+    name: build
+    needs: classify
+    if: needs.classify.outputs.runtime == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
       - name: Install dependencies
         run: npm ci
-
       - name: Build the bundle
         run: npm run build
 
+  e2e:
+    name: e2e
+    needs: classify
+    if: needs.classify.outputs.runtime == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
       - name: Read the Playwright version
         id: playwright
         run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
-
       - name: Cache Playwright browsers
         id: playwright-cache
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
-
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium chromium-headless-shell
-
       # The OS packages are not cached with the browsers, so they still need
       # installing on a cache hit.
       - name: Install Playwright system dependencies
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: npx playwright install-deps chromium
-
       # Runs against the local Vite preview (index.html), not the live Webflow
       # site — tests/live/** is excluded by playwright.config.js.
       - name: Run end-to-end tests
         run: npm run test:e2e
-
       - name: Upload the Playwright report on failure
         if: failure()
         uses: actions/upload-artifact@v4
@@ -68,3 +107,99 @@ jobs:
             playwright-report/
             test-results/
           retention-days: 7
+
+  dist-guard:
+    name: dist-guard
+    needs: classify
+    if: needs.classify.outputs.dist_orphan == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reject an orphaned bundle
+        run: |
+          echo "dist/animations.min.js changed without a corresponding source change."
+          exit 1
+
+  docs:
+    name: docs
+    needs: classify
+    if: needs.classify.outputs.docs == 'true' || needs.classify.outputs.workflow == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Lint markdown
+        run: npx --yes markdownlint-cli2@0.18.1 "**/*.md"
+
+  workflow:
+    name: workflow
+    needs: classify
+    if: needs.classify.outputs.workflow == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Test path routing
+        run: npm run test:routing
+      - name: Validate workflow YAML
+        env:
+          ACTIONLINT_VERSION: 1.7.7
+        run: |
+          bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/v${ACTIONLINT_VERSION}/scripts/download-actionlint.bash) "$ACTIONLINT_VERSION"
+          ./actionlint -color
+
+  gate:
+    name: gate
+    needs: [classify, build, e2e, dist-guard, docs, workflow]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce the selected tier
+        env:
+          ROUTE: ${{ needs.classify.outputs.route }}
+          RUNTIME: ${{ needs.classify.outputs.runtime }}
+          WORKFLOW: ${{ needs.classify.outputs.workflow }}
+          DOCS: ${{ needs.classify.outputs.docs }}
+          DIST_ORPHAN: ${{ needs.classify.outputs.dist_orphan }}
+          CLASSIFY_RESULT: ${{ needs.classify.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          E2E_RESULT: ${{ needs.e2e.result }}
+          DIST_GUARD_RESULT: ${{ needs.dist-guard.result }}
+          DOCS_RESULT: ${{ needs.docs.result }}
+          WORKFLOW_RESULT: ${{ needs.workflow.result }}
+        run: |
+          failed=0
+          for result in "$CLASSIFY_RESULT" "$BUILD_RESULT" "$E2E_RESULT" \
+            "$DIST_GUARD_RESULT" "$DOCS_RESULT" "$WORKFLOW_RESULT"; do
+            if [[ "$result" == "failure" || "$result" == "cancelled" ]]; then
+              failed=1
+            fi
+          done
+
+          if [[ "$RUNTIME" == "true" && \
+            ( "$BUILD_RESULT" != "success" || "$E2E_RESULT" != "success" ) ]]; then
+            echo "Runtime validation did not complete successfully."
+            failed=1
+          fi
+          if [[ "$WORKFLOW" == "true" && \
+            ( "$WORKFLOW_RESULT" != "success" || "$DOCS_RESULT" != "success" ) ]]; then
+            echo "Workflow validation did not complete successfully."
+            failed=1
+          fi
+          if [[ "$DOCS" == "true" && "$DOCS_RESULT" != "success" ]]; then
+            echo "Documentation validation did not complete successfully."
+            failed=1
+          fi
+          if [[ "$DIST_ORPHAN" == "true" ]]; then
+            echo "An orphaned dist bundle is never mergeable."
+            failed=1
+          fi
+          if [[ "$failed" -ne 0 ]]; then
+            exit 1
+          fi
+          echo "Route $ROUTE passed."

@@ -25,9 +25,10 @@ The review reads only:
   writing or delegating it
 - the task description and acceptance criteria
 - the final CI result, already settled (see **Wait for CI first**)
-- the one skill file the change is governed by, if any; `src/` and `tests/` around
-  the diff as needed. `README.md` and `AGENTS.md` only if the diff changes a
-  convention they describe
+- every skill file that directly applies to the change: a skill applies when the diff
+  touches code it governs or edits the skill itself; read `src/` and `tests/` around
+  the diff as needed, and `README.md` / `AGENTS.md` when the diff changes a convention
+  they describe
 
 Judge only the axes under **What the reviewer judges** the diff can actually reach.
 On a repeat round, do not re-raise a finding that was accepted and fixed or rejected
@@ -49,10 +50,39 @@ After pushing, block on CI:
 gh pr checks <pr> --watch --fail-fast
 ```
 
-Then review against the settled result. If CI is red, do not review at all. Route the
-failure like a `CHANGES_REQUIRED` finding — the fix goes back through the handoff,
-gets pushed, and CI runs again — and only start the review once there is a green
-commit to judge.
+Review begins only after `gate` has settled on the head commit. Then review against
+that settled result. If `gate` is red, do not review at all. Route the failure like a
+`CHANGES_REQUIRED` finding — the fix goes back through the handoff, gets pushed, and
+CI runs again — and only start the review once there is a green commit to judge.
+
+## Review tiers
+
+Use the CI `classify` route from `gh run view` / the `classify` job log, or classify
+the committed diff locally:
+
+```bash
+git diff --name-only main...HEAD | node scripts/ci/classify-paths.mjs
+```
+
+- **Full (`runtime`)** — `src/**`, `tests/**`, build config, dependencies, Playwright
+  config, or `dist/**` with source. Run the full process below: wait for `gate`, judge
+  every applicable axis, and allow up to three rounds. Bug-fix gates still apply.
+  Claude performs browser and responsive verification where the diff reaches them.
+- **Workflow (`workflow`)** — `AGENTS.md`, `CLAUDE.md`, `skills/**`, `.github/**`, or
+  `scripts/ci/**`. Run one focused mandatory review after `gate` is green. Check
+  internal consistency between the agent files and skills, explicit ownership for
+  every step, that Codex is never told to exceed its sandbox, fail-closed CI routing,
+  and the model policy. Do not browser-test unless runtime files are also present.
+  Workflow instructions are operational code: a wrong instruction ships a wrong
+  process.
+- **Docs quick (`docs`)** — substantive prose. After the `docs` check is green,
+  Claude performs one diff review for accuracy against the code described, links, and
+  scope. A finding goes back through the handoff or, if Claude authored the change,
+  is fixed directly and re-pushed. There is no formal three-round loop.
+- **Trivial docs** — typo- or formatting-only Markdown with no meaning change. Claude
+  edits directly under `CLAUDE.md`'s existing trivial-edit rule, self-reviews the
+  diff, posts a review comment with tier `trivial`, and merges when `gate` is green.
+  There is no Codex handoff or multi-round loop.
 
 ## What the reviewer does not do
 
@@ -69,7 +99,8 @@ it cheap enough to run on every PR and to repeat after a fix.
 - **Do not re-derive measurements the PR already reports.** Judge whether the number
   answers the criterion and whether the method behind it is sound. If a claim looks
   wrong or unfalsifiable, that is a finding; reproducing it is not the reviewer's job.
-- **Do not fix anything.** Findings go back through the loop below.
+- **Do not fix anything during full or workflow review.** Findings go back through
+  the loop below. For docs, follow the tier rule above.
 
 Reading the diff, the files it touches, and the conventions around them is the work.
 Everything above is someone else's.
@@ -103,8 +134,10 @@ Where the diff reaches them:
 
 ## Verdicts
 
-The reviewer returns exactly one of `PASS`, `CHANGES_REQUIRED`, or `BLOCKED`, with
-findings as `path:line — problem — fix`.
+The reviewer returns exactly one of `PASS`, `CHANGES_REQUIRED`, or `BLOCKED`.
+File findings use `path:line — problem — fix`. A blocker with no file location uses
+`N/A — blocker — <required input>` (for example missing acceptance criteria,
+credentials, or a user decision).
 
 Post it on the PR before doing anything else with the verdict:
 
@@ -112,9 +145,10 @@ Post it on the PR before doing anything else with the verdict:
 gh pr comment <pr> --body "$(cat <<'EOF'
 ## Review — <PASS|CHANGES_REQUIRED|BLOCKED> @ <head sha>
 
+- Tier: <full|workflow|docs|trivial>
 - Axes judged: ...
-- CI: <workflows that ran and their result>
-- Findings: <none | path:line — problem — fix, one per line>
+- CI: gate <result>, jobs run: <list>
+- Findings: <none | path:line — problem — fix | N/A — blocker — required input, one per line>
 - Authorship: <Codex | Claude — independence weaker>
 EOF
 )"
@@ -141,15 +175,17 @@ Only when all of these hold:
 Something concrete must change. Route each finding by ownership:
 
 - **repository code finding** → Claude turns it into a fix request and sends it to
-  Codex by **resuming the original handoff session** (`codex exec resume <id>`, see
-  `skills/codex-handoff/SKILL.md` **Fix rounds**), naming the same branch. Codex
-  fixes and runs `npm run build`; Claude runs `npm run test:e2e`, reviews the diff,
-  commits, and pushes. Codex cannot commit, push, or run the e2e suite in its
-  sandbox.
+  Codex by **resuming the original handoff session** with
+  `codex exec resume <thread_id> -m gpt-5.6-sol -c 'sandbox_mode="workspace-write"'`
+  (see `skills/codex-handoff/SKILL.md` **Fix rounds**), naming the same branch. Codex
+  fixes and runs the applicable build/routing self-validation; Claude runs
+  `npm run test:e2e` when applicable, reviews the diff, commits, and pushes. Codex
+  cannot commit, push, or run the e2e suite in its sandbox.
 - **Webflow finding** → Claude makes the Webflow change directly, then revalidates
   the integrated result.
 
-Then review again — same inputs, updated diff, prior findings noted.
+Return all findings from one round to Codex together in one resume message, never one
+at a time. Then review again — same inputs, updated diff, prior findings noted.
 
 **Cap the loop at three review rounds.** If round three does not return `PASS`, stop
 and return `BLOCKED`. A finding that survives three attempts is a design problem, not
@@ -166,14 +202,15 @@ Hand the PR to the user with:
 - the PR link
 - what is blocked
 - what has already been verified
-- the exact decision or input required
+- the exact decision or input required, written as
+  `N/A — blocker — <required input>`
 
 Never merge a blocked PR.
 
 ## Merging
 
-A posted `PASS` comment on the PR's head commit plus green CI authorizes Claude to
-merge:
+A posted `PASS` comment on the PR's head commit plus green `gate` authorizes Claude
+to merge:
 
 ```bash
 gh pr merge <pr> --squash --delete-branch

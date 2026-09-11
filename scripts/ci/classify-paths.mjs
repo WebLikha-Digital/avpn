@@ -59,7 +59,9 @@ export function classifyPaths(files) {
     if (
       WORKFLOW_FILES.has(file) ||
       isUnder(file, "skills") ||
+      isUnder(file, ".claude") ||
       isUnder(file, ".github") ||
+      isUnder(file, "scripts/codex") ||
       isUnder(file, "scripts/ci")
     ) {
       workflow = true;
@@ -70,7 +72,6 @@ export function classifyPaths(files) {
       file.endsWith(".md") ||
       DOCS_FILES.has(file) ||
       isNoise(file) ||
-      isUnder(file, ".claude") ||
       isUnder(file, ".conductor")
     ) {
       docs = true;

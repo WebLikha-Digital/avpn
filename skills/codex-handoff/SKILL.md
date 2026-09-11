@@ -14,9 +14,22 @@ One path, from the prepared branch:
 codex exec --sandbox workspace-write --json "<the handoff below>"
 ```
 
-Keep the process attached. Only process exit together with `turn.completed`,
-`turn.failed` or `error` is a result; `thread.started` and `turn.started` mean work
-began, nothing more.
+Run it through the Bash tool. Keep it attached by default. If the run may exceed the
+Bash tool's 10-minute ceiling — a new component, a refactor across files, anything
+with tests to write — launch the same command with `run_in_background: true` instead
+and wait for the completion notification. That is a Bash background job, not the
+Agent tool; the Agent-tool ban below still stands.
+
+Only process exit together with `turn.completed`, `turn.failed` or `error` is a
+result; `thread.started` and `turn.started` mean work began, nothing more.
+
+While a background run is alive: no edits to repository files, no `git` writes, no
+`npm run build`. Webflow Designer and MCP work may continue — it does not touch the
+checkout. Before touching files after a run ends, confirm no `codex` process
+survives (`pgrep -fl codex`).
+
+Do not hand off at all for a trivial edit — see **When Codex does not run** in
+`CLAUDE.md`.
 
 **Never delegate through the Agent tool** (`subagent_type: codex:codex-rescue`) **or
 the `/codex:rescue` command.** The Agent tool is background-only in Claude Code, its

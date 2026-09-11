@@ -135,7 +135,10 @@ checks that require capabilities unavailable inside the Codex process.
    ```
 
 3. Keep the process attached. Do not background it with `&`, do not detach it, and do
-   not start fallback work while it is alive.
+   not start fallback work while it is alive. (Later amendment: the Bash tool's
+   `run_in_background` is not a shell `&` — the harness tracks the process and
+   notifies on exit — so it is allowed for runs that may exceed the tool's 10-minute
+   ceiling. See `skills/codex-handoff/SKILL.md`.)
 4. Treat only process exit accompanied by `turn.completed`, `turn.failed` or `error`
    as a terminal result. `thread.started`, `turn.started` and other progress events
    are acknowledgements that work began, nothing more.

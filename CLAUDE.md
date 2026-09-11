@@ -42,8 +42,12 @@ Delegate one way only, from the prepared branch:
 codex exec --sandbox workspace-write --json "<scoped task>"
 ```
 
-Keep it attached. Only process exit plus `turn.completed`, `turn.failed` or `error`
-counts as done; `thread.started` and `turn.started` are acknowledgements, not results.
+Run it through the Bash tool. Attached by default; for a run that may exceed the
+Bash tool's 10-minute ceiling, the same command with `run_in_background: true` —
+never the Agent tool. Only process exit plus `turn.completed`, `turn.failed` or
+`error` counts as done; `thread.started` and `turn.started` are acknowledgements,
+not results. While a background run is alive, Claude does not edit repository files;
+Webflow work may continue.
 
 **Never delegate through the Agent tool** (`subagent_type: codex:codex-rescue`) **or
 the `/codex:rescue` command.** The Agent tool is background-only in Claude Code,
@@ -74,12 +78,37 @@ Classify before implementing.
 - **Webflow-only** — layout, sections, classes, variables, attributes, Designer
   breakpoints, content, components. Claude does it directly.
 - **Code-only** — GSAP behavior, JS bugs, animation lifecycle, refactors, tests,
-  build config, repo CSS. Claude hands off to Codex.
+  build config, repo CSS. Claude hands off to Codex, unless it is **trivial** (below).
 - **Mixed** — Claude does the Webflow half, hands the repo half to Codex, then
   validates the integrated result end to end.
+- **Trivial** — a mechanical repo edit Claude makes directly, without Codex. See
+  **When Codex does not run**.
 
 When it is unclear which side a change belongs to, prefer Webflow for
 layout/content/style and repo code for behavior Webflow cannot do natively.
+
+### When Codex does not run
+
+Spinning up Codex costs minutes. Do not pay it for a change that has no behavior in
+it. Claude edits directly when **all** of these hold:
+
+- at most two files, plus the rebuilt bundle
+- no new logic — no new branch, loop, listener, timeline, ScrollTrigger, or
+  three.js object; no change to what an existing one does
+- the whole diff can be written from the task description alone, without reading
+  around it to understand the code
+
+Typical trivial edits: a tunable default or constant, a selector or attribute name,
+docs, `skills/`, `CLAUDE.md`, `AGENTS.md`, CI YAML, config values, dependency pins,
+a rebuilt `dist/`.
+
+Everything else goes to Codex: new components or behavior, GSAP or three.js logic,
+lifecycle and cleanup, tests, refactors, bug fixes that need a root cause, build
+config that has logic in it. If unsure whether an edit is trivial, it is not.
+
+A trivial edit still gets a branch, a PR, CI, an inline review, and a merge per
+**Git** — only the handoff is skipped. Say in the PR body that Claude implemented it
+directly and why.
 
 ## Approval
 

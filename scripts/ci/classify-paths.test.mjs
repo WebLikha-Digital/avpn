@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
@@ -43,16 +46,42 @@ test("empty list reason says nothing changed", () => {
   assert.ok(classifyPaths([]).reasons.includes("nothing changed"));
 });
 
+function assertWorkflowOutput(output) {
+  assert.match(output, /^route=workflow$/m);
+  assert.match(output, /^runtime=false$/m);
+  assert.match(output, /^workflow=true$/m);
+  assert.match(output, /^docs=true$/m);
+  assert.match(output, /^dist_orphan=false$/m);
+}
+
 test("CLI output contains GitHub Actions key=value lines", () => {
   const script = fileURLToPath(new URL("./classify-paths.mjs", import.meta.url));
+  const env = { ...process.env };
+  delete env.GITHUB_OUTPUT;
   const result = spawnSync(process.execPath, [script, "AGENTS.md", "README.md"], {
     encoding: "utf8",
+    env,
   });
 
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /^route=workflow$/m);
-  assert.match(result.stdout, /^runtime=false$/m);
-  assert.match(result.stdout, /^workflow=true$/m);
-  assert.match(result.stdout, /^docs=true$/m);
-  assert.match(result.stdout, /^dist_orphan=false$/m);
+  assertWorkflowOutput(result.stdout);
+});
+
+test("CLI appends GitHub Actions key=value lines to GITHUB_OUTPUT", (t) => {
+  const script = fileURLToPath(new URL("./classify-paths.mjs", import.meta.url));
+  const directory = mkdtempSync(join(tmpdir(), "avpn-classify-paths-"));
+  const outputPath = join(directory, "github-output");
+  t.after(() => rmSync(directory, { recursive: true }));
+  writeFileSync(outputPath, "existing=true\n");
+
+  const result = spawnSync(process.execPath, [script, "AGENTS.md", "README.md"], {
+    encoding: "utf8",
+    env: { ...process.env, GITHUB_OUTPUT: outputPath },
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, "");
+  const output = readFileSync(outputPath, "utf8");
+  assert.match(output, /^existing=true$/m);
+  assertWorkflowOutput(output);
 });

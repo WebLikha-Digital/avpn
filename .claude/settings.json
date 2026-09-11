@@ -9,7 +9,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "jq -r 'if (.tool_input.subagent_type // \"\") | test(\"codex-rescue\") then \"{\\\"hookSpecificOutput\\\": {\\\"hookEventName\\\": \\\"PreToolUse\\\", \\\"permissionDecision\\\": \\\"deny\\\", \\\"permissionDecisionReason\\\": \\\"Blocked by repo contract: codex-rescue via the Agent tool is background-only, silently drops --wait/--fresh, and writes to the shared checkout after the handoff appears to have returned. Delegate with: codex exec --sandbox workspace-write --json. See CLAUDE.md.\\\"}}\" else \"{}\" end'"
+            "command": "jq -r 'if (.tool_input.subagent_type // \"\") | test(\"codex-rescue\") then \"{\\\"hookSpecificOutput\\\": {\\\"hookEventName\\\": \\\"PreToolUse\\\", \\\"permissionDecision\\\": \\\"deny\\\", \\\"permissionDecisionReason\\\": \\\"Blocked by repo contract: codex-rescue via the Agent tool is background-only, silently drops --wait/--fresh, and writes to the shared checkout after the handoff appears to have returned. Delegate through: node scripts/codex/run-handoff.mjs. See CLAUDE.md.\\\"}}\" else \"{}\" end'"
           }
         ]
       }

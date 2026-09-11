@@ -36,18 +36,26 @@ a false report.
 
 ### Delegating
 
-Delegate one way only, from the prepared branch:
+Delegate one way only, from the prepared branch, through the supervised launcher:
 
 ```bash
-codex exec -m gpt-5.6-sol --sandbox workspace-write --json "<scoped task>"
+node scripts/codex/run-handoff.mjs --model gpt-5.6-sol --sandbox workspace-write --timeout-seconds 540 --prompt "<scoped task>"
 ```
 
-Run it through the Bash tool. Attached by default; for a run that may exceed the
-Bash tool's 10-minute ceiling, the same command with `run_in_background: true` —
-never the Agent tool. Only process exit plus `turn.completed`, `turn.failed` or
-`error` counts as done; `thread.started` and `turn.started` are acknowledgements,
-not results. While a background run is alive, Claude does not edit repository files;
-Webflow work may continue.
+Use the nine-minute override for small foreground tasks so the command ends before
+Bash's 10-minute ceiling. A real handoff has taken 13 minutes, so use the launcher's
+30-minute default with `run_in_background: true` when the task may exceed 10 minutes.
+In either mode, run one launcher invocation only; never combine Git preparation,
+review, a fix round, polling, or log following into the same shell.
+
+The root cause of the observed zero-event stall was `codex exec` reading a non-TTY
+stdin and waiting for EOF. The launcher closes Codex's stdin, streams JSONL, and
+permits one turn. Exit zero plus `turn.completed` is success; timeout, missing or
+failed terminal state, and a terminal event followed by a process that does not exit
+are failures.
+
+After a non-zero launcher result, confirm it terminated the Codex process group
+before inspecting partial edits. Do not implement fallback work in the same shell.
 
 **Never delegate through the Agent tool** (`subagent_type: codex:codex-rescue`) **or
 the `/codex:rescue` command.** The Agent tool is background-only in Claude Code,
@@ -79,9 +87,9 @@ non-intensive Codex tasks — inspection, summaries, inventory, log triage — m
 `gpt-5.6-luna` with `--sandbox read-only`; the read-only sandbox is what enforces the
 boundary. A Luna task never expands into a repository mutation: if it finds files need
 to change, it ends with a recommendation and Claude starts a fresh Sol task or resumes
-the branch's existing Sol session. Fix rounds resume with
-`codex exec resume <thread_id> -m gpt-5.6-sol -c 'sandbox_mode="workspace-write"'` —
-`resume` has no `--sandbox` flag. See `skills/codex-handoff/SKILL.md`.
+the branch's existing Sol session. Fix rounds use a new launcher invocation with
+`--resume <thread_id>`; the launcher supplies Codex's different resume syntax. See
+`skills/codex-handoff/SKILL.md`.
 
 ## Task routing
 

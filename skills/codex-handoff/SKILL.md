@@ -8,10 +8,10 @@ branch, does any Webflow work first, and only then writes the handoff below.
 
 ## How to launch it
 
-One path, from the prepared branch:
+One path, from the prepared branch, through the lifecycle supervisor:
 
 ```bash
-codex exec -m gpt-5.6-sol --sandbox workspace-write --json "<the handoff below>"
+node scripts/codex/run-handoff.mjs --model gpt-5.6-sol --sandbox workspace-write --timeout-seconds 540 --prompt "<the handoff below>"
 ```
 
 Claude Opus is the orchestrator, planner, reviewer, and merger. Every task that
@@ -19,21 +19,25 @@ modifies repository files runs on Sol. Read-only, non-intensive inspection, summ
 inventory, and log triage may instead run as:
 
 ```bash
-codex exec -m gpt-5.6-luna --sandbox read-only --json "<question>"
+node scripts/codex/run-handoff.mjs --model gpt-5.6-luna --sandbox read-only --timeout-seconds 540 --prompt "<question>"
 ```
 
 The read-only sandbox enforces the boundary. A Luna task must not expand into a
 repository mutation; if it finds changes are needed, it ends with a recommendation
 and Claude starts a fresh Sol task or resumes the branch's existing Sol session.
 
-Run it through the Bash tool. Keep it attached by default. If the run may exceed the
-Bash tool's 10-minute ceiling — a new component, a refactor across files, anything
-with tests to write — launch the same command with `run_in_background: true` instead
-and wait for the completion notification. That is a Bash background job, not the
-Agent tool; the Agent-tool ban below still stands.
+For a small task, use the nine-minute override above and keep the Bash command in the
+foreground so it ends before Bash's 10-minute ceiling. A real handoff has taken 13
+minutes, so omit `--timeout-seconds 540` and use the launcher's 30-minute default with
+`run_in_background: true` when the task may exceed 10 minutes. In either mode, run
+exactly one launcher invocation. Do not combine it with Git preparation, another
+Codex turn, review, polling, `tail -f`, or a custom wait loop.
 
-Only process exit together with `turn.completed`, `turn.failed` or `error` is a
-result; `thread.started` and `turn.started` mean work began, nothing more.
+The measured zero-event stall came from `codex exec` reading stdin when stdin was not
+a TTY and blocking until EOF. The launcher closes Codex's stdin, streams JSONL, and
+fails closed on timeout, a missing or failed terminal event, or a terminal event
+followed by a process that does not exit. Exit zero plus `turn.completed` is success;
+`thread.started` and `turn.started` only mean work began.
 
 Keep the `thread_id` from the `thread.started` event. It is the session id for
 **Fix rounds** below.
@@ -45,19 +49,17 @@ handoff — Codex would rebuild its understanding of the branch from nothing. Re
 the session that wrote the code:
 
 ```bash
-codex exec resume <thread_id> -m gpt-5.6-sol -c 'sandbox_mode="workspace-write"' --json "<all findings from the round, plus: fix these on the current branch, run the applicable self-validation, report in the same structure>"
+node scripts/codex/run-handoff.mjs --resume <thread_id> --model gpt-5.6-sol --sandbox workspace-write --prompt "<all findings from the round, plus: fix these on the current branch, run the applicable self-validation, report in the same structure>"
 ```
 
-`codex exec resume` takes the sandbox through `-c sandbox_mode`, not `--sandbox`.
+The launcher translates `--resume` to Codex's required `-c sandbox_mode` form. A fix
+round is a separate launcher command after Claude's review; it is never part of the
+original shell invocation. Use the same foreground/background rule as the initial
+handoff. Resume only for the same branch and task.
 
-Same rules as the first run: attached (or `run_in_background` if long), no repo edits
-while it is alive, same **Return to Claude** structure back. Resume only for the same
-branch and task; a different task gets a fresh `codex exec`.
-
-While a background run is alive: no edits to repository files, no `git` writes, no
-`npm run build`. Webflow Designer and MCP work may continue — it does not touch the
-checkout. Before touching files after a run ends, confirm no `codex` process
-survives (`pgrep -fl codex`).
+While a launcher is alive: no edits to repository files, no Git writes, and no build.
+Webflow Designer and MCP work may continue because they do not touch the checkout.
+After any non-zero result, confirm no `codex` process survives before editing files.
 
 Do not hand off at all for a trivial edit — see **When Codex does not run** in
 `CLAUDE.md`.
@@ -70,8 +72,8 @@ Claude does in the meantime. That is not hypothetical; it is what went wrong and
 produced `docs/claude-codex-handoff-resolution.md`. The plugin stays installed for
 ad-hoc use by a person; no handoff goes through it.
 
-Do not start a second writer against the same checkout. If a run must be abandoned,
-kill it and confirm no `codex` process survives before editing the delegated files.
+Do not start a second writer against the same checkout. The launcher owns timeout and
+process-group termination; do not wrap it in a custom background or polling layer.
 
 ## What Codex cannot do here
 
@@ -92,9 +94,10 @@ happened.
 
 Codex writes the code and tests, self-reviews its full working-tree diff, and runs
 `npm run build` when the change touches `src/**`, `package.json`, `vite.config.js`, or
-`dist/**`. It runs `npm run test:routing` when the change touches `scripts/ci/**`.
-Claude runs the browser suite and owns Git. Codex self-validation is evidence for
-Claude's review, never merge authorization.
+`dist/**`. It runs `npm run test:routing` when the change touches `scripts/ci/**`, and
+`npm run test:codex-handoff` when it touches `scripts/codex/**`. Claude runs the
+browser suite and owns Git. Codex self-validation is evidence for Claude's review,
+never merge authorization.
 
 ### Browser preview (future)
 
@@ -209,6 +212,7 @@ Run the checks applicable to the changed paths, and report their real results:
 ```bash
 npm run build          # src/**, package.json, vite.config.js, or dist/**
 npm run test:routing   # scripts/ci/**
+npm run test:codex-handoff # scripts/codex/**
 ```
 
 Do **not** attempt `npm run test:e2e`. Playwright binds a local port and your sandbox

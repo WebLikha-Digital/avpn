@@ -152,6 +152,17 @@ checks that require capabilities unavailable inside the Codex process.
 8. Treat Codex's check results as evidence, not acceptance. Claude reruns anything
    that needs a port, a browser, or `.git`.
 
+### Amendment — 2026-09-11
+
+The zero-event foreground stall was traced to `codex exec` reading stdin when stdin
+is not a TTY and waiting for EOF. Handoffs now use
+`scripts/codex/run-handoff.mjs`, which closes Codex's stdin, supervises its JSONL
+lifecycle, and terminates the process group on failure. Small foreground runs pass
+`--timeout-seconds 540`; runs expected to exceed 10 minutes use the launcher's
+30-minute default with the Bash tool's `run_in_background: true`. This amendment
+supersedes only the launch command in rule 2; the concurrency and terminal-state
+rules remain unchanged.
+
 ## Changes to make in this repository
 
 Update `CLAUDE.md` and `skills/codex-handoff/SKILL.md` so they consistently express the ownership model above.
@@ -206,13 +217,13 @@ Avoid using unrestricted access as the primary fix. It increases risk without re
 The revised workflow is complete when all of the following are true:
 
 - Claude can hand a scoped implementation to Codex and receive either a final result or an explicit terminal failure.
-- Every handoff runs as an attached `codex exec --json` process and exposes a terminal JSON event.
+- Every handoff runs through the supervised launcher and exposes a terminal JSON event.
 - Claude never treats a task-start acknowledgement as a completed handoff.
 - Claude does not edit delegated files while the Codex task is still active.
 - A failed or timed-out handoff is killed and confirmed stopped before fallback work begins.
 - Codex is not instructed to perform Git writes that its sandbox prevents.
 - Claude runs final required checks and owns commit, push, and PR operations.
-- A simulated slow handoff cannot overwrite Claude's later work, because every handoff is attached and no fallback begins until the process has exited.
+- A simulated slow handoff cannot overwrite Claude's later work, because every handoff is supervised and no fallback begins until the process has exited.
 - The bug-fix workflow still records actual versus expected behavior, reproduction, acceptance criteria, real checks, and PR status without claiming checks that did not run.
 
 ## Validation scenario
@@ -220,7 +231,7 @@ The revised workflow is complete when all of the following are true:
 After updating the instructions, test the contract with a harmless documentation-only handoff that deliberately takes long enough to observe its state:
 
 1. Claude creates a task branch.
-2. Claude launches `codex exec --sandbox workspace-write --json` in the foreground and delegates one named file.
+2. Claude launches `scripts/codex/run-handoff.mjs` in the foreground and delegates one named file.
 3. Confirm Claude observes progress events and waits for process exit plus a terminal event.
 4. While the process is active, confirm Claude does not edit the delegated file.
 5. Repeat once with process termination; confirm Codex is stopped before Claude edits.

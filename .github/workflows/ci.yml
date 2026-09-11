@@ -146,6 +146,8 @@ jobs:
           node-version: 22
       - name: Test path routing
         run: npm run test:routing
+      - name: Test Codex handoff lifecycle
+        run: npm run test:codex-handoff
       - name: Validate workflow YAML
         env:
           ACTIONLINT_VERSION: 1.7.7

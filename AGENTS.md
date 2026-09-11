@@ -49,7 +49,8 @@ When a bug is reported, follow `skills/fix-bug/SKILL.md`.
 
 Run `npm run build` whenever a change touches `src/**`, `package.json`,
 `vite.config.js`, or `dist/**`. Run `npm run test:routing` whenever it touches
-`scripts/ci/**`. Both work in your sandbox. Write or update regression specs, but do
+`scripts/ci/**`, and `npm run test:codex-handoff` whenever it touches
+`scripts/codex/**`. These work in your sandbox. Write or update regression specs, but do
 not run `npm run test:e2e`: Playwright starts a local server and binding a port fails
 with `EPERM`. Claude runs the suite.
 

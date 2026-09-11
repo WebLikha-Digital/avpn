@@ -5,7 +5,7 @@ import { initSplitReveal } from "./animations/splitReveal.js";
 import { initMarqueeScrollDirection } from "./animations/marqueeScrollDirection.js";
 import { initContentReveal } from "./animations/contentReveal.js";
 import { initForewordFade } from "./animations/forewordAnim.js";
-import { initFlipScale } from "./animations/flipScale.js";
+import { initClipReveal } from "./animations/clipReveal.js";
 import { initHighlightDrum } from "./animations/highlightDrum.js";
 import { initHorizontalParallax } from "./animations/horizontalParallax.js";
 import { initShapeSwap } from "./animations/shapeSwap.js";
@@ -41,7 +41,7 @@ function init() {
   initMarqueeScrollDirection();
   initContentReveal();
   initForewordFade();
-  initFlipScale();
+  initClipReveal();
   initHighlightDrum();
   initStoriesStack();
   initProgrammesOverview();

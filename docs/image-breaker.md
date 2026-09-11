@@ -1,138 +1,119 @@
-# Image breaker (`flipScale.js`)
+# Image breaker (`clipReveal.js`)
 
-The image that closes the CEO's Foreword. It starts as a small framed picture at
-the end of the letter and grows into a full-width band before the Explore links,
-scrubbed to scroll position.
-
-The section is a visual break after a long read, so the motion is the point: the
-picture appears to travel up the page with the reader and open out.
+The image that closes the CEO's Foreword. A full-width frame stays fixed in a
+sticky, viewport-height wrapper while its clipped opening expands from a small,
+rounded box to the complete square-cornered image.
 
 ## How it works
 
-The script measures every waypoint, then gives the target one fixed base box: the
-widest waypoint's width at the first waypoint's aspect ratio. During the scrub it
-only changes a uniform `transform` (translation and scale) and a
-`clip-path: inset(...)`. The transform places the target at each waypoint while
-the inset reveals the waypoint's height from the vertical centre of the same
-`object-fit: cover` crop. The photo is never stretched, and its layout width and
-height do not change from frame to frame.
+The section is `200vh` tall and contains a `position: sticky; top: 0` wrapper
+that is `100vh` tall. Native CSS sticky holds the frame in place for the second
+viewport of section travel; ScrollTrigger does not pin or move it.
 
-The target's CSS corner radius is read before setup. The CSS radius is then
-disabled inline so it cannot double-clip: the clip path starts with the same
-visual radius and reaches zero at the full-width waypoint.
+At initialization, the script measures the optional sizing box relative to the
+target frame. Those four differences become the starting top, right, bottom,
+and left pixel insets. It also reads the sizing box's computed
+`border-top-left-radius`. One scrubbed GSAP tween then animates explicitly from:
 
-The trick that makes it read as travel rather than a jump: each hop's tween
-duration is the **pixel distance between the two waypoint centres**, the ease is
-`none`, and the ScrollTrigger runs from the first waypoint's centre to the last
-waypoint's centre. Scrolled distance and travelled distance are then the same
-number, so the target tracks the page.
+```css
+inset(<top>px <right>px <bottom>px <left>px round <radius>px)
+```
 
-Because the durations are pixel measurements, the timeline is rebuilt on width
-changes (debounced), not just refreshed.
+to:
 
-If the target contains an image with `srcset`, the component also owns its
-`sizes` value. It uses the last waypoint's measured width (`100vw` when that
-waypoint spans the viewport), so the browser can select a source candidate for
-the full-width frame rather than the small starting frame.
+```css
+inset(0px 0px 0px 0px round 0px)
+```
+
+The script never reads `clip-path` back from the browser. Browsers canonicalize
+inset values, which can make GSAP associate a rounded-corner value with the
+wrong inset when the start state is inferred. Supplying both strings to
+`fromTo()` avoids that ambiguity.
+
+Only `clip-path` changes during the scrub. The script does not write transform,
+width, height, positioning, or any other layout property. The timeline uses one
+ScrollTrigger on the section with `start: "top top"`, `end: "bottom bottom"`,
+and an `ease: "none"` tween.
+
+Measurements are rebuilt after a debounced width change so breakpoint changes
+to the frame or sizing box are reflected. Height-only viewport changes are
+ignored. Under `prefers-reduced-motion: reduce`, no ScrollTrigger is created and
+the frame is set directly to the fully revealed state.
 
 ## Webflow contract
 
 | Attribute | Where it goes |
 | --- | --- |
-| `data-flip-scale-init` | The scope root that contains every waypoint. On the Home page: `.section_wrapper.is-1`. |
-| `data-flip-scale-wrapper` | A waypoint box. Two or more, used in document order. |
-| `data-flip-scale-target` | The element that moves and scales. Must be inside the first waypoint. |
-| `data-flip-scale-scrub` | Optional. ScrollTrigger `scrub` value; defaults to `0.25`. |
+| `data-clip-reveal-init` | Scope root and ScrollTrigger range. Every root initializes independently. On Home: `.section_image-breaker`. |
+| `data-clip-reveal-target` | The frame whose `clip-path` animates. One per root. |
+| `data-clip-reveal-from` | Optional invisible sizing box. Its rect and computed top-left radius define the starting clip. |
+| `data-clip-reveal-scrub` | Optional ScrollTrigger `scrub` value; defaults to `0.25`. |
 
-A root with fewer than two waypoints, or with no target, is skipped silently —
-an unfinished section in the Designer does not throw.
-
-Under `prefers-reduced-motion: reduce` there is no ScrollTrigger at all: the
-target is placed in the last waypoint state directly, with square corners.
+A root with no target is skipped silently. If the sizing box is absent, the
+component falls back to the pixel equivalent of `inset(25% 25% 25% 25% round
+0px)`, calculated from the target's measured width and height.
 
 ## The Home page build
 
-Inside `.section_wrapper.is-1` (which carries `data-flip-scale-init`):
-
-```
-section.section_sticky-picture              the foreword; overflow: clip
-section.section_image-breaker
-  ├ .padding-global › .container-large
-  │   └ .image-breaker_start                [data-flip-scale-wrapper]  ← start
-  │       └ .image-breaker_target           [data-flip-scale-target]
-  │           └ img.image-breaker_image
-  └ .image-breaker_frame                    [data-flip-scale-wrapper]  ← end
-section.section_explore-links
+```text
+section.section_image-breaker           [data-clip-reveal-init]
+  .image-breaker_sticky
+    .image-breaker_frame                [data-clip-reveal-target]
+      img.image-breaker_image
+    .image-breaker_start                [data-clip-reveal-from]
 ```
 
-Both waypoints live in `.section_image-breaker`, and that placement is
-load-bearing rather than tidy-minded. `.section_sticky-picture` is
-`overflow: clip` — the arc above the foreword depends on it — so a target that
-starts inside that section is clipped out of sight the moment it travels below
-the section box. The geometry stays perfectly correct while nothing is drawn,
-which is a hard failure to read from the numbers. Keep the whole animation in an
-unclipped section.
+The sizing box is a sibling of the target and both are centred by the same
+sticky wrapper. That shared coordinate space makes its bounding rect directly
+usable as the target's initial visible area. `visibility: hidden` keeps the box
+measurable without drawing it.
 
-The start box reads as "the picture at the end of the letter" because the
-breaker section follows the foreword immediately and the box is centred in the
-same `container-large` the letter uses.
+## Measurements
 
-Measurements:
-
-| Class | Desktop | ≤767px |
+| Class | Desktop | <=767px |
 | --- | --- | --- |
-| `.image-breaker_start` | `22rem`, `aspect-ratio: 4 / 3`, `margin-bottom: 12rem` | `15rem`, `margin-bottom: 7rem` |
-| `.image-breaker_frame` | `100%`, `aspect-ratio: 16 / 9`, `max-height: 85vh` | `aspect-ratio: 4 / 3` |
-| `.section_image-breaker` | `6rem` padding top and bottom | `4rem` |
+| `.section_image-breaker` | `position: relative`, `height: 200vh`, padding `0` | Same |
+| `.image-breaker_sticky` | `position: sticky`, `top: 0`, `height: 100vh`, centred flex layout, `overflow: hidden` | Same |
+| `.image-breaker_frame` | `width: 100%`, `aspect-ratio: 16 / 9`, `max-height: 85vh`, `overflow: hidden` | `aspect-ratio: 4 / 3` |
+| `.image-breaker_start` | Absolute and centred, `width: 22rem`, `max-width: 100%`, `aspect-ratio: 4 / 3`, `border-radius: 1.5rem`, hidden and non-interactive | `width: 15rem` |
+| `.image-breaker_image` | Block, `width: 100%`, `height: 100%`, `object-fit: cover` | Same |
 
-`.image-breaker_start`'s bottom margin is what sets the scrub length: the
-timeline runs centre to centre, so a bigger gap means a longer, slower reveal.
-At 1440 the current numbers give roughly 700px of scrub.
-
-`.image-breaker_target` is `position: absolute; inset: 0` with `overflow: hidden`
-and a `1.5rem` radius, so the transform has a box to clip to. The start box must
-stay `position: relative` — the target is positioned against it.
+The target can be shorter than the viewport because of its aspect ratio and
+`max-height`; the flex wrapper centres it vertically. The sizing box must remain
+a sibling in that same wrapper so the measured insets describe the intended
+opening.
 
 ## Changing the picture
 
-Replace the image on `img.image-breaker_image` in the Designer. Nothing
-in the code refers to the asset. Use something wide: the end waypoint is 16:9 on
-desktop and the image is `object-fit: cover`. Keep Webflow's generated `srcset`;
-the component overrides `sizes` at runtime with the measured final width.
+Replace `img.image-breaker_image` in the Designer. The code does not refer to
+the asset or alter Webflow's `srcset`/`sizes`; responsive image selection remains
+owned by the markup.
 
 ## Troubleshooting
 
-**The picture jumps instead of travelling.** The two waypoints are too close, or
-something between them has an animation that changes page height mid-scrub.
-Scrolled distance has to match centre-to-centre distance.
+**The image scrolls away instead of staying put.** Confirm
+`.image-breaker_sticky` is `position: sticky; top: 0; height: 100vh`, the section
+is `200vh`, and no ancestor prevents sticky positioning through incompatible
+overflow or transform styles.
 
-**Everything measures correctly but nothing is visible.** An ancestor is
-clipping. Walk up from the target and look for a non-`visible` `overflow`:
+**The opening does not match the small box.** Confirm the sizing box and target
+are siblings in the same centred sticky wrapper. The sizing box must remain
+measurable (`visibility: hidden`, not `display: none`) and its radius must be on
+`border-top-left-radius` through the shared `border-radius` declaration.
 
-```js
-let el = document.querySelector("[data-flip-scale-target]").parentElement;
-while (el) { const o = getComputedStyle(el).overflow;
-  if (o !== "visible") console.log(el.className, o); el = el.parentElement; }
-```
+**The reveal starts or ends at the wrong scroll positions.** The trigger is the
+`[data-clip-reveal-init]` section and runs from section top at viewport top to
+section bottom at viewport bottom. Check that the attribute is on the `200vh`
+section rather than the sticky wrapper.
 
-This is exactly what `.section_sticky-picture` did to the first build of this
-section. Move the waypoints into an unclipped section rather than removing the
-clip — the arc needs it.
+**The reveal uses the wrong values after crossing a breakpoint.** Confirm the
+viewport width actually changed. The component ignores height-only resize
+events but rebuilds 150ms after the final width change.
 
-**It lands off the frame.** Something re-laid-out after init without a resize —
-a late-loading font or image inside the section. Force a `ScrollTrigger.refresh()`
-once that content settles.
+**Nothing animates.** Check that the target is inside the same
+`[data-clip-reveal-init]` root, reduced motion is not enabled, and the section
+has enough height to create a non-zero `"top top"` to `"bottom bottom"` range.
 
-**The image shakes or shimmers while opening.** Inspect the target's inline
-styles during continuous scroll. `width` and `height` should remain constant;
-only `transform` and `clip-path` should change. If layout dimensions change, an
-old bundle that still uses `Flip.fit()` is running.
-
-**The full-width image looks soft.** Inspect the inner image's `sizes` and
-`currentSrc`. `sizes` should be the measured last-waypoint width, or `100vw` for
-a viewport-wide frame. If it still describes the small start box, confirm the
-current bundle initialized this component after the `srcset` markup was present.
-
-**Nothing moves.** Check the target is a descendant of the *first* waypoint in
-document order, and that both waypoints are inside the same
-`[data-flip-scale-init]` root.
+**Old movement or inline sizing remains.** The current component writes only an
+inline `clip-path`. Inline transform, width, or height indicates an outdated
+bundle or another animation targeting the frame.

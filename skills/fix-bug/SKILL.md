@@ -268,7 +268,11 @@ auto-merge ships to the live Webflow site.
 
 ### 11. After the merge
 
+Confirm it actually merged first. A `CLOSED` PR with no `mergedAt` did not, and its
+branch stays.
+
 ```bash
+gh pr view <pr> --json state,mergedAt    # state MERGED, mergedAt non-null
 git checkout main
 git pull origin main
 git branch -d fix/<branch>

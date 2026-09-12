@@ -43,6 +43,12 @@ capped at 95% until all milestones finish. The loader waits for both those
 milestones and two seconds, or eight seconds maximum, then eases the counter to
 100 over one second.
 
+After the 1.2s entrance completes, the white disc's exposed
+`instance.shapeCycle` repeats square → circle → leaf → quarter → square.
+Each morph lasts 0.8s with `power2.inOut` easing and holds for 0.4s. The disc
+stays white at 0.55 opacity; the cycle is killed before the exit fade and on
+instance teardown. Reduced-motion users do not start the cycle.
+
 Before that loop, the years and counter enter from `y: "60vh"` to `y: 0` over
 1.2 seconds with `power1.out`; the tween is exposed as `instance.entrance` and
 is complete before FLIP measurement. The exit timeline fades the counter (0.4s) and background (0.6s), moves each

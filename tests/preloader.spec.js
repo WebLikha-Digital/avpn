@@ -58,6 +58,39 @@ test("years step at counter thresholds and stay on their edges", async ({ page }
   });
 });
 
+test("shape cycles through circle and leaf states, then stops at exit", async ({ page }) => {
+  await page.goto("/?preloader=1");
+  const result = await page.evaluate(async () => {
+    const container = document.querySelector("[data-preloader-init]");
+    const shape = document.querySelector("[data-preloader-shape]");
+    await new Promise((resolve) => {
+      const waitForEntrance = () => {
+        if (container._preloaderInstance?.shapeCycle && !container._preloaderInstance.entrance.isActive()) resolve();
+        else requestAnimationFrame(waitForEntrance);
+      };
+      waitForEntrance();
+    });
+    const cycle = container._preloaderInstance.shapeCycle;
+    cycle.pause();
+    cycle.seek(0.8);
+    const circle = ["borderTopLeftRadius", "borderTopRightRadius", "borderBottomRightRadius", "borderBottomLeftRadius"]
+      .map((corner) => getComputedStyle(shape)[corner]);
+    cycle.seek(2);
+    const leaf = ["borderTopLeftRadius", "borderTopRightRadius", "borderBottomRightRadius", "borderBottomLeftRadius"]
+      .map((corner) => getComputedStyle(shape)[corner]);
+    const exit = new Promise((resolve) => {
+      window.addEventListener("preloader:exit", () => resolve({ active: cycle.isActive() }), { once: true });
+    });
+    return { circle, leaf, exit: await exit };
+  });
+  const circleValues = result.circle.map((value) => Number.parseFloat(value));
+  expect(circleValues.every((value) => value > 0 && value === circleValues[0])).toBe(true);
+  const leafValues = result.leaf.map((value) => Number.parseFloat(value));
+  expect(leafValues[0]).toBe(leafValues[2]);
+  expect(leafValues[1]).toBe(0);
+  expect(result.exit.active).toBe(false);
+});
+
 test("preloader entrance moves the counter up from below the viewport", async ({ page }) => {
   await page.goto("/?preloader=1");
   const positions = await page.evaluate(() => {

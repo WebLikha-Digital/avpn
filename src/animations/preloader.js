@@ -34,7 +34,7 @@ export function initPreloader() {
 
     const reveals = [...document.querySelectorAll("[data-preloader-reveal]")];
     const media = [...document.querySelectorAll("[data-preloader-media]")];
-    const instance = { timeline: null, counterValue: 0, kill: () => {} };
+    const instance = { timeline: null, counterValue: 0, shapeCycle: null, kill: () => {} };
     container._preloaderInstance = instance;
 
     const scroll = getLocomotiveScroll();
@@ -61,6 +61,20 @@ export function initPreloader() {
     }
 
     let entranceComplete = false;
+    const shapeCycle = shape ? gsap.timeline({ paused: true, repeat: -1 }) : null;
+    if (shapeCycle) {
+      gsap.set(shape, { borderRadius: "0% 0% 0% 0%" });
+      shapeCycle
+        .to(shape, { borderRadius: "50% 50% 50% 50%", duration: 0.8, ease: "power2.inOut" })
+        .to({}, { duration: 0.4 })
+        .to(shape, { borderRadius: "50% 0% 50% 0%", duration: 0.8, ease: "power2.inOut" })
+        .to({}, { duration: 0.4 })
+        .to(shape, { borderRadius: "100% 0% 0% 0%", duration: 0.8, ease: "power2.inOut" })
+        .to({}, { duration: 0.4 })
+        .to(shape, { borderRadius: "0% 0% 0% 0%", duration: 0.8, ease: "power2.inOut" })
+        .to({}, { duration: 0.4 });
+      instance.shapeCycle = shapeCycle;
+    }
     const entrance = gsap.fromTo(
       [...years, counter, ...(shape ? [shape] : [])],
       { y: "60vh" },
@@ -68,6 +82,7 @@ export function initPreloader() {
         y: 0, duration: 1.2, ease: "power1.out",
         onComplete: () => {
           entranceComplete = true;
+          shapeCycle?.play(0);
           if (stepTimeline.duration() && !stepTimeline.isActive()) stepTimeline.play();
         },
       },
@@ -243,6 +258,7 @@ export function initPreloader() {
       renderCounter(100);
       queueSteps(100);
       stepTimeline.kill();
+      shapeCycle?.kill();
       years.forEach((year) => { year.dataset.preloaderSlot = year.dataset.preloaderSide === "left" ? "top" : "bottom"; });
       gsap.killTweensOf(years);
 
@@ -302,6 +318,7 @@ export function initPreloader() {
       instance.entrance?.kill();
       counterTween?.kill();
       stepTimeline.kill();
+      shapeCycle?.kill();
       gsap.killTweensOf([...years, ...rollers, ...masks.map(({ element }) => element)]);
       if (!instance.completed) scroll?.lenisInstance?.start();
     };

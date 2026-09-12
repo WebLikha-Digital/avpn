@@ -8,6 +8,7 @@ const FLIP_EASE = "power4.inOut";
 const REVEAL_EASE = "power4.inOut";
 const STEP_THRESHOLDS = [70, 85];
 const MOVE = { duration: 1, ease: "power3.inOut" };
+const ENTRANCE = { duration: 0.6, ease: "power3.out" };
 const YEAR_CORNERS = {
   "2025": ["bl", "tl"],
   "2026": ["tr", "br"],
@@ -114,9 +115,25 @@ export function initPreloader() {
         [...years, counter, ...(shape ? [shape] : [])],
         { y: "60vh" },
         {
-          y: 0, duration: 1.2, ease: "power1.out",
+          y: 0, ...ENTRANCE,
           onComplete: () => {
             entranceComplete = true;
+            startTime = performance.now();
+            finishPromise = Promise.race([
+              Promise.all([realComplete, new Promise((resolve) => { minimumTimer = setTimeout(resolve, MINIMUM_MS); })]),
+              new Promise((resolve) => { maximumTimer = setTimeout(resolve, MAXIMUM_MS); }),
+            ]);
+            finishPromise.then(() => {
+              cancelAnimationFrame(frame);
+              counterTween = gsap.to({ value: shown }, { value: 100, duration: 1, ease: COUNTER_EASE,
+                onUpdate() {
+                  shown = Math.max(shown, this.targets()[0].value);
+                  renderCounter(shown);
+                  queueSteps(instance.counterValue);
+                },
+                onComplete: beginExit });
+            });
+            tick();
             if (stepTimeline.duration() && !stepTimeline.isActive()) stepTimeline.play();
           },
         },
@@ -302,7 +319,8 @@ export function initPreloader() {
       loadDone = true;
     });
 
-    const startTime = performance.now();
+    let startTime;
+    let finishPromise;
     const beginExit = () => {
       if (instance.completed || exitStarted || exitDeferred) return;
       cancelAnimationFrame(frame);
@@ -359,22 +377,6 @@ export function initPreloader() {
       instance.timeline = timeline;
       window.dispatchEvent(new CustomEvent("preloader:exit", { detail: { timeline } }));
     };
-
-    const finishPromise = Promise.race([
-      Promise.all([realComplete, new Promise((resolve) => { minimumTimer = setTimeout(resolve, MINIMUM_MS); })]),
-      new Promise((resolve) => { maximumTimer = setTimeout(resolve, MAXIMUM_MS); }),
-    ]);
-    finishPromise.then(() => {
-      cancelAnimationFrame(frame);
-      counterTween = gsap.to({ value: shown }, { value: 100, duration: 1, ease: COUNTER_EASE,
-        onUpdate() {
-          shown = Math.max(shown, this.targets()[0].value);
-          renderCounter(shown);
-          queueSteps(instance.counterValue);
-        },
-        onComplete: beginExit });
-    });
-    frame = requestAnimationFrame(tick);
 
     instance.kill = () => {
       initPreloader._resize?.();

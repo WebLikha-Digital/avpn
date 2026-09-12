@@ -131,6 +131,12 @@ test("years orbit corners at counter thresholds and move on one axis", async ({ 
   await page.goto("/?preloader=1");
   await page.waitForFunction(() => !document.documentElement.classList.contains("is-preloading"));
   const samples = await page.evaluate(() => window.__preloaderSamples);
+  const entranceEnd = samples.findIndex(({ entranceActive }, index) =>
+    index > 0 && !entranceActive && samples.slice(0, index).some(({ entranceActive: wasActive }) => wasActive));
+  expect(entranceEnd).toBeGreaterThan(0);
+  expect(samples.slice(0, entranceEnd).every(({ entranceActive, counterValue }) =>
+    !entranceActive || counterValue === 0)).toBe(true);
+  expect(samples.slice(entranceEnd, entranceEnd + 4).some(({ counterValue }) => counterValue > 0)).toBe(true);
   const cornerPairs = samples.reduce((pairs, { corners }) => {
     const key = JSON.stringify(corners);
     if (pairs.at(-1)?.key !== key) pairs.push({ key, corners });
@@ -224,6 +230,12 @@ test("preloader entrance moves the counter up from below the viewport", async ({
   expect(positions.start).toBeGreaterThan(positions.viewport);
   expect(positions.end).toBeLessThan(positions.viewport);
   expect(positions.start).toBeGreaterThan(positions.end);
+});
+
+test("preloader entrance uses the fast entrance timing", async ({ page }) => {
+  await page.goto("/?preloader=1");
+  await expect.poll(() => page.locator("[data-preloader-init]").evaluate((node) =>
+    node._preloaderInstance.entrance?.duration())).toBe(0.6);
 });
 
 test("preloader entrance starts on the frame after its instance is created", async ({ page }) => {

@@ -1,5 +1,54 @@
 import { test, expect } from "@playwright/test";
 
+const MOVE = { duration: 1 };
+
+const installPreloaderSampler = (page) => {
+  page.addInitScript((moveDuration) => {
+    window.__preloaderSamples = [];
+    window.__preloaderExitSample = null;
+    const readRadii = () => {
+      const shape = document.querySelector("[data-preloader-shape]");
+      if (!shape) return null;
+      return ["borderTopLeftRadius", "borderTopRightRadius", "borderBottomRightRadius", "borderBottomLeftRadius"]
+        .map((corner) => Number.parseFloat(getComputedStyle(shape)[corner]));
+    };
+    window.addEventListener("preloader:exit", (event) => {
+      const before = readRadii();
+      event.detail.timeline.seek(moveDuration);
+      window.__preloaderExitSample = { before, quarter: readRadii() };
+    });
+    let started = false;
+    const sample = () => {
+      const container = document.querySelector("[data-preloader-init]");
+      const instance = container?._preloaderInstance;
+      if (instance) {
+        const years = ["2025", "2026"].map((year) => document.querySelector(`[data-preloader-year="${year}"]`));
+        const stepActive = instance.stepTimeline?.isActive() ?? false;
+        window.__preloaderSamples.push({
+          counterValue: instance.counterValue,
+          corners: years.map((year) => year.dataset.preloaderCorner),
+          stepActive,
+          stepTime: stepActive ? instance.stepTimeline.time() : null,
+          rects: stepActive ? years.map((year) => {
+            const rect = year.getBoundingClientRect();
+            return { left: rect.left, top: rect.top };
+          }) : null,
+          radii: readRadii(),
+          entranceActive: instance.entrance?.isActive() ?? false,
+        });
+      }
+      if (document.documentElement.classList.contains("is-preloading")) requestAnimationFrame(sample);
+    };
+    const start = () => {
+      if (started) return;
+      started = true;
+      requestAnimationFrame(sample);
+    };
+    document.addEventListener("DOMContentLoaded", start, { once: true });
+    if (document.readyState !== "loading") start();
+  }, MOVE.duration);
+};
+
 test("counter is monotonic and reaches 100", async ({ page }) => {
   await page.goto("/?preloader=1");
   const values = await page.evaluate(async () => {
@@ -71,29 +120,10 @@ test("odometer rollers never roll backward during rapid updates", async ({ page 
 });
 
 test("years orbit corners at counter thresholds and move on one axis", async ({ page }) => {
+  installPreloaderSampler(page);
   await page.goto("/?preloader=1");
-  const samples = await page.evaluate(async () => {
-    const container = document.querySelector("[data-preloader-init]");
-    const values = [];
-    while (document.documentElement.classList.contains("is-preloading")) {
-      const instance = container._preloaderInstance;
-      const years = ["2025", "2026"].map((year) => document.querySelector(`[data-preloader-year="${year}"]`));
-      values.push({
-        corners: years.map((year) => year.dataset.preloaderCorner),
-        entranceActive: instance.entrance.isActive(),
-        stepActive: instance.stepTimeline?.isActive() ?? false,
-        stepTime: instance.stepTimeline?.isActive() ? instance.stepTimeline.time() : null,
-        rects: instance.stepTimeline?.isActive()
-          ? years.map((year) => {
-            const rect = year.getBoundingClientRect();
-            return { left: rect.left, top: rect.top };
-          })
-          : null,
-      });
-      await new Promise(requestAnimationFrame);
-    }
-    return values;
-  });
+  await page.waitForFunction(() => !document.documentElement.classList.contains("is-preloading"));
+  const samples = await page.evaluate(() => window.__preloaderSamples);
   const cornerPairs = samples.reduce((pairs, { corners }) => {
     const key = JSON.stringify(corners);
     if (pairs.at(-1)?.key !== key) pairs.push({ key, corners });
@@ -115,8 +145,8 @@ test("years orbit corners at counter thresholds and move on one axis", async ({ 
   });
 
   const activeSamples = samples.filter(({ stepActive, stepTime, rects }) => stepActive && stepTime !== null && rects);
-  const horizontalSamples = activeSamples.filter(({ stepTime }) => stepTime < 0.6);
-  const verticalSamples = activeSamples.filter(({ stepTime }) => stepTime >= 0.6);
+  const horizontalSamples = activeSamples.filter(({ stepTime }) => stepTime < MOVE.duration);
+  const verticalSamples = activeSamples.filter(({ stepTime }) => stepTime >= MOVE.duration);
   expect(horizontalSamples.length).toBeGreaterThan(1);
   expect(verticalSamples.length).toBeGreaterThan(1);
   for (let index = 0; index < 2; index += 1) {
@@ -129,37 +159,44 @@ test("years orbit corners at counter thresholds and move on one axis", async ({ 
   }
 });
 
-test("shape cycles through circle and leaf states, then stops at exit", async ({ page }) => {
+test("shape morphs with year moves and reaches the exit quarter", async ({ page }) => {
+  installPreloaderSampler(page);
   await page.goto("/?preloader=1");
-  const result = await page.evaluate(async () => {
-    const container = document.querySelector("[data-preloader-init]");
-    const shape = document.querySelector("[data-preloader-shape]");
-    await new Promise((resolve) => {
-      const waitForEntrance = () => {
-        if (container._preloaderInstance?.shapeCycle && !container._preloaderInstance.entrance.isActive()) resolve();
-        else requestAnimationFrame(waitForEntrance);
-      };
-      waitForEntrance();
+  await page.waitForFunction(() => !document.documentElement.classList.contains("is-preloading"));
+  const result = await page.evaluate(() => ({
+    samples: window.__preloaderSamples,
+    exit: window.__preloaderExitSample,
+  }));
+  const initial = result.samples.find(({ entranceActive }) => entranceActive)?.radii;
+  expect(initial).toEqual([0, 0, 0, 0]);
+  const phase1 = result.samples.filter(({ stepTime }) => stepTime !== null && stepTime < MOVE.duration);
+  const phase2 = result.samples.filter(({ stepTime }) => stepTime !== null && stepTime >= MOVE.duration);
+  expect(phase1.length).toBeGreaterThan(1);
+  expect(phase2.length).toBeGreaterThan(1);
+  for (let index = 1; index < phase1.length; index += 1) {
+    phase1[index].radii.forEach((value, corner) => {
+      expect(value).toBeGreaterThanOrEqual(phase1[index - 1].radii[corner] - 0.5);
     });
-    const cycle = container._preloaderInstance.shapeCycle;
-    cycle.pause();
-    cycle.seek(0.8);
-    const circle = ["borderTopLeftRadius", "borderTopRightRadius", "borderBottomRightRadius", "borderBottomLeftRadius"]
-      .map((corner) => getComputedStyle(shape)[corner]);
-    cycle.seek(2);
-    const leaf = ["borderTopLeftRadius", "borderTopRightRadius", "borderBottomRightRadius", "borderBottomLeftRadius"]
-      .map((corner) => getComputedStyle(shape)[corner]);
-    const exit = new Promise((resolve) => {
-      window.addEventListener("preloader:exit", () => resolve({ active: cycle.isActive() }), { once: true });
-    });
-    return { circle, leaf, exit: await exit };
+  }
+  expect(phase1.at(-1).radii.every((value) => value > 45)).toBe(true);
+  for (let index = 1; index < phase2.length; index += 1) {
+    expect(phase2[index].radii[1]).toBeLessThanOrEqual(phase2[index - 1].radii[1] + 0.5);
+    expect(phase2[index].radii[3]).toBeLessThanOrEqual(phase2[index - 1].radii[3] + 0.5);
+  }
+  phase2.forEach(({ radii }) => {
+    expect(radii[0]).toBeGreaterThan(45);
+    expect(radii[2]).toBeGreaterThan(45);
   });
-  const circleValues = result.circle.map((value) => Number.parseFloat(value));
-  expect(circleValues.every((value) => value > 0 && value === circleValues[0])).toBe(true);
-  const leafValues = result.leaf.map((value) => Number.parseFloat(value));
-  expect(leafValues[0]).toBe(leafValues[2]);
-  expect(leafValues[1]).toBe(0);
-  expect(result.exit.active).toBe(false);
+  expect(phase2.at(-1).radii[1]).toBeLessThan(5);
+  expect(phase2.at(-1).radii[3]).toBeLessThan(5);
+  expect(result.exit.before[0]).toBeGreaterThan(49);
+  expect(result.exit.before[2]).toBeGreaterThan(49);
+  expect(result.exit.before[1]).toBeLessThan(1);
+  expect(result.exit.before[3]).toBeLessThan(1);
+  expect(result.exit.quarter[0]).toBeGreaterThan(49);
+  expect(result.exit.quarter[1]).toBeLessThan(1);
+  expect(result.exit.quarter[2]).toBeLessThan(1);
+  expect(result.exit.quarter[3]).toBeLessThan(1);
 });
 
 test("preloader entrance moves the counter up from below the viewport", async ({ page }) => {

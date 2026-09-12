@@ -116,10 +116,11 @@ test("odometer rollers never roll backward during rapid updates", async ({ page 
       const previous = result.samples[frame - 1][index];
       if (value <= previous + 0.5) return;
       const delta = value - previous;
-      // A wrap is exactly +10 cells minus the forward travel of the same frame
-      // (at most 2 cells during the 0.35s roll); a genuine backward roll would
-      // produce a smaller increase.
-      expect(delta).toBeGreaterThan(8 * result.cellPx);
+      // A wrap is exactly +10 cells minus the forward travel of the same frame.
+      // On CI a frame can run 100ms+, which is up to ~4 cells of a 0.35s roll,
+      // so the floor sits at 5 cells; a genuine backward roll is bounded by the
+      // wrap logic to far less than that.
+      expect(delta).toBeGreaterThan(5 * result.cellPx);
       expect(delta).toBeLessThanOrEqual(10 * result.cellPx + 1);
     });
   }

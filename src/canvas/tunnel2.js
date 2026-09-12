@@ -26,8 +26,7 @@ import {
  * walls carries a picture, separated only by thin gaps that read as bright
  * seams, and the far end dissolves into a white haze the camera flies toward.
  *
- * Kept alongside `tunnel.js` rather than replacing it — the two are different
- * looks, not versions of one.
+ * This is the sole tunnel component used by the site.
  *
  * DOM contract (all set in the Webflow Designer):
  *   [data-tunnel2-init]    the mount — an empty div with an explicit size in CSS.

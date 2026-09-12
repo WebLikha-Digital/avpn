@@ -162,7 +162,6 @@ instructions.
 - Do not add debug code to the final implementation.
 - Do not add `Co-authored-by` or other co-author attribution.
 - Do not create branches, commit, push, or open a PR (if running under Codex).
-- Do not change `src/canvas/tunnel.js`; that is the separate wireframe variant.
 
 For GSAP or scroll-driven work:
 

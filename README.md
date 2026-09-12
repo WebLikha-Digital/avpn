@@ -35,8 +35,6 @@ dist/          bundled output pasted into Webflow custom code
 
 ## Component docs
 
-- [`docs/tunnel.md`](docs/tunnel.md) — the hero tunnel canvas: Webflow setup,
-  image requirements, tunables, troubleshooting.
 - [`docs/tunnel2.md`](docs/tunnel2.md) — the solid-image tunnel variant: image
   proportions, alignment, sharpness, Webflow setup, tunables, troubleshooting.
 - [`docs/locomotive.md`](docs/locomotive.md) — page-wide smooth scroll and

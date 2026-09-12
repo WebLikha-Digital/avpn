@@ -23,6 +23,98 @@ test("boots every preview component", async ({ page }) => {
   await expect(page.locator("[data-tunnel2-init] canvas")).toHaveCount(1);
 });
 
+test("confines tunnel2 images to surfaces and cycles each pool in order", async ({ page }) => {
+  await expect.poll(() => page.locator("[data-tunnel2-init] canvas").count()).toBe(1);
+  const tileData = await page.locator("[data-tunnel2-init]").evaluate((mount) => {
+    const scene = mount.__tunnel2?.scene;
+    const tiles = [];
+    // Segments are populated in descending z (initial build, then each recycle
+    // appends at the far end), so sorting by z restores creation order even
+    // after the loop has recycled a segment.
+    [...(scene?.children ?? [])]
+      .filter((segment) => segment.children.some((mesh) => mesh.name === "tile"))
+      .sort((a, b) => b.position.z - a.position.z)
+      .forEach((segment) => {
+        segment.children.forEach((mesh) => {
+          if (mesh.name === "tile") tiles.push(mesh.userData);
+        });
+      });
+    return tiles;
+  });
+
+  const expected = {
+    left: [0, 1, 2],
+    right: [3, 4, 5],
+    top: [6, 7, 8],
+    bottom: [9, 10, 11],
+  };
+  for (const [surface, indices] of Object.entries(expected)) {
+    const actual = tileData
+      .filter((tile) => tile.surface === surface)
+      .map((tile) => tile.sourceIndex);
+    expect(actual.length).toBeGreaterThanOrEqual(indices.length * 2);
+    actual.forEach((sourceIndex, index) => {
+      expect(sourceIndex).toBe(indices[index % indices.length]);
+    });
+  }
+});
+
+
+// The bundle is a module script that mounts the tunnel as soon as it runs, before
+// DOMContentLoaded. A manifest rewrite has to land while the document is still
+// parsing, so watch the parser instead of waiting for the event: once something
+// follows the mount, the manifest's own children are complete and can be swapped.
+const rewriteTunnel2Manifest = (page, html) =>
+  page.addInitScript((markup) => {
+    const observer = new MutationObserver(() => {
+      const mount = document.querySelector("[data-tunnel2-init]");
+      if (!mount?.nextElementSibling) return;
+      mount.querySelector("[data-tunnel2-images]").innerHTML = markup;
+      observer.disconnect();
+    });
+    observer.observe(document, { childList: true, subtree: true });
+  }, html);
+
+test("lets unassigned tunnel2 images land on every surface", async ({ page }) => {
+  await rewriteTunnel2Manifest(
+    page,
+    `<img alt="" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2' height='2'%3E%3Crect width='2' height='2' fill='red'/%3E%3C/svg%3E">`,
+  );
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+
+  const surfaces = await page.locator("[data-tunnel2-init]").evaluate((mount) => {
+    const tiles = [];
+    mount.__tunnel2?.scene.children.forEach((segment) => {
+      segment.children.forEach((mesh) => {
+        if (mesh.name === "tile") tiles.push(mesh.userData);
+      });
+    });
+    return [...new Set(tiles.map((tile) => tile.surface))];
+  });
+  expect([...surfaces].sort()).toEqual(["bottom", "left", "right", "top"]);
+});
+
+test("leaves a surface empty when it has no eligible images", async ({ page }) => {
+  await rewriteTunnel2Manifest(
+    page,
+    `<img alt="" data-tunnel2-surface="left" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2' height='2'%3E%3Crect width='2' height='2' fill='blue'/%3E%3C/svg%3E">`,
+  );
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+
+  const surfaces = await page.locator("[data-tunnel2-init]").evaluate((mount) => {
+    const tiles = [];
+    mount.__tunnel2?.scene.children.forEach((segment) => {
+      segment.children.forEach((mesh) => {
+        if (mesh.name === "tile") tiles.push(mesh.userData.surface);
+      });
+    });
+    return [...new Set(tiles)];
+  });
+  expect(surfaces).toEqual(["left"]);
+});
+
 test("gives split masks descender room without changing line spacing", async ({ page }) => {
   const spacing = await page.locator(".mask-demo__inner .line-mask").first().evaluate((mask) => {
     const styles = getComputedStyle(mask);

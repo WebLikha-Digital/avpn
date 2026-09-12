@@ -5,7 +5,6 @@
     <title>AVPN Animations — Local Preview</title>
     <script>
       (function () {
-        try { if (sessionStorage.getItem('avpn-preloader')) return; } catch (e) {}
         if (new URLSearchParams(location.search).get('preloader') !== '1') return;
         var html = document.documentElement;
         html.classList.add('is-preloading');

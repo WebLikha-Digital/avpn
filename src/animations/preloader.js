@@ -19,7 +19,6 @@ const TIME_CURVE = [
 export function initPreloader() {
   document.querySelectorAll("[data-preloader-init]").forEach((container) => {
     if (!document.documentElement.classList.contains("is-preloading")) return;
-    if (hasSessionKey()) return;
     container._preloaderInstance?.kill();
 
     const counter = container.querySelector("[data-preloader-counter]");
@@ -41,7 +40,6 @@ export function initPreloader() {
 
     const complete = () => {
       instance.completed = true;
-      try { sessionStorage.setItem("avpn-preloader", "1"); } catch (error) { /* storage can be blocked */ }
       gsap.set(targets, { opacity: 1 });
       gsap.set(reveals, { opacity: 1, y: 0 });
       gsap.set(media, { opacity: 1 });
@@ -200,8 +198,4 @@ export function initPreloader() {
       if (!instance.completed) scroll?.lenisInstance?.start();
     };
   });
-}
-
-function hasSessionKey() {
-  try { return sessionStorage.getItem("avpn-preloader") === "1"; } catch (error) { return false; }
 }

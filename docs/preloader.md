@@ -16,9 +16,11 @@ hero.
 - `[data-preloader-media]` marks the hero media whose opacity is revealed last.
 - `[data-tunnel2-images] img` are individual loading milestones.
 
-The page head adds `html.is-preloading` unless `sessionStorage` contains the
-`avpn-preloader` key. A 12-second head-script failsafe removes the class; the
-animation tolerates that and never adds it back.
+For now, the preloader plays on every page load: the Webflow page head sets
+`html.is-preloading` unconditionally before first paint (the `index.html`
+sandbox only does so with `?preloader=1`, so other specs are unaffected). A
+12-second head-script failsafe removes the class; the animation tolerates that
+and never adds it back.
 
 ## Timing
 
@@ -45,10 +47,9 @@ and the CSS custom properties `--preloader-year-width` and `--preloader-gap`.
 
 ## Completion and reduced motion
 
-Completion sets `sessionStorage["avpn-preloader"]` to `"1"`, removes
-`is-preloading`, hides the overlay, restarts Lenis, refreshes ScrollTrigger,
-and dispatches `preloader:complete`. Reduced-motion users skip all counter and
-tween work and go directly to that final state.
+Completion removes `is-preloading`, hides the overlay, restarts Lenis, refreshes
+ScrollTrigger, and dispatches `preloader:complete`. Reduced-motion users skip
+all counter and tween work and go directly to that final state.
 
 The component sets the overlay's inline `display` to `flex` as soon as valid
 markup is found. This keeps it present if the head gate's 12-second failsafe

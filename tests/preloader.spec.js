@@ -1,9 +1,5 @@
 import { test, expect } from "@playwright/test";
 
-test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => sessionStorage.removeItem("avpn-preloader"));
-});
-
 test("counter is monotonic and reaches 100", async ({ page }) => {
   await page.goto("/?preloader=1");
   const values = await page.evaluate(async () => {
@@ -72,7 +68,7 @@ test("completes with final visibility and dispatches its event", async ({ page }
   await expect(page.locator("[data-preloader-year]").first()).toHaveCSS("visibility", "hidden");
 });
 
-test("session gate is a complete no-op", async ({ page }) => {
+test("no gate class is a complete no-op", async ({ page }) => {
   await page.goto("/");
   const result = await page.evaluate(() => ({
     instance: document.querySelector("[data-preloader-init]")._preloaderInstance ?? null,

@@ -33,6 +33,43 @@ test("odometer has three visible masks and reaches 100", async ({ page }) => {
   expect(result.widths.every((width) => width > 0)).toBe(true);
 });
 
+test("odometer rollers never roll backward during rapid updates", async ({ page }) => {
+  await page.goto("/?preloader=1");
+  const result = await page.evaluate(async () => {
+    const container = document.querySelector("[data-preloader-init]");
+    const rollers = [...document.querySelectorAll('[data-preloader-part="roller"], [data-odometer-part="roller"]')];
+    const counter = document.querySelector("[data-preloader-counter]");
+    const styles = getComputedStyle(counter);
+    const step = styles.lineHeight === "normal" ? 1.2 : parseFloat(styles.lineHeight) / parseFloat(styles.fontSize);
+    const cellPx = step * parseFloat(styles.fontSize);
+    const readY = (transform) => {
+      if (transform === "none") return 0;
+      const values = transform.startsWith("matrix3d(")
+        ? transform.slice(9, -1).split(",")
+        : transform.slice(7, -1).split(",");
+      return Number.parseFloat(values[transform.startsWith("matrix3d(") ? 13 : 5]);
+    };
+    const samples = [];
+    while (document.documentElement.classList.contains("is-preloading")) {
+      samples.push(rollers.map((roller) => readY(getComputedStyle(roller).transform)));
+      await new Promise(requestAnimationFrame);
+    }
+    return { samples, cellPx };
+  });
+  for (let frame = 1; frame < result.samples.length; frame += 1) {
+    result.samples[frame].forEach((value, index) => {
+      const previous = result.samples[frame - 1][index];
+      if (value <= previous + 0.5) return;
+      const delta = value - previous;
+      // A wrap is exactly +10 cells minus the forward travel of the same frame
+      // (at most 2 cells during the 0.35s roll); a genuine backward roll would
+      // produce a smaller increase.
+      expect(delta).toBeGreaterThan(8 * result.cellPx);
+      expect(delta).toBeLessThanOrEqual(10 * result.cellPx + 1);
+    });
+  }
+});
+
 test("years step at counter thresholds and stay on their edges", async ({ page }) => {
   await page.goto("/?preloader=1");
   const samples = await page.evaluate(async () => {

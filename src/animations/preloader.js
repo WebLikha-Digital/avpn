@@ -127,6 +127,7 @@ export function initPreloader() {
     const rollers = [];
     const masks = [];
     const digitPositions = [0, 0, 0];
+    const cells = [0, 0, 0];
     const fontSize = parseFloat(getComputedStyle(counter).fontSize);
     counter.textContent = "";
     for (let index = 0; index < 3; index += 1) {
@@ -162,12 +163,19 @@ export function initPreloader() {
       digits.forEach((digit, index) => {
         const previous = digitPositions[index];
         if (digit === previous) return;
-        const target = digit < previous ? 10 + digit : digit;
         digitPositions[index] = digit;
+        let target = cells[index];
+        while (target % 10 !== digit) target += 1;
+        if (target >= 20) {
+          const current = Number.parseFloat(gsap.getProperty(rollers[index], "y", "em"));
+          gsap.set(rollers[index], { y: `${current + 10 * step}em` });
+          cells[index] -= 10;
+          target -= 10;
+        }
+        cells[index] = target;
         gsap.to(rollers[index], {
           y: `${-target * step}em`, duration: 0.35, delay: (2 - index) * 0.04, ease: "power3.out",
           force3D: true, overwrite: true,
-          onComplete: () => { gsap.set(rollers[index], { y: `${-digit * step}em` }); },
         });
       });
     };

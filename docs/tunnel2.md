@@ -16,9 +16,10 @@ inside it:
 ```html
 <div class="hero_tunnel" data-tunnel2-init="true">
   <div data-tunnel2-images="true">
-    <img src="..." alt="">
-    <img src="..." alt="">
-    <img src="..." alt="">
+    <img src="..." data-tunnel2-surface="left" alt="">
+    <img src="..." data-tunnel2-surface="right" alt="">
+    <img src="..." data-tunnel2-surface="top" alt="">
+    <img src="..." data-tunnel2-surface="bottom" alt="">
   </div>
 </div>
 ```
@@ -31,6 +32,13 @@ stable containing block.
 The script hides the manifest itself and changes its images to eager loading.
 Do not set `[data-tunnel2-images]` to `display: none`; that can prevent lazy
 images from resolving a usable `currentSrc`.
+
+Each manifest image may set `data-tunnel2-surface` to `left`, `right`, `top`, or
+`bottom` (the value is trimmed and case-insensitive). Tagged images are used only
+on that corridor surface. Images without the attribute or with an unrecognised
+value are unassigned and are eligible for every surface. Each surface uses its
+eligible images in manifest order and cycles `1 → 2 → … → N → 1` independently across
+recycled segments. A surface with no eligible images simply has no tiles.
 
 The live AVPN page is `https://avpn-25-26.webflow.io/`. Custom code does not run
 inside the Webflow Designer canvas, so test on the published page or with the
@@ -61,6 +69,7 @@ All attributes are optional. Invalid or missing values use the defaults below.
 
 | Attribute | Default | Description |
 |---|---:|---|
+| `data-tunnel2-surface` (on manifest images) | unassigned | `left`, `right`, `top`, or `bottom`; tagged images stay on that surface. Missing or unrecognised values are eligible for every surface, in manifest order. |
 | `data-tunnel2-width` | `24` | Corridor width in world units. It is automatically widened to match a wider mount. |
 | `data-tunnel2-height` | `15` | Corridor height in world units. |
 | `data-tunnel2-cols` | `1` | Floor and ceiling panels across each segment. |
@@ -76,6 +85,10 @@ All attributes are optional. Invalid or missing values use the defaults below.
 | `data-tunnel2-inset` | `1.4` | Consistent distance panels float inward from the corridor surface. |
 | `data-tunnel2-speed` | `3.5` | Camera travel speed in world units per second. |
 | `data-tunnel2-fov` | `50` | Camera field of view. |
+
+The tile meshes expose a test-only, read-only hook at `mount.__tunnel2.scene`.
+Walk meshes named `tile` to inspect `userData.surface`, `userData.sourceIndex`
+(the index in the shared loaded texture pool), and `userData.url`.
 
 For a full, regular image room:
 

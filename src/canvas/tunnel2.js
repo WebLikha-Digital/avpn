@@ -143,24 +143,35 @@ function collectSources(imgBox, done) {
     return;
   }
 
-  const urls = [];
+  const sources = new Array(imgs.length);
   let pending = imgs.length;
-  const settle = (img) => {
+  const settle = (img, index) => {
     // Reading img.src turns an empty src attribute into the current page URL.
     const url = img.currentSrc || img.getAttribute("src")?.trim() || "";
-    if (url) urls.push(url);
-    if (--pending === 0) done(urls);
+    if (url) {
+      const surface = img
+        .getAttribute("data-tunnel2-surface")
+        ?.trim()
+        .toLowerCase();
+      sources[index] = {
+        url,
+        surface: ["left", "right", "top", "bottom"].includes(surface)
+          ? surface
+          : null,
+      };
+    }
+    if (--pending === 0) done(sources.filter(Boolean));
   };
 
-  imgs.forEach((img) => {
+  imgs.forEach((img, index) => {
     img.loading = "eager";
     if (img.complete || img.currentSrc) {
-      settle(img);
+      settle(img, index);
     } else {
       const onSettle = () => {
         img.removeEventListener("load", onSettle);
         img.removeEventListener("error", onSettle);
-        settle(img);
+        settle(img, index);
       };
       img.addEventListener("load", onSettle);
       img.addEventListener("error", onSettle);
@@ -203,8 +214,8 @@ function disposePool(pool) {
  * Loads every URL, skipping any that fail. Tile-specific UV crops are created
  * later from the final panel dimensions so inset adjustments stay proportional.
  */
-function preload(urls, vars, done) {
-  if (!urls.length) {
+function preload(sources, vars, done) {
+  if (!sources.length) {
     done([]);
     return;
   }
@@ -215,25 +226,23 @@ function preload(urls, vars, done) {
   const cellH = vars.height / vars.rows;
   const tileDepth = SEG_DEPTH * vars.depthFill;
   // Walls run with the corridor and floor/ceiling run across it.
-  const pool = new Array(urls.length);
-  let pending = urls.length;
+  const pool = new Array(sources.length);
+  let pending = sources.length;
 
   const settle = () => {
     if (--pending > 0) return;
     done(
-      pool.filter(Boolean).map((tex) => ({
-        source: tex,
-      }))
+      pool.filter(Boolean)
     );
   };
 
-  urls.forEach((url, i) => {
+  sources.forEach(({ url, surface }, i) => {
     loader.load(
       url,
       (tex) => {
         tex.colorSpace = SRGBColorSpace;
         tex.minFilter = LinearFilter;
-        pool[i] = tex;
+        pool[i] = { source: tex, url, surface };
         settle();
       },
       undefined,
@@ -279,6 +288,9 @@ function setupInstance(container, pool, vars) {
   let dim = measure();
 
   const scene = new Scene();
+  // Test-only read-only hook: exposes the scene so specs can inspect tile
+  // metadata without changing rendering behaviour.
+  container.__tunnel2 = { scene };
   if (vars.bg !== "transparent" && vars.bg !== "none") {
     scene.background = new Color(vars.bg);
   }
@@ -321,25 +333,32 @@ function setupInstance(container, pool, vars) {
 
   /* ---------- geometry ---------- */
 
-  // Walking the pool in a shuffled order (rather than picking at random per
-  // tile) keeps neighbours distinct — the panels are large, so a repeat two
-  // segments apart is obvious.
-  let bag = [];
-  const nextEntry = () => {
-    if (!bag.length) {
-      bag = pool.map((_, i) => i);
-      for (let i = bag.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [bag[i], bag[j]] = [bag[j], bag[i]];
-      }
+  const surfaces = ["left", "right", "top", "bottom"];
+  const surfacePools = Object.fromEntries(
+    surfaces.map((surface) => [surface, []]),
+  );
+  pool.forEach((entry, index) => {
+    if (entry.surface) {
+      surfacePools[entry.surface].push(index);
+    } else {
+      surfaces.forEach((surface) => surfacePools[surface].push(index));
     }
-    return pool[bag.pop()];
+  });
+  const surfaceCursors = Object.fromEntries(
+    surfaces.map((surface) => [surface, 0]),
+  );
+  const nextEntry = (surface) => {
+    const indices = surfacePools[surface];
+    if (!indices.length) return null;
+    const cursor = surfaceCursors[surface];
+    const entry = pool[indices[cursor]];
+    surfaceCursors[surface] = (cursor + 1) % indices.length;
+    return entry;
   };
 
-  function addTile(group, position, rotation, w, h) {
-    if (!pool.length) return;
-
-    const entry = nextEntry();
+  function addTile(group, surface, position, rotation, w, h) {
+    const entry = nextEntry(surface);
+    if (!entry) return;
     const tileW = Math.max(0.1, w - GAP);
     const tileH = Math.max(0.1, h - GAP);
     const material = new MeshBasicMaterial({
@@ -357,6 +376,9 @@ function setupInstance(container, pool, vars) {
     mesh.position.copy(position);
     mesh.rotation.copy(rotation);
     mesh.name = "tile";
+    mesh.userData.surface = surface;
+    mesh.userData.sourceIndex = pool.indexOf(entry);
+    mesh.userData.url = entry.url;
     group.add(mesh);
   }
 
@@ -383,6 +405,7 @@ function setupInstance(container, pool, vars) {
         const edgeInset = inset();
         addTile(
           group,
+          "bottom",
           new Vector3(x, -halfH + edgeInset, zc),
           new Euler(-Math.PI / 2, 0, 0),
           insetSpan(cellW, edgeInset),
@@ -393,6 +416,7 @@ function setupInstance(container, pool, vars) {
         const edgeInset = inset();
         addTile(
           group,
+          "top",
           new Vector3(x, halfH - edgeInset, zc),
           new Euler(Math.PI / 2, 0, 0),
           insetSpan(cellW, edgeInset),
@@ -407,6 +431,7 @@ function setupInstance(container, pool, vars) {
         const edgeInset = inset();
         addTile(
           group,
+          "left",
           new Vector3(-halfW + edgeInset, y, zc),
           new Euler(0, Math.PI / 2, 0),
           tileDepth + GAP,
@@ -417,6 +442,7 @@ function setupInstance(container, pool, vars) {
         const edgeInset = inset();
         addTile(
           group,
+          "right",
           new Vector3(halfW - edgeInset, y, zc),
           new Euler(0, -Math.PI / 2, 0),
           tileDepth + GAP,
@@ -571,9 +597,10 @@ function setupInstance(container, pool, vars) {
     disposePool(pool);
     renderer.dispose();
     canvas.remove();
+    container.__tunnel2 = null;
   }
 
-  return { destroy };
+  return { destroy, scene };
 }
 
 /**

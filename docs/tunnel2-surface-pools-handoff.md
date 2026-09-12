@@ -22,8 +22,8 @@ Implement the repository code changes required for:
 
 Letting each image in the `[data-tunnel2-images]` manifest declare which corridor
 surface it belongs to — left wall, right wall, ceiling, or floor — so the tunnel only
-ever places it on that surface. Within a surface the images still shuffle and
-recycle exactly as they do today.
+ever places it on that surface. Within a surface the images cycle in manifest
+order and recycle continuously.
 
 Do not modify Webflow. Claude owns all Webflow Designer and Webflow MCP changes.
 
@@ -49,8 +49,8 @@ Expected behavior:
 
 - Each `<img>` may carry `data-tunnel2-surface` with one of `left`, `right`, `top`,
   `bottom`.
-- The component keeps four shuffled bags — one per surface — and each surface's
-  `addTile()` call draws only from its own bag.
+- The component keeps four ordered pools — one per surface — and each surface's
+  `addTile()` call draws only from its own pool.
 - An image with no `data-tunnel2-surface`, or with an unrecognised value, is
   treated as **unassigned** and goes into every surface's bag. This keeps the
   current `index.html` demo and any existing Webflow manifest working unchanged.
@@ -58,8 +58,8 @@ Expected behavior:
   images), that surface renders no tiles rather than crashing or borrowing from
   another surface. `addTile()` already early-returns on an empty pool; keep that
   shape.
-- Shuffle semantics per bag stay the same as today: walk the bag in shuffled order,
-  refill when empty, so neighbours on the same surface stay distinct.
+- Each surface cycles its ordered pool from the first image through the last, then
+  wraps back to the first.
 
 ### Surface → geometry mapping
 
@@ -85,8 +85,8 @@ Verified on `https://avpn-25-26.webflow.io/` with the local bundle
   six `right` images only on the right wall, the six `top` images only on the
   ceiling, the six `bottom` images only on the floor. Checked during continuous
   motion across several recycle cycles, not on one settled frame.
-- Within a surface the six images still shuffle; no image repeats on adjacent
-  segments of the same surface while five others are unused.
+- Within a surface the six images cycle in manifest order and wrap from six back
+  to one.
 - Portrait images on the walls and landscape images on floor/ceiling render with
   their intended framing — no image is cut to a strip by a wrong-surface crop.
 - The hero still mounts one canvas, recycles, responds to resize, pauses off-screen,
@@ -132,8 +132,8 @@ Relevant implementation details:
   pool entries.
 - `preload()` skips URLs that fail to load, so surface tagging must survive the
   filter — attach the surface to the entry, not to a parallel array by index.
-- `nextEntry()` and `bag` are the single shuffle. Make them per-surface (a small
-  factory that returns a `next()` closure over one bag is the least invasive shape).
+- `nextEntry()` and `bag` are the single selection path. Replace them with
+  per-surface ordered cursors.
 - `addTile(group, position, rotation, w, h)` takes no surface argument today. Add
   one (or pass the `next` function) so the four calls in `populate()` can select
   their bag.

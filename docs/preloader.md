@@ -41,6 +41,13 @@ and never adds it back.
 
 ## Timing
 
+| Phase | Duration | Easing / gate |
+| --- | --- | --- |
+| Entrance | 0.6s | `power3.out`; counter remains 0 |
+| Counting gate | At least 2s, maximum 8s | Starts after entrance; load milestones accrue during entrance |
+| Finish counter | 1s | Eases to 100 after milestones and the minimum wait, or after the maximum wait |
+| Exit | 1s+ | Starts after the counter reaches 100 and any queued year moves finish |
+
 The displayed counter runs from 0 through 100. It follows the
 lesser of real progress and a 2-second time curve, smoothed each frame by
 `shown += 0.09 * (target - shown)`. Each integer is rendered by three rolling
@@ -61,9 +68,11 @@ The step tweens are cleaned up on instance teardown. Reduced-motion users skip
 all morph work.
 
 The years and counter enter from `y: "60vh"` to `y: 0` over
-1.2 seconds with `power1.out`; the tween is exposed as `instance.entrance` and
+0.6 seconds with `power3.out`; the tween is exposed as `instance.entrance` and
 starts on the next animation frame after initialization has returned, so the
-entrance cannot be stalled by the page's other startup work. It is complete
+entrance cannot be stalled by the page's other startup work. Real load progress
+continues accruing during the entrance, but the time curve, counter rAF, minimum
+wait, and maximum wait all start when the entrance completes. It is complete
 before FLIP measurement. The exit timeline fades the counter (0.4s) and background (0.6s), moves each
 year copy to its hero target over one second, starts hero reveals 0.15s before
 the FLIP ends with 0.1s stagger, and fades media over 1.2s from that same point.

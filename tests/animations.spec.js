@@ -19,7 +19,6 @@ test("boots every preview component", async ({ page }) => {
   await expect
     .poll(() => page.locator(".mask-demo__inner .line").count())
     .toBeGreaterThan(0);
-  await expect(page.locator("[data-tunnel-init] canvas")).toHaveCount(2);
   await expect(page.locator("[data-tunnel2-init] canvas")).toHaveCount(1);
 });
 
@@ -262,7 +261,7 @@ test("WebGL previews allocate live render surfaces", async ({ page }) => {
     }),
   );
 
-  expect(surfaces).toEqual([true, true, true]);
+  expect(surfaces).toEqual([true]);
 });
 
 test("initializes the scroll-linked reveal state", async ({ page }) => {
@@ -307,7 +306,7 @@ test("draws every marked line in each draw-path wrapper", async ({ page }) => {
 test("tolerates missing image manifests", async ({ page }) => {
   await page.addInitScript(() => {
     document.addEventListener("DOMContentLoaded", () => {
-      document.querySelectorAll("[data-tunnel-images], [data-tunnel2-images]").forEach((manifest) => {
+      document.querySelectorAll("[data-tunnel2-images]").forEach((manifest) => {
         manifest.remove();
       });
     });
@@ -315,20 +314,17 @@ test("tolerates missing image manifests", async ({ page }) => {
   await page.reload();
   await page.waitForLoadState("networkidle");
 
-  await expect(page.locator("[data-tunnel-init] canvas")).toHaveCount(2);
   await expect(page.locator("[data-tunnel2-init] canvas")).toHaveCount(1);
 });
 
 test("keeps one canvas per instance after a resize", async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 768 });
   await page.waitForTimeout(250);
-  await expect(page.locator("[data-tunnel-init] canvas")).toHaveCount(2);
   await expect(page.locator("[data-tunnel2-init] canvas")).toHaveCount(1);
 });
 
 test("keeps decorative rendering out of the accessibility tree", async ({ page }) => {
-  await expect(page.locator("canvas[aria-hidden='true']")).toHaveCount(3);
-  await expect(page.locator("[data-tunnel-images][aria-hidden='true']")).toHaveCount(1);
+  await expect(page.locator("canvas[aria-hidden='true']")).toHaveCount(1);
   await expect(page.locator("[data-tunnel2-images][aria-hidden='true']")).toHaveCount(1);
   expect(await page.locator("[tabindex]").evaluateAll((items) =>
     items.every((item) => Number(item.getAttribute("tabindex")) <= 0),
@@ -342,7 +338,7 @@ test("remains usable with reduced motion enabled", async ({ page }) => {
 
   await expect(page.locator("body")).toBeVisible();
   await expect(page.locator(".mask-demo__inner")).toBeVisible();
-  await expect(page.locator("canvas")).toHaveCount(3);
+  await expect(page.locator("canvas")).toHaveCount(1);
 });
 
 test("preview remains usable at a mobile viewport", async ({ page }) => {

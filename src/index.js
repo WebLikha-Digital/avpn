@@ -20,7 +20,6 @@ import { initArcScrollTransition } from "./animations/arcScrollTransition.js";
 import { initProgrammesOverview } from "./animations/programmesOverview.js";
 import { initListHoverReveal } from "./animations/listHoverReveal.js";
 import { initListPreviewFollower } from "./animations/listPreviewFollower.js";
-import { initTunnel } from "./canvas/tunnel.js";
 import { initTunnel2 } from "./canvas/tunnel2.js";
 import { initPreloader } from "./animations/preloader.js";
 
@@ -50,7 +49,6 @@ function init() {
   initProgrammesOverview();
   initListHoverReveal();
   initListPreviewFollower();
-  initTunnel();
   initTunnel2();
   watchImagesForRefresh();
   watchDocumentHeight();

@@ -5,9 +5,6 @@ carry an image panel on the floor, ceiling, and both walls; there is no
 wireframe layer. The component lives in `src/canvas/tunnel2.js` and initializes
 from `[data-tunnel2-init]`.
 
-This is a separate visual variant of [`tunnel.md`](tunnel.md). Do not change
-`src/canvas/tunnel.js` when tuning this component.
-
 ## Webflow setup
 
 The mount is an empty `div` with an explicit CSS size. Put the image manifest

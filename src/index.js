@@ -38,7 +38,6 @@ function initBandAware() {
 
 function init() {
   initLocomotiveScroll();
-  initPreloader();
   initHorizontalScroller();
   initBandAware();
   initMarqueeScrollDirection();
@@ -55,6 +54,7 @@ function init() {
   initTunnel2();
   watchImagesForRefresh();
   watchDocumentHeight();
+  initPreloader();
 }
 
 window.addEventListener(HSCROLL_REBUILT, initBandAware);

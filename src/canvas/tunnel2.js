@@ -3,6 +3,7 @@ import {
   DoubleSide,
   Euler,
   Fog,
+  ImageBitmapLoader,
   LinearFilter,
   LinearMipmapLinearFilter,
   Group,
@@ -12,6 +13,7 @@ import {
   PlaneGeometry,
   SRGBColorSpace,
   Scene,
+  Texture,
   TextureLoader,
   Timer,
   Vector3,
@@ -186,7 +188,9 @@ function collectSources(imgBox, done) {
  *
  * Returns a clone, because repeat/offset live on the texture and the two tile
  * orientations need different ones. Clones share their `source`, so three
- * uploads the pixels once and refcounts them.
+ * uploads the pixels once and refcounts them. The clone must not set
+ * `needsUpdate`: repeat/offset are uniforms, and changing the clone version
+ * would bump the shared source for a full re-upload.
  */
 function coverFit(tex, targetAspect) {
   const fitted = tex.clone();
@@ -199,14 +203,16 @@ function coverFit(tex, targetAspect) {
     fitted.repeat.set(1, imgAspect / targetAspect); // too tall — crop top/bottom
   }
   fitted.offset.set((1 - fitted.repeat.x) / 2, (1 - fitted.repeat.y) / 2);
-  fitted.needsUpdate = true;
   return fitted;
 }
 
 /** Frees a pool built by preload(). */
 function disposePool(pool) {
   pool.forEach((entry) => {
+    entry.fits?.forEach((fit) => fit.dispose());
+    entry.fits?.clear();
     entry.source.dispose();
+    if (entry.isBitmap) entry.source.image?.close?.();
   });
 }
 
@@ -220,8 +226,14 @@ function preload(sources, vars, done) {
     return;
   }
 
-  const loader = new TextureLoader();
-  loader.setCrossOrigin("anonymous"); // WebGL refuses cross-origin textures without it
+  const loader = new ImageBitmapLoader()
+    .setOptions({
+      imageOrientation: "flipY",
+      premultiplyAlpha: "none",
+      colorSpaceConversion: "none",
+    })
+    .setCrossOrigin("anonymous");
+  const fallbackLoader = new TextureLoader().setCrossOrigin("anonymous");
   const cellW = vars.width / vars.cols;
   const cellH = vars.height / vars.rows;
   const tileDepth = SEG_DEPTH * vars.depthFill;
@@ -236,17 +248,45 @@ function preload(sources, vars, done) {
     );
   };
 
+  const isSvg = (url) => url.toLowerCase().startsWith("data:image/svg+xml")
+    || /\.svg(?:[?#]|$)/i.test(url);
+  const configureTexture = (tex) => {
+    tex.colorSpace = SRGBColorSpace;
+    tex.minFilter = LinearFilter;
+    return tex;
+  };
+
   sources.forEach(({ url, surface }, i) => {
+    const useTextureLoader = () => {
+      fallbackLoader.load(
+        url,
+        (tex) => {
+          pool[i] = { source: configureTexture(tex), url, surface, isBitmap: false };
+          settle();
+        },
+        undefined,
+        settle,
+      );
+    };
+
+    if (isSvg(url)) {
+      useTextureLoader();
+      return;
+    }
+
     loader.load(
       url,
-      (tex) => {
-        tex.colorSpace = SRGBColorSpace;
-        tex.minFilter = LinearFilter;
-        pool[i] = { source: tex, url, surface };
+      (bitmap) => {
+        const tex = new Texture(bitmap);
+        // The bitmap is already flipped by createImageBitmap, so the texture
+        // must not flip it again when WebGL samples it.
+        tex.flipY = false;
+        tex.needsUpdate = true;
+        pool[i] = { source: configureTexture(tex), url, surface, isBitmap: true };
         settle();
       },
       undefined,
-      settle
+      useTextureLoader,
     );
   });
 }
@@ -275,6 +315,24 @@ function setupInstance(container, pool, vars) {
   const halfH = corridorH / 2;
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const haze = new Color(vars.haze);
+  const instance = {
+    scene: null,
+    uploaded: 0,
+    textureCount: pool.length,
+    firstRenderUploaded: null,
+    recycled: 0,
+    cloneCount: 0,
+    cacheSize: 0,
+    destroyed: false,
+    textureVersions: () => pool.map(({ source }) => source.version),
+    gpuTextures: () => renderer.info.memory.textures,
+    destroy: () => {},
+  };
+  const generation = container._tunnel2Gen;
+  const stale = () => instance.destroyed
+    || !container.isConnected
+    || container._tunnel2Gen !== generation
+    || container._tunnel2 !== instance;
 
   const canvas = document.createElement("canvas");
   canvas.style.cssText = "display:block;width:100%;height:100%";
@@ -290,7 +348,8 @@ function setupInstance(container, pool, vars) {
   const scene = new Scene();
   // Test-only read-only hook: exposes the scene so specs can inspect tile
   // metadata without changing rendering behaviour.
-  container.__tunnel2 = { scene };
+  instance.scene = scene;
+  container.__tunnel2 = instance;
   if (vars.bg !== "transparent" && vars.bg !== "none") {
     scene.background = new Color(vars.bg);
   }
@@ -309,12 +368,35 @@ function setupInstance(container, pool, vars) {
   // by perspective. Each tile gets its own UV crop below, while the source
   // texture owns the filtering settings shared by those lightweight clones.
   const anisotropy = renderer.capabilities.getMaxAnisotropy();
+  const gl = renderer.getContext();
   pool.forEach(({ source }) => {
     source.anisotropy = anisotropy;
     source.minFilter = LinearMipmapLinearFilter;
     source.magFilter = LinearFilter;
-    source.needsUpdate = true;
   });
+
+  const fitKey = (aspect) => aspect.toFixed(4);
+  const insetSpan = (size) => Math.max(GAP + 0.1, size - vars.inset * 2);
+  const floorWidth = Math.max(0.1, insetSpan(cellW) - GAP);
+  const floorHeight = Math.max(0.1, tileDepth);
+  const wallWidth = Math.max(0.1, tileDepth);
+  const wallHeight = Math.max(0.1, insetSpan(cellH) - GAP);
+  const fitAspects = [floorWidth / floorHeight, wallWidth / wallHeight];
+  const getFit = (entry, aspect) => {
+    const key = fitKey(aspect);
+    let fit = entry.fits.get(key);
+    if (!fit) {
+      fit = coverFit(entry.source, aspect);
+      entry.fits.set(key, fit);
+      instance.cloneCount += 1;
+    }
+    return fit;
+  };
+  pool.forEach((entry) => {
+    entry.fits = new Map();
+    fitAspects.forEach((aspect) => getFit(entry, aspect));
+  });
+  instance.cacheSize = pool.length * new Set(fitAspects.map(fitKey)).size;
 
   // Cap at the far end of the fog, riding along with the camera. Without it the
   // corridor ends in whatever is behind the canvas; with it, it ends in light.
@@ -365,7 +447,7 @@ function setupInstance(container, pool, vars) {
       // Fit against the final geometry, not a generic floor/wall ratio. This
       // keeps every source image proportional even when the inset changes the
       // panel size.
-      map: coverFit(entry.source, tileW / tileH),
+      map: getFit(entry, tileW / tileH),
       transparent: true,
       opacity: reduce ? vars.imageOpacity : 0,
       side: DoubleSide,
@@ -458,7 +540,6 @@ function setupInstance(container, pool, vars) {
       .forEach((o) => {
         group.remove(o);
         o.geometry.dispose();
-        o.material.map?.dispose();
         o.material.dispose();
       });
   }
@@ -487,6 +568,59 @@ function setupInstance(container, pool, vars) {
   let travel = 0;
   let visible = true;
   let contextLost = false;
+  let uploadRaf;
+  let started = false;
+
+  const startRender = () => {
+    if (started || stale() || contextLost) return;
+    started = true;
+    timer.reset(); // discard time spent loading and uploading textures
+    if (reduce) {
+      endCap.position.z = -vars.fogFar;
+      renderOnce(); // decorative motion — one static frame instead of a loop
+    } else {
+      tick();
+    }
+    container.dispatchEvent(new CustomEvent("tunnel2:ready", {
+      bubbles: true,
+      detail: { uploaded: instance.uploaded, textureCount: instance.textureCount },
+    }));
+  };
+
+  const compileScene = () => {
+    if (stale() || contextLost) return;
+    if (typeof renderer.compileAsync === "function") {
+      renderer.compileAsync(scene, camera).then(() => {
+        if (!stale() && !contextLost) startRender();
+      }).catch(() => {
+        if (stale() || contextLost) return;
+        renderer.compile(scene, camera);
+        if (!stale() && !contextLost) startRender();
+      });
+      return;
+    }
+    renderer.compile(scene, camera);
+    if (!stale() && !contextLost) startRender();
+  };
+
+  const uploadNext = (index = 0) => {
+    if (index >= pool.length) {
+      uploadRaf = undefined;
+      compileScene();
+      return;
+    }
+    uploadRaf = requestAnimationFrame(() => {
+      uploadRaf = undefined;
+      if (contextLost) return;
+      const { source } = pool[index];
+      source.needsUpdate = true;
+      renderer.initTexture(source);
+      gl.flush();
+      gl.finish();
+      instance.uploaded += 1;
+      uploadNext(index + 1);
+    });
+  };
 
   const tick = (timestamp) => {
     container._tunnel2Raf = requestAnimationFrame(tick);
@@ -508,6 +642,7 @@ function setupInstance(container, pool, vars) {
         seg.position.z = min - SEG_DEPTH;
         clearTiles(seg);
         populate(seg);
+        instance.recycled += 1;
       }
 
       seg.children.forEach((o) => {
@@ -521,18 +656,16 @@ function setupInstance(container, pool, vars) {
       });
     });
 
+    if (instance.firstRenderUploaded === null) instance.firstRenderUploaded = instance.uploaded;
     renderer.render(scene, camera);
   };
 
-  const renderOnce = () => renderer.render(scene, camera);
+  const renderOnce = () => {
+    if (instance.firstRenderUploaded === null) instance.firstRenderUploaded = instance.uploaded;
+    renderer.render(scene, camera);
+  };
 
-  if (reduce) {
-    endCap.position.z = -vars.fogFar;
-    renderOnce(); // decorative motion — one static frame instead of a loop
-  } else {
-    timer.reset(); // discard time spent loading textures
-    tick();
-  }
+  uploadNext();
 
   /* ---------- responsive + visibility ---------- */
 
@@ -578,7 +711,9 @@ function setupInstance(container, pool, vars) {
   /* ---------- teardown ---------- */
 
   function destroy() {
+    instance.destroyed = true;
     cancelAnimationFrame(container._tunnel2Raf);
+    cancelAnimationFrame(uploadRaf);
     container._tunnel2Raf = null;
     timer.dispose(); // detaches the document visibilitychange listener
     resizeObserver.disconnect();
@@ -600,7 +735,8 @@ function setupInstance(container, pool, vars) {
     container.__tunnel2 = null;
   }
 
-  return { destroy, scene };
+  instance.destroy = destroy;
+  return instance;
 }
 
 /**

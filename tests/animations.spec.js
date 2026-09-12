@@ -23,6 +23,73 @@ test("boots every preview component", async ({ page }) => {
   await expect(page.locator("[data-tunnel2-init] canvas")).toHaveCount(1);
 });
 
+test("uploads every tunnel2 texture before its first render", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__tunnel2Ready = null;
+    document.addEventListener("tunnel2:ready", (event) => {
+      window.__tunnel2Ready = event.detail;
+    });
+  });
+  await page.goto("/");
+  await page.locator("[data-tunnel2-init]").evaluate((mount) => {
+    mount.scrollIntoView({ behavior: "instant", block: "center" });
+  });
+  await page.evaluate(() => new Promise(requestAnimationFrame));
+  await expect.poll(() => page.locator("[data-tunnel2-init]").evaluate((mount) => ({
+    uploaded: mount._tunnel2?.uploaded ?? 0,
+    textureCount: mount._tunnel2?.textureCount ?? -1,
+    firstRenderUploaded: mount._tunnel2?.firstRenderUploaded,
+  }))).toEqual({ uploaded: 12, textureCount: 12, firstRenderUploaded: 12 });
+  await expect.poll(() => page.evaluate(() => window.__tunnel2Ready)).toEqual({
+    uploaded: 12,
+    textureCount: 12,
+  });
+  await expect.poll(() => page.locator("[data-tunnel2-init]").evaluate((mount) =>
+    mount._tunnel2.gpuTextures(),
+  )).toBe(12);
+});
+
+test("keeps pooled texture versions stable while tunnel2 recycles segments", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__tunnel2Ready = false;
+    document.addEventListener("tunnel2:ready", () => {
+      window.__tunnel2Ready = true;
+    });
+    const observer = new MutationObserver(() => {
+      const mount = document.querySelector("[data-tunnel2-init]");
+      if (!mount) return;
+      mount.setAttribute("data-tunnel2-speed", "100");
+      observer.disconnect();
+    });
+    observer.observe(document, { childList: true, subtree: true });
+  });
+  await page.goto("/");
+  await expect.poll(() => page.evaluate(() => window.__tunnel2Ready)).toBe(true);
+  const mount = page.locator("[data-tunnel2-init]");
+  await mount.evaluate((node) => {
+    node.scrollIntoView({ behavior: "instant", block: "center" });
+  });
+  await page.evaluate(() => new Promise(requestAnimationFrame));
+  const before = await mount.evaluate((node) => ({
+    versions: node._tunnel2.textureVersions(),
+    cloneCount: node._tunnel2.cloneCount,
+    cacheSize: node._tunnel2.cacheSize,
+  }));
+  expect(before.cloneCount).toBe(before.cacheSize);
+  await expect.poll(
+    () => mount.evaluate((node) => node._tunnel2.recycled),
+    { timeout: 15_000 },
+  ).toBeGreaterThan(0);
+  const after = await mount.evaluate((node) => ({
+    versions: node._tunnel2.textureVersions(),
+    cloneCount: node._tunnel2.cloneCount,
+    cacheSize: node._tunnel2.cacheSize,
+  }));
+  expect(after.versions).toEqual(before.versions);
+  expect(after.cloneCount).toBe(before.cloneCount);
+  expect(after.cloneCount).toBe(after.cacheSize);
+});
+
 test("confines tunnel2 images to surfaces and cycles each pool in order", async ({ page }) => {
   await expect.poll(() => page.locator("[data-tunnel2-init] canvas").count()).toBe(1);
   const tileData = await page.locator("[data-tunnel2-init]").evaluate((mount) => {

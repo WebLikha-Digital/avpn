@@ -100,10 +100,14 @@ so the fallback width is never replaced with zero.
 
 ## Completion and reduced motion
 
-The white disc fades with the background over 0.6s. Completion removes
-`is-preloading`, hides the overlay, restarts Lenis, refreshes
-ScrollTrigger, and dispatches `preloader:complete`. Reduced-motion users skip
-all counter and tween work and go directly to that final state.
+The white disc fades with the background over 0.6s. While the preloader is
+active, Lenis is stopped and native wheel, touch, and supported keyboard scroll
+inputs are prevented in capture phase. A scroll listener also restores the
+coordinates captured at initialization, covering scrollbar drags and other
+programmatic scroll changes. Completion removes those listeners, removes
+`is-preloading`, hides the overlay, restarts Lenis, refreshes ScrollTrigger, and
+dispatches `preloader:complete`. Reduced-motion users skip all counter and tween
+work and go directly to that final state.
 
 The component sets the overlay's inline `display` to `flex` as soon as valid
 markup is found. This keeps it present if the head gate's 12-second failsafe

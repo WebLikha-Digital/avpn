@@ -337,6 +337,50 @@ test("completes with final visibility and dispatches its event", async ({ page }
   await expect(page.locator("[data-preloader-shape]")).toHaveCSS("opacity", "0");
 });
 
+test("keeps the scrollbar visible while locking native scrolling", async ({ page }) => {
+  await page.goto("/?preloader=1");
+  const before = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollHeight: document.documentElement.scrollHeight,
+    innerHeight: window.innerHeight,
+    overflowY: getComputedStyle(document.documentElement).overflowY,
+  }));
+  expect(before.scrollHeight).toBeGreaterThan(before.innerHeight);
+  expect(["auto", "visible", "scroll"]).toContain(before.overflowY);
+
+  const wheelPrevented = await page.evaluate(() => {
+    const event = new WheelEvent("wheel", { deltaY: 400, cancelable: true });
+    window.dispatchEvent(event);
+    return event.defaultPrevented;
+  });
+  expect(wheelPrevented).toBe(true);
+  await page.keyboard.press("Space");
+  await page.keyboard.press("ArrowDown");
+  await page.evaluate(() => window.scrollTo(0, 400));
+  await expect.poll(() => page.evaluate(() => window.scrollY), { timeout: 1000 }).toBe(0);
+  const scrollSamples = await page.evaluate(() => new Promise((resolve) => {
+    const samples = [];
+    const end = performance.now() + 300;
+    const sample = () => {
+      samples.push(window.scrollY);
+      if (performance.now() < end) requestAnimationFrame(sample);
+      else resolve(samples);
+    };
+    requestAnimationFrame(sample);
+  }));
+  expect(scrollSamples.some((scrollY) => scrollY > 0)).toBe(false);
+
+  await page.waitForFunction(() => !document.documentElement.classList.contains("is-preloading"));
+  await page.evaluate(() => window.scrollTo(0, 400));
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(400);
+  const after = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    overflowY: getComputedStyle(document.documentElement).overflowY,
+  }));
+  expect(after.clientWidth).toBe(before.clientWidth);
+  expect(["auto", "visible", "scroll"]).toContain(after.overflowY);
+});
+
 test("no gate class is a complete no-op", async ({ page }) => {
   await page.goto("/");
   const result = await page.evaluate(() => ({

@@ -14,8 +14,14 @@ const installPreloaderSampler = (page) => {
     };
     window.addEventListener("preloader:exit", (event) => {
       const before = readRadii();
+      const instance = document.querySelector("[data-preloader-init]")._preloaderInstance;
       event.detail.timeline.seek(moveDuration);
-      window.__preloaderExitSample = { before, quarter: readRadii() };
+      window.__preloaderExitSample = {
+        before,
+        quarter: readRadii(),
+        stepDuration: instance.stepTimeline.duration(),
+        stepProgress: instance.stepTimeline.progress(),
+      };
     });
     let started = false;
     const sample = () => {
@@ -110,10 +116,11 @@ test("odometer rollers never roll backward during rapid updates", async ({ page 
       const previous = result.samples[frame - 1][index];
       if (value <= previous + 0.5) return;
       const delta = value - previous;
-      // A wrap is exactly +10 cells minus the forward travel of the same frame
-      // (at most 2 cells during the 0.35s roll); a genuine backward roll would
-      // produce a smaller increase.
-      expect(delta).toBeGreaterThan(8 * result.cellPx);
+      // A wrap is exactly +10 cells minus the forward travel of the same frame.
+      // On CI a frame can run 100ms+, which is up to ~4 cells of a 0.35s roll,
+      // so the floor sits at 5 cells; a genuine backward roll is bounded by the
+      // wrap logic to far less than that.
+      expect(delta).toBeGreaterThan(5 * result.cellPx);
       expect(delta).toBeLessThanOrEqual(10 * result.cellPx + 1);
     });
   }
@@ -193,6 +200,8 @@ test("shape morphs with year moves and reaches the exit quarter", async ({ page 
   expect(result.exit.before[2]).toBeGreaterThan(49);
   expect(result.exit.before[1]).toBeLessThan(1);
   expect(result.exit.before[3]).toBeLessThan(1);
+  if (result.exit.stepDuration === 0) expect(result.exit.stepProgress).toBe(0);
+  else expect(result.exit.stepProgress).toBe(1);
   expect(result.exit.quarter[0]).toBeGreaterThan(49);
   expect(result.exit.quarter[1]).toBeLessThan(1);
   expect(result.exit.quarter[2]).toBeLessThan(1);
@@ -221,7 +230,24 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 768, height: 1024
   test(`FLIP lands year copies on targets at ${viewport.width}x${viewport.height}`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await page.addInitScript(() => {
+      window.__preloaderYearRatios = null;
+      window.__preloaderYearScaleYs = null;
       window.addEventListener("preloader:exit", (event) => {
+        window.__preloaderYearRatios = ["2025", "2026"].map((year) => {
+          const copy = document.querySelector(`[data-preloader-year="${year}"] svg`).getBoundingClientRect();
+          const target = document.querySelector(`[data-preloader-target="${year}"] svg`).getBoundingClientRect();
+          return copy.width / target.width;
+        });
+        window.__preloaderYearScaleYs = ["2025", "2026"].map((year) => {
+          const transform = getComputedStyle(document.querySelector(`[data-preloader-year="${year}"]`)).transform;
+          if (transform === "none") return 1;
+          const values = transform.startsWith("matrix3d(")
+            ? transform.slice(9, -1).split(",").map(Number)
+            : transform.slice(7, -1).split(",").map(Number);
+          return transform.startsWith("matrix3d(")
+            ? Math.hypot(values[1], values[5])
+            : Math.hypot(values[1], values[3]);
+        });
         event.detail.timeline.pause();
         window.__preloaderTimeline = event.detail.timeline;
         window.__preloaderYearTransforms = ["2025", "2026"].map((year) =>
@@ -234,8 +260,8 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 768, height: 1024
       window.__preloaderTimeline.seek(1);
       return ["2025", "2026"].map((year) => {
         const element = document.querySelector(`[data-preloader-year="${year}"]`);
-        const copy = element.getBoundingClientRect();
-        const target = document.querySelector(`[data-preloader-target="${year}"]`).getBoundingClientRect();
+        const copy = element.querySelector("svg").getBoundingClientRect();
+        const target = document.querySelector(`[data-preloader-target="${year}"] svg`).getBoundingClientRect();
         return {
           difference: Math.max(Math.abs(copy.left - target.left), Math.abs(copy.top - target.top), Math.abs(copy.width - target.width), Math.abs(copy.height - target.height)),
           corner: element.dataset.preloaderCorner,
@@ -245,6 +271,10 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 768, height: 1024
     expect(result[0].corner).toBe("tl");
     expect(result[1].corner).toBe("br");
     result.forEach(({ difference }) => expect(difference).toBeLessThanOrEqual(1));
+    const ratios = await page.evaluate(() => window.__preloaderYearRatios);
+    ratios.forEach((ratio) => expect(Math.abs(ratio - 1)).toBeLessThanOrEqual(0.005));
+    const scaleYs = await page.evaluate(() => window.__preloaderYearScaleYs);
+    scaleYs.forEach((scaleY) => expect(Math.abs(scaleY - 1)).toBeLessThanOrEqual(0.005));
     const transforms = await page.evaluate(() => window.__preloaderYearTransforms);
     transforms.forEach((transform) => {
       if (transform === "none") return;
@@ -253,6 +283,18 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 768, height: 1024
     });
   });
 }
+
+test("re-applies year widths after a viewport resize during the count", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/?preloader=1");
+  await page.waitForTimeout(300);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(() => page.evaluate(() => ["2025", "2026"].map((year) => {
+    const copy = document.querySelector(`[data-preloader-year="${year}"] svg`).getBoundingClientRect();
+    const target = document.querySelector(`[data-preloader-target="${year}"] svg`).getBoundingClientRect();
+    return copy.width / target.width;
+  }))).toEqual([1, 1]);
+});
 
 test("completes with final visibility and dispatches its event", async ({ page }) => {
   await page.goto("/?preloader=1");

@@ -12,11 +12,21 @@ hero.
   `[data-preloader-counter]` are its background, white disc, and counter. The
   counter keeps `aria-hidden="true"` and is built into three odometer masks at
   initialization.
-- Each year also declares `data-preloader-side="left|right"` and
-  `data-preloader-slot="top|middle|bottom"`. 2025 starts left/bottom and 2026
-  starts right/top; the slot changes at 70 and 85. The first threshold moves
-  both years to the middle; the second moves them to their final top/bottom
-  slots.
+- Each year declares `data-preloader-corner="tl|tr|br|bl"`. 2025 starts at
+  `br` and 2026 starts at `tl`; each year moves clockwise at 70 and 85:
+
+  | Step | 2025 | 2026 |
+  | --- | --- | --- |
+  | start | `br` | `tl` |
+  | 70 | `bl` | `tr` |
+  | 85 | `tl` | `br` |
+  | 100 (beginExit) | force `tl`, then FLIP | force `br`, then FLIP |
+
+  The 70 move is horizontal and the 85 move is vertical. Each move lasts 1s
+  with `power3.inOut` easing and ends at identity transform. Each threshold is
+  a nested timeline whose measurement callback sets the corner and initial
+  transform before its year and shape tweens run. Moves are queued while
+  progress advances but only play after the entrance completes.
 - Each `[data-preloader-year="2025|2026"]` has a matching
   `[data-preloader-target="2025|2026"]` in the hero.
 - `[data-preloader-reveal]` marks hero content revealed in DOM order.
@@ -43,13 +53,14 @@ capped at 95% until all milestones finish. The loader waits for both those
 milestones and two seconds, or eight seconds maximum, then eases the counter to
 100 over one second.
 
-After the 1.2s entrance completes, the white disc's exposed
-`instance.shapeCycle` repeats square → circle → leaf → quarter → square.
-Each morph lasts 0.8s with `power2.inOut` easing and holds for 0.4s. The disc
-stays white at 0.55 opacity; the cycle is killed before the exit fade and on
-instance teardown. Reduced-motion users do not start the cycle.
+The white disc starts square. Its morphs are synchronized with the year moves:
+the 70 step morphs it to a circle and the 85 step morphs it to a leaf. Each
+year move and synchronized morph lasts 1s with `power3.inOut` easing. At exit,
+the disc morphs to a quarter (`100% 0% 0% 0%`) over 1s alongside the exit fade.
+The step tweens are cleaned up on instance teardown. Reduced-motion users skip
+all morph work.
 
-Before that loop, the years and counter enter from `y: "60vh"` to `y: 0` over
+The years and counter enter from `y: "60vh"` to `y: 0` over
 1.2 seconds with `power1.out`; the tween is exposed as `instance.entrance` and
 is complete before FLIP measurement. The exit timeline fades the counter (0.4s) and background (0.6s), moves each
 year copy to its hero target over one second, starts hero reveals 0.15s before

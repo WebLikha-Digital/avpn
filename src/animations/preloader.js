@@ -105,21 +105,28 @@ export function initPreloader() {
     let entranceComplete = false;
     let exitDeferred = false;
     let exitStarted = false;
-    if (shape) {
-      gsap.set(shape, { borderRadius: "0% 0% 0% 0%" });
-    }
-    const entrance = gsap.fromTo(
-      [...years, counter, ...(shape ? [shape] : [])],
-      { y: "60vh" },
-      {
-        y: 0, duration: 1.2, ease: "power1.out",
-        onComplete: () => {
-          entranceComplete = true;
-          if (stepTimeline.duration() && !stepTimeline.isActive()) stepTimeline.play();
+    let entranceFrame;
+    const startEntrance = () => {
+      if (shape) {
+        gsap.set(shape, { borderRadius: "0% 0% 0% 0%" });
+      }
+      const entrance = gsap.fromTo(
+        [...years, counter, ...(shape ? [shape] : [])],
+        { y: "60vh" },
+        {
+          y: 0, duration: 1.2, ease: "power1.out",
+          onComplete: () => {
+            entranceComplete = true;
+            if (stepTimeline.duration() && !stepTimeline.isActive()) stepTimeline.play();
+          },
         },
-      },
-    );
-    instance.entrance = entrance;
+      );
+      instance.entrance = entrance;
+    };
+    // Let the init task finish measuring and constructing the rest of the page
+    // before the entrance clock starts. This keeps the first visible frame from
+    // being delayed by unrelated initialization work.
+    entranceFrame = requestAnimationFrame(startEntrance);
 
     const images = [...document.querySelectorAll("[data-tunnel2-images] img")];
     let shown = 0;
@@ -372,6 +379,7 @@ export function initPreloader() {
     instance.kill = () => {
       initPreloader._resize?.();
       cancelAnimationFrame(frame);
+      cancelAnimationFrame(entranceFrame);
       clearTimeout(minimumTimer); clearTimeout(maximumTimer);
       clearTimeout(imageCheckTimer);
       imageListeners.forEach(([image, listener]) => { image.removeEventListener("load", listener); image.removeEventListener("error", listener); });

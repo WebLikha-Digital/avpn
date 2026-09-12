@@ -62,7 +62,9 @@ all morph work.
 
 The years and counter enter from `y: "60vh"` to `y: 0` over
 1.2 seconds with `power1.out`; the tween is exposed as `instance.entrance` and
-is complete before FLIP measurement. The exit timeline fades the counter (0.4s) and background (0.6s), moves each
+starts on the next animation frame after initialization has returned, so the
+entrance cannot be stalled by the page's other startup work. It is complete
+before FLIP measurement. The exit timeline fades the counter (0.4s) and background (0.6s), moves each
 year copy to its hero target over one second, starts hero reveals 0.15s before
 the FLIP ends with 0.1s stagger, and fades media over 1.2s from that same point.
 At the year swap frame, targets become visible and copies are hidden. Immediately

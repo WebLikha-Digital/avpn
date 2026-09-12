@@ -46,6 +46,12 @@ local preview.
 
 ## Images and alignment
 
+Images are decoded with three.js `ImageBitmapLoader`, using off-main-thread
+`createImageBitmap` options (`imageOrientation: "flipY"`, no premultiplication,
+and no browser color-space conversion), then wrapped in three.js `Texture`
+objects with `flipY = false`. SVG URLs, including SVG data URIs, and bitmap
+loads that fail fall back to `TextureLoader`; only ImageBitmap-backed textures
+are closed during pool disposal.
 Images are cover-fitted to the final panel geometry. They keep their original
 proportions and are cropped at the centre when the source and panel ratios do
 not match; they are never stretched. Each tile calculates its own UV crop, so
@@ -88,7 +94,13 @@ All attributes are optional. Invalid or missing values use the defaults below.
 
 The tile meshes expose a test-only, read-only hook at `mount.__tunnel2.scene`.
 Walk meshes named `tile` to inspect `userData.surface`, `userData.sourceIndex`
-(the index in the shared loaded texture pool), and `userData.url`.
+(the index in the shared loaded texture pool), and `userData.url`. The
+`mount._tunnel2.textureVersions()` hook reports source texture versions for
+regression checks; `cloneCount` and `cacheSize` expose the fitted-clone cache
+size, and `gpuTextures()` reports the renderer's live WebGL texture count.
+Source filtering and anisotropy are set before fitted clones are created, so
+their GL cache keys match the uploaded sources. Recycled tile clones must leave
+the source versions, cache size, and GPU texture count unchanged.
 
 For a full, regular image room:
 
@@ -131,9 +143,22 @@ already wired.
 - Twelve six-unit segments form the infinite corridor.
 - Each segment is populated with one panel per selected surface cell.
 - Segments recycle behind the camera and receive a new image assignment.
-- Images load once into a per-instance texture pool.
-- Each panel receives a lightweight texture clone with a crop calculated from
-  its final width and height.
+- Images load once into a per-instance texture pool. After loading, source
+  textures are configured and uploaded to the GPU one per animation frame in
+  manifest order with `renderer.initTexture()`, followed by `gl.flush()` and
+  `gl.finish()` so each upload completes in its own frame. Rendering starts only
+  after the pool is uploaded and the scene's materials have been prepared with
+  `renderer.compileAsync()` (or `renderer.compile()` where async compilation is
+  unavailable), which keeps the first draw from creating one long
+  main-thread/GPU stall. The mount's internal `._tunnel2.uploaded` counter
+  reports completed uploads and `._tunnel2.textureCount` reports the pool size
+  for diagnostics. Once uploading completes, the mount dispatches a bubbling
+  `tunnel2:ready` event with the same `uploaded` and `textureCount` values in
+  `event.detail`.
+- Each source caches one lightweight texture clone per rounded tile aspect,
+  created before GPU upload. Panels reuse those fitted clones during setup and
+  segment recycling, avoiding texture-version changes after upload; the cache
+  and its clones are disposed with the instance.
 - The far end uses a haze-colored cap and fog rather than a visible hard stop.
 - Rendering pauses off-screen, responds to container resize, handles WebGL
   context restoration, disposes GPU resources on teardown, and renders one

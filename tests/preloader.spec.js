@@ -226,6 +226,23 @@ test("preloader entrance moves the counter up from below the viewport", async ({
   expect(positions.start).toBeGreaterThan(positions.end);
 });
 
+test("preloader entrance starts on the frame after its instance is created", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__preloaderEntranceFrames = [];
+    const sample = () => {
+      const instance = document.querySelector("[data-preloader-init]")?._preloaderInstance;
+      if (instance) window.__preloaderEntranceFrames.push({ entrance: Boolean(instance.entrance) });
+      if (document.documentElement.classList.contains("is-preloading")) requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  });
+  await page.goto("/?preloader=1");
+  await page.waitForFunction(() => window.__preloaderEntranceFrames.some(({ entrance }) => entrance));
+  const frames = await page.evaluate(() => window.__preloaderEntranceFrames);
+  expect(frames[0]).toEqual({ entrance: false });
+  expect(frames.some(({ entrance }) => entrance)).toBe(true);
+});
+
 for (const viewport of [{ width: 1440, height: 900 }, { width: 768, height: 1024 }, { width: 390, height: 844 }]) {
   test(`FLIP lands year copies on targets at ${viewport.width}x${viewport.height}`, async ({ page }) => {
     await page.setViewportSize(viewport);

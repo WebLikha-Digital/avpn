@@ -6,6 +6,7 @@ const MAXIMUM_MS = 8000;
 const COUNTER_EASE = "power1.out";
 const FLIP_EASE = "power4.inOut";
 const REVEAL_EASE = "power4.inOut";
+const STEP_THRESHOLDS = [70, 85];
 
 const TIME_CURVE = [
   { pct: 70, at: 0.25 },
@@ -23,6 +24,7 @@ export function initPreloader() {
 
     const counter = container.querySelector("[data-preloader-counter]");
     const background = container.querySelector("[data-preloader-bg]");
+    const shape = container.querySelector("[data-preloader-shape]");
     const years = [...container.querySelectorAll("[data-preloader-year]")];
     const targets = years.map((copy) =>
       document.querySelector(`[data-preloader-target="${copy.dataset.preloaderYear}"]`),
@@ -32,7 +34,7 @@ export function initPreloader() {
 
     const reveals = [...document.querySelectorAll("[data-preloader-reveal]")];
     const media = [...document.querySelectorAll("[data-preloader-media]")];
-    const instance = { timeline: null, kill: () => {} };
+    const instance = { timeline: null, counterValue: 0, kill: () => {} };
     container._preloaderInstance = instance;
 
     const scroll = getLocomotiveScroll();
@@ -58,10 +60,17 @@ export function initPreloader() {
       return;
     }
 
+    let entranceComplete = false;
     const entrance = gsap.fromTo(
-      [...years, counter],
+      [...years, counter, ...(shape ? [shape] : [])],
       { y: "60vh" },
-      { y: 0, duration: 1.2, ease: "power1.out" },
+      {
+        y: 0, duration: 1.2, ease: "power1.out",
+        onComplete: () => {
+          entranceComplete = true;
+          if (stepTimeline.duration() && !stepTimeline.isActive()) stepTimeline.play();
+        },
+      },
     );
     instance.entrance = entrance;
 
@@ -76,6 +85,7 @@ export function initPreloader() {
     let maximumTimer;
     let counterTween;
     let imageCheckTimer;
+    let loadListener;
     const imageListeners = [];
     const milestones = imageCount + 2;
 
@@ -93,7 +103,89 @@ export function initPreloader() {
       return 90;
     };
 
-    const renderCounter = (value) => { counter.textContent = `${Math.round(value)}`; };
+    counter.setAttribute("aria-hidden", "true");
+    const getLineHeightRatio = (element) => {
+      const styles = getComputedStyle(element);
+      return styles.lineHeight === "normal" ? 1.2 : parseFloat(styles.lineHeight) / parseFloat(styles.fontSize);
+    };
+    const step = getLineHeightRatio(counter);
+    const rollers = [];
+    const masks = [];
+    const digitPositions = [0, 0, 0];
+    const fontSize = parseFloat(getComputedStyle(counter).fontSize);
+    counter.textContent = "";
+    for (let index = 0; index < 3; index += 1) {
+      const mask = document.createElement("span");
+      mask.dataset.odometerPart = "mask";
+      mask.style.height = `${step}em`;
+      mask.style.lineHeight = `${step}em`;
+      const roller = document.createElement("span");
+      roller.dataset.odometerPart = "roller";
+      roller.style.lineHeight = `${step}em`;
+      roller.textContent = Array.from({ length: 20 }, (_, cell) => cell % 10).join("\n");
+      mask.appendChild(roller);
+      counter.appendChild(mask);
+      const widthEm = mask.offsetWidth / fontSize;
+      gsap.set(mask, { width: index === 2 ? `${widthEm}em` : 0, opacity: index === 2 ? 1 : 0, overflow: "hidden" });
+      gsap.set(roller, { y: 0 });
+      masks.push({ element: mask, widthEm });
+      rollers.push(roller);
+    }
+
+    const revealDigit = (index) => {
+      if (index === 0 && instance.counterValue < 100) return;
+      if (index === 1 && instance.counterValue < 10) return;
+      if (masks[index].element.dataset.odometerRevealed) return;
+      masks[index].element.dataset.odometerRevealed = "true";
+      gsap.to(masks[index].element, { width: `${masks[index].widthEm}em`, opacity: 1, duration: 0.4, ease: "power2.out", overwrite: true });
+    };
+    const renderCounter = (value) => {
+      const next = Math.max(0, Math.min(100, Math.round(value)));
+      const digits = String(next).padStart(3, "0").split("").map(Number);
+      instance.counterValue = next;
+      [0, 1, 2].forEach(revealDigit);
+      digits.forEach((digit, index) => {
+        const previous = digitPositions[index];
+        if (digit === previous) return;
+        const target = digit < previous ? 10 + digit : digit;
+        digitPositions[index] = digit;
+        gsap.to(rollers[index], {
+          y: `${-target * step}em`, duration: 0.35, delay: (2 - index) * 0.04, ease: "power3.out",
+          force3D: true, overwrite: true,
+          onComplete: () => { gsap.set(rollers[index], { y: `${-digit * step}em` }); },
+        });
+      });
+    };
+    renderCounter(0);
+    let stepTimeline = gsap.timeline({ paused: true });
+    let nextStep = 0;
+    const moveYears = (threshold) => {
+      const stepIndex = STEP_THRESHOLDS.indexOf(threshold) + 1;
+      const slots = { left: ["middle", "top"], right: ["middle", "bottom"] };
+      const moves = [];
+      years.forEach((year) => {
+        const nextSlot = slots[year.dataset.preloaderSide]?.[stepIndex - 1];
+        if (!nextSlot || year.dataset.preloaderSlot === nextSlot) return;
+        const oldTop = year.getBoundingClientRect().top;
+        year.dataset.preloaderSlot = nextSlot;
+        const newTop = year.getBoundingClientRect().top;
+        moves.push({ year, y: oldTop - newTop });
+      });
+      return moves;
+    };
+    const queueSteps = (value) => {
+      while (nextStep < STEP_THRESHOLDS.length && value >= STEP_THRESHOLDS[nextStep]) {
+        const threshold = STEP_THRESHOLDS[nextStep];
+        const position = stepTimeline.duration();
+        moveYears(threshold).forEach(({ year, y }) => {
+          stepTimeline.fromTo(year, { y }, {
+            y: 0, duration: 0.6, ease: "power3.inOut", immediateRender: false, overwrite: "auto",
+          }, position);
+        });
+        nextStep += 1;
+      }
+      if (entranceComplete && stepTimeline.duration() && !stepTimeline.isActive()) stepTimeline.play();
+    };
     const tick = () => {
       const elapsed = performance.now() - startTime;
       const real = realProgress();
@@ -101,6 +193,7 @@ export function initPreloader() {
       const target = Math.min(realTarget, curveProgress(elapsed));
       shown += 0.09 * (target - shown);
       renderCounter(shown);
+      queueSteps(instance.counterValue);
       if (!instance.completed) frame = requestAnimationFrame(tick);
     };
 
@@ -121,7 +214,10 @@ export function initPreloader() {
     const fontsReady = (document.fonts?.ready ?? Promise.resolve()).then(() => { fontsDone = true; });
     const loadReady = new Promise((resolve) => {
       if (document.readyState === "complete") { loadDone = true; resolve(); }
-      else window.addEventListener("load", () => { loadDone = true; resolve(); }, { once: true });
+      else {
+        loadListener = () => { loadDone = true; resolve(); };
+        window.addEventListener("load", loadListener, { once: true });
+      }
     });
     const imagesReady = new Promise((resolve) => {
       const check = () => {
@@ -145,6 +241,10 @@ export function initPreloader() {
       cancelAnimationFrame(frame);
       shown = 100;
       renderCounter(100);
+      queueSteps(100);
+      stepTimeline.kill();
+      years.forEach((year) => { year.dataset.preloaderSlot = year.dataset.preloaderSide === "left" ? "top" : "bottom"; });
+      gsap.killTweensOf(years);
 
       // The measurement is deliberately performed immediately before the timeline
       // is created, after fonts have settled, so the swap frame has no layout gap.
@@ -159,6 +259,7 @@ export function initPreloader() {
       const timeline = gsap.timeline({ onComplete: complete });
       timeline.to(counter, { opacity: 0, duration: 0.4 }, 0)
         .to(background, { opacity: 0, duration: 0.6 }, 0);
+      if (shape) timeline.to(shape, { opacity: 0, duration: 0.6 }, 0);
       flips.forEach(({ copy, x, y, scaleX, scaleY }) => {
         timeline.to(copy, { x, y, scaleX, scaleY, transformOrigin: "top left", duration: 1, ease: FLIP_EASE }, 0);
       });
@@ -182,7 +283,11 @@ export function initPreloader() {
     finishPromise.then(() => {
       cancelAnimationFrame(frame);
       counterTween = gsap.to({ value: shown }, { value: 100, duration: 1, ease: COUNTER_EASE,
-        onUpdate() { shown = Math.max(shown, this.targets()[0].value); renderCounter(shown); },
+        onUpdate() {
+          shown = Math.max(shown, this.targets()[0].value);
+          renderCounter(shown);
+          queueSteps(instance.counterValue);
+        },
         onComplete: beginExit });
     });
     frame = requestAnimationFrame(tick);
@@ -192,9 +297,12 @@ export function initPreloader() {
       clearTimeout(minimumTimer); clearTimeout(maximumTimer);
       clearTimeout(imageCheckTimer);
       imageListeners.forEach(([image, listener]) => { image.removeEventListener("load", listener); image.removeEventListener("error", listener); });
+      if (loadListener) window.removeEventListener("load", loadListener);
       instance.timeline?.kill();
       instance.entrance?.kill();
       counterTween?.kill();
+      stepTimeline.kill();
+      gsap.killTweensOf([...years, ...rollers, ...masks.map(({ element }) => element)]);
       if (!instance.completed) scroll?.lenisInstance?.start();
     };
   });

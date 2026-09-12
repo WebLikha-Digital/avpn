@@ -12,11 +12,19 @@ hero.
   `[data-preloader-counter]` are its background, white disc, and counter. The
   counter keeps `aria-hidden="true"` and is built into three odometer masks at
   initialization.
-- Each year also declares `data-preloader-side="left|right"` and
-  `data-preloader-slot="top|middle|bottom"`. 2025 starts left/bottom and 2026
-  starts right/top; the slot changes at 70 and 85. The first threshold moves
-  both years to the middle; the second moves them to their final top/bottom
-  slots.
+- Each year declares `data-preloader-corner="tl|tr|br|bl"`. 2025 starts at
+  `br` and 2026 starts at `tl`; each year moves clockwise at 70 and 85:
+
+  | Step | 2025 | 2026 |
+  | --- | --- | --- |
+  | start | `br` | `tl` |
+  | 70 | `bl` | `tr` |
+  | 85 | `tl` | `br` |
+  | 100 (beginExit) | force `tl`, then FLIP | force `br`, then FLIP |
+
+  The 70 move is horizontal and the 85 move is vertical. Each move lasts 0.6
+  seconds with `power3.inOut` easing and ends at identity transform. The moves
+  are queued while progress advances but only play after the entrance completes.
 - Each `[data-preloader-year="2025|2026"]` has a matching
   `[data-preloader-target="2025|2026"]` in the hero.
 - `[data-preloader-reveal]` marks hero content revealed in DOM order.

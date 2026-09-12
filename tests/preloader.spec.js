@@ -70,29 +70,63 @@ test("odometer rollers never roll backward during rapid updates", async ({ page 
   }
 });
 
-test("years step at counter thresholds and stay on their edges", async ({ page }) => {
+test("years orbit corners at counter thresholds and move on one axis", async ({ page }) => {
   await page.goto("/?preloader=1");
   const samples = await page.evaluate(async () => {
     const container = document.querySelector("[data-preloader-init]");
     const values = [];
     while (document.documentElement.classList.contains("is-preloading")) {
+      const instance = container._preloaderInstance;
+      const years = ["2025", "2026"].map((year) => document.querySelector(`[data-preloader-year="${year}"]`));
       values.push({
-        value: container._preloaderInstance.counterValue,
-        left: document.querySelector('[data-preloader-year="2025"]').dataset.preloaderSlot,
-        right: document.querySelector('[data-preloader-year="2026"]').dataset.preloaderSlot,
+        corners: years.map((year) => year.dataset.preloaderCorner),
+        entranceActive: instance.entrance.isActive(),
+        stepActive: instance.stepTimeline?.isActive() ?? false,
+        stepTime: instance.stepTimeline?.isActive() ? instance.stepTimeline.time() : null,
+        rects: instance.stepTimeline?.isActive()
+          ? years.map((year) => {
+            const rect = year.getBoundingClientRect();
+            return { left: rect.left, top: rect.top };
+          })
+          : null,
       });
       await new Promise(requestAnimationFrame);
     }
     return values;
   });
-  samples.forEach(({ value, left, right }) => {
-    if (value < 70) expect(left).toBe("bottom");
-    else if (value < 85) expect(left).toBe("middle");
-    else expect(left).toBe("top");
-    if (value < 70) expect(right).toBe("top");
-    else if (value < 85) expect(right).toBe("middle");
-    else expect(right).toBe("bottom");
+  const cornerPairs = samples.reduce((pairs, { corners }) => {
+    const key = JSON.stringify(corners);
+    if (pairs.at(-1)?.key !== key) pairs.push({ key, corners });
+    return pairs;
+  }, []).map(({ corners }) => corners);
+  expect(cornerPairs).toEqual([["br", "tl"], ["bl", "tr"], ["tl", "br"]]);
+
+  samples.filter(({ entranceActive }) => entranceActive).forEach(({ corners }) => {
+    expect(corners).toEqual(["br", "tl"]);
   });
+  const cornerChanges = samples.slice(1).map((sample, index) => ({
+    sample,
+    previous: samples[index],
+  })).filter(({ sample, previous }) => JSON.stringify(sample.corners) !== JSON.stringify(previous.corners));
+  expect(cornerChanges).toHaveLength(2);
+  cornerChanges.forEach(({ sample }) => {
+    expect(sample.stepActive).toBe(true);
+    expect(sample.entranceActive).toBe(false);
+  });
+
+  const activeSamples = samples.filter(({ stepActive, stepTime, rects }) => stepActive && stepTime !== null && rects);
+  const horizontalSamples = activeSamples.filter(({ stepTime }) => stepTime < 0.6);
+  const verticalSamples = activeSamples.filter(({ stepTime }) => stepTime >= 0.6);
+  expect(horizontalSamples.length).toBeGreaterThan(1);
+  expect(verticalSamples.length).toBeGreaterThan(1);
+  for (let index = 0; index < 2; index += 1) {
+    const horizontalRects = horizontalSamples.map(({ rects }) => rects[index]);
+    expect(Math.max(...horizontalRects.map(({ left }) => left)) - Math.min(...horizontalRects.map(({ left }) => left))).toBeGreaterThan(1);
+    expect(Math.max(...horizontalRects.map(({ top }) => top)) - Math.min(...horizontalRects.map(({ top }) => top))).toBeLessThanOrEqual(1);
+    const verticalRects = verticalSamples.map(({ rects }) => rects[index]);
+    expect(Math.max(...verticalRects.map(({ top }) => top)) - Math.min(...verticalRects.map(({ top }) => top))).toBeGreaterThan(1);
+    expect(Math.max(...verticalRects.map(({ left }) => left)) - Math.min(...verticalRects.map(({ left }) => left))).toBeLessThanOrEqual(1);
+  }
 });
 
 test("shape cycles through circle and leaf states, then stops at exit", async ({ page }) => {
@@ -167,12 +201,12 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 768, height: 1024
         const target = document.querySelector(`[data-preloader-target="${year}"]`).getBoundingClientRect();
         return {
           difference: Math.max(Math.abs(copy.left - target.left), Math.abs(copy.top - target.top), Math.abs(copy.width - target.width), Math.abs(copy.height - target.height)),
-          slot: element.dataset.preloaderSlot,
+          corner: element.dataset.preloaderCorner,
         };
       });
     });
-    expect(result[0].slot).toBe("top");
-    expect(result[1].slot).toBe("bottom");
+    expect(result[0].corner).toBe("tl");
+    expect(result[1].corner).toBe("br");
     result.forEach(({ difference }) => expect(difference).toBeLessThanOrEqual(1));
     const transforms = await page.evaluate(() => window.__preloaderYearTransforms);
     transforms.forEach((transform) => {

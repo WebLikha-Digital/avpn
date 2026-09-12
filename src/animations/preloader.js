@@ -7,6 +7,10 @@ const COUNTER_EASE = "power1.out";
 const FLIP_EASE = "power4.inOut";
 const REVEAL_EASE = "power4.inOut";
 const STEP_THRESHOLDS = [70, 85];
+const YEAR_CORNERS = {
+  "2025": ["bl", "tl"],
+  "2026": ["tr", "br"],
+};
 
 const TIME_CURVE = [
   { pct: 70, at: 0.25 },
@@ -180,31 +184,35 @@ export function initPreloader() {
       });
     };
     renderCounter(0);
-    let stepTimeline = gsap.timeline({ paused: true });
+    const stepTimeline = gsap.timeline({ paused: true });
+    const stepTweens = [];
+    instance.stepTimeline = stepTimeline;
     let nextStep = 0;
-    const moveYears = (threshold) => {
+    const moveYears = (threshold, position) => {
       const stepIndex = STEP_THRESHOLDS.indexOf(threshold) + 1;
-      const slots = { left: ["middle", "top"], right: ["middle", "bottom"] };
-      const moves = [];
-      years.forEach((year) => {
-        const nextSlot = slots[year.dataset.preloaderSide]?.[stepIndex - 1];
-        if (!nextSlot || year.dataset.preloaderSlot === nextSlot) return;
-        const oldTop = year.getBoundingClientRect().top;
-        year.dataset.preloaderSlot = nextSlot;
-        const newTop = year.getBoundingClientRect().top;
-        moves.push({ year, y: oldTop - newTop });
-      });
-      return moves;
+      stepTimeline.add(() => {
+        years.forEach((year) => {
+          const nextCorner = YEAR_CORNERS[year.dataset.preloaderYear]?.[stepIndex - 1];
+          if (!nextCorner || year.dataset.preloaderCorner === nextCorner) return;
+          const oldRect = year.getBoundingClientRect();
+          year.dataset.preloaderCorner = nextCorner;
+          const newRect = year.getBoundingClientRect();
+          const tween = gsap.fromTo(year, {
+            x: oldRect.left - newRect.left,
+            y: oldRect.top - newRect.top,
+          }, {
+            x: 0, y: 0, duration: 0.6, ease: "power3.inOut", overwrite: "auto",
+          });
+          stepTweens.push(tween);
+        });
+      }, position);
+      stepTimeline.to({}, { duration: 0.6 }, position);
     };
     const queueSteps = (value) => {
       while (nextStep < STEP_THRESHOLDS.length && value >= STEP_THRESHOLDS[nextStep]) {
         const threshold = STEP_THRESHOLDS[nextStep];
         const position = stepTimeline.duration();
-        moveYears(threshold).forEach(({ year, y }) => {
-          stepTimeline.fromTo(year, { y }, {
-            y: 0, duration: 0.6, ease: "power3.inOut", immediateRender: false, overwrite: "auto",
-          }, position);
-        });
+        moveYears(threshold, position);
         nextStep += 1;
       }
       if (entranceComplete && stepTimeline.duration() && !stepTimeline.isActive()) stepTimeline.play();
@@ -265,9 +273,12 @@ export function initPreloader() {
       shown = 100;
       renderCounter(100);
       queueSteps(100);
-      stepTimeline.kill();
-      shapeCycle?.kill();
-      years.forEach((year) => { year.dataset.preloaderSlot = year.dataset.preloaderSide === "left" ? "top" : "bottom"; });
+      stepTimeline.pause().kill();
+      stepTweens.forEach((tween) => tween.kill());
+      shapeCycle?.pause().kill();
+      years.forEach((year) => {
+        year.dataset.preloaderCorner = year.dataset.preloaderYear === "2025" ? "tl" : "br";
+      });
       gsap.killTweensOf(years);
 
       // The measurement is deliberately performed immediately before the timeline
@@ -325,8 +336,9 @@ export function initPreloader() {
       instance.timeline?.kill();
       instance.entrance?.kill();
       counterTween?.kill();
-      stepTimeline.kill();
-      shapeCycle?.kill();
+      stepTimeline.pause().kill();
+      stepTweens.forEach((tween) => tween.kill());
+      shapeCycle?.pause().kill();
       gsap.killTweensOf([...years, ...rollers, ...masks.map(({ element }) => element)]);
       if (!instance.completed) scroll?.lenisInstance?.start();
     };

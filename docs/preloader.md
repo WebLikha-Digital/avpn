@@ -70,6 +70,12 @@ before playback, the component dispatches `preloader:exit` with the paused GSAP
 timeline in `event.detail.timeline`; this provides a deterministic inspection
 and synchronization point for integration tests.
 
+FLIP measures the inner SVG of each year copy and hero target, falling back to the
+element when no SVG exists. Width synchronization also uses the target SVG width.
+The resulting uniform scale is based on SVG widths, so the SVG viewBox preserves
+the glyph height and the inline baseline space in the target wrapper does not
+introduce a vertical stretch.
+
 The tunables are the timing constants at the top of `src/animations/preloader.js`,
 `STEP_THRESHOLDS = [70, 85]`, and the CSS custom properties
 `--preloader-year-width`, `--preloader-inset`, `--preloader-shape-size`, and

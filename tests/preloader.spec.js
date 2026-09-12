@@ -231,11 +231,22 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 768, height: 1024
     await page.setViewportSize(viewport);
     await page.addInitScript(() => {
       window.__preloaderYearRatios = null;
+      window.__preloaderYearScaleYs = null;
       window.addEventListener("preloader:exit", (event) => {
         window.__preloaderYearRatios = ["2025", "2026"].map((year) => {
-          const copy = document.querySelector(`[data-preloader-year="${year}"]`).getBoundingClientRect();
-          const target = document.querySelector(`[data-preloader-target="${year}"]`).getBoundingClientRect();
+          const copy = document.querySelector(`[data-preloader-year="${year}"] svg`).getBoundingClientRect();
+          const target = document.querySelector(`[data-preloader-target="${year}"] svg`).getBoundingClientRect();
           return copy.width / target.width;
+        });
+        window.__preloaderYearScaleYs = ["2025", "2026"].map((year) => {
+          const transform = getComputedStyle(document.querySelector(`[data-preloader-year="${year}"]`)).transform;
+          if (transform === "none") return 1;
+          const values = transform.startsWith("matrix3d(")
+            ? transform.slice(9, -1).split(",").map(Number)
+            : transform.slice(7, -1).split(",").map(Number);
+          return transform.startsWith("matrix3d(")
+            ? Math.hypot(values[1], values[5])
+            : Math.hypot(values[1], values[3]);
         });
         event.detail.timeline.pause();
         window.__preloaderTimeline = event.detail.timeline;
@@ -249,8 +260,8 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 768, height: 1024
       window.__preloaderTimeline.seek(1);
       return ["2025", "2026"].map((year) => {
         const element = document.querySelector(`[data-preloader-year="${year}"]`);
-        const copy = element.getBoundingClientRect();
-        const target = document.querySelector(`[data-preloader-target="${year}"]`).getBoundingClientRect();
+        const copy = element.querySelector("svg").getBoundingClientRect();
+        const target = document.querySelector(`[data-preloader-target="${year}"] svg`).getBoundingClientRect();
         return {
           difference: Math.max(Math.abs(copy.left - target.left), Math.abs(copy.top - target.top), Math.abs(copy.width - target.width), Math.abs(copy.height - target.height)),
           corner: element.dataset.preloaderCorner,
@@ -262,6 +273,8 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 768, height: 1024
     result.forEach(({ difference }) => expect(difference).toBeLessThanOrEqual(1));
     const ratios = await page.evaluate(() => window.__preloaderYearRatios);
     ratios.forEach((ratio) => expect(Math.abs(ratio - 1)).toBeLessThanOrEqual(0.005));
+    const scaleYs = await page.evaluate(() => window.__preloaderYearScaleYs);
+    scaleYs.forEach((scaleY) => expect(Math.abs(scaleY - 1)).toBeLessThanOrEqual(0.005));
     const transforms = await page.evaluate(() => window.__preloaderYearTransforms);
     transforms.forEach((transform) => {
       if (transform === "none") return;
@@ -277,8 +290,8 @@ test("re-applies year widths after a viewport resize during the count", async ({
   await page.waitForTimeout(300);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect.poll(() => page.evaluate(() => ["2025", "2026"].map((year) => {
-    const copy = document.querySelector(`[data-preloader-year="${year}"]`).getBoundingClientRect();
-    const target = document.querySelector(`[data-preloader-target="${year}"]`).getBoundingClientRect();
+    const copy = document.querySelector(`[data-preloader-year="${year}"] svg`).getBoundingClientRect();
+    const target = document.querySelector(`[data-preloader-target="${year}"] svg`).getBoundingClientRect();
     return copy.width / target.width;
   }))).toEqual([1, 1]);
 });

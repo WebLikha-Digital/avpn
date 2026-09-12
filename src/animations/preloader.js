@@ -31,6 +31,7 @@ export function initPreloader() {
     const background = container.querySelector("[data-preloader-bg]");
     const shape = container.querySelector("[data-preloader-shape]");
     const years = [...container.querySelectorAll("[data-preloader-year]")];
+    const getYearSvg = (element) => element.querySelector("svg") ?? element;
     const targets = years.map((copy) =>
       document.querySelector(`[data-preloader-target="${copy.dataset.preloaderYear}"]`),
     );
@@ -43,7 +44,7 @@ export function initPreloader() {
     const applyYearWidths = (retry = true) => {
       let needsRetry = false;
       years.forEach((year, index) => {
-        const targetWidth = targets[index].getBoundingClientRect().width;
+        const targetWidth = getYearSvg(targets[index]).getBoundingClientRect().width;
         if (targetWidth > 0) year.style.width = `${targetWidth}px`;
         else needsRetry = true;
       });
@@ -322,10 +323,11 @@ export function initPreloader() {
       // is created, after fonts have settled, so the swap frame has no layout gap.
       gsap.set(years, { clearProps: "transform" });
       const flips = years.map((copy, index) => {
-        const from = copy.getBoundingClientRect();
-        const to = targets[index].getBoundingClientRect();
+        const from = getYearSvg(copy).getBoundingClientRect();
+        const to = getYearSvg(targets[index]).getBoundingClientRect();
+        const scale = to.width / from.width;
         return { copy, x: to.left - from.left, y: to.top - from.top,
-          scaleX: to.width / from.width, scaleY: to.height / from.height };
+          scaleX: scale, scaleY: scale };
       });
       gsap.set(targets, { opacity: 0 });
       const timeline = gsap.timeline({ onComplete: complete });

@@ -37,6 +37,41 @@ export function initPreloader() {
     if (!counter || !background || years.length !== 2 || targets.some((target) => !target)) return;
     container.style.display = "flex";
 
+    let widthRetryFrame;
+    let resizeTimer;
+    let lastWidth = window.innerWidth;
+    const applyYearWidths = (retry = true) => {
+      let needsRetry = false;
+      years.forEach((year, index) => {
+        const targetWidth = targets[index].getBoundingClientRect().width;
+        if (targetWidth > 0) year.style.width = `${targetWidth}px`;
+        else needsRetry = true;
+      });
+      if (needsRetry && retry && !widthRetryFrame) {
+        widthRetryFrame = requestAnimationFrame(() => {
+          widthRetryFrame = undefined;
+          applyYearWidths(false);
+        });
+      }
+    };
+    applyYearWidths();
+
+    const onResize = () => {
+      if (window.innerWidth === lastWidth) return;
+      lastWidth = window.innerWidth;
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => applyYearWidths(), 100);
+    };
+    const removeResize = () => {
+      window.removeEventListener("resize", onResize);
+      clearTimeout(resizeTimer);
+      if (widthRetryFrame) cancelAnimationFrame(widthRetryFrame);
+      if (initPreloader._resize === removeResize) initPreloader._resize = null;
+    };
+    initPreloader._resize?.();
+    initPreloader._resize = removeResize;
+    window.addEventListener("resize", onResize);
+
     const reveals = [...document.querySelectorAll("[data-preloader-reveal]")];
     const media = [...document.querySelectorAll("[data-preloader-media]")];
     const instance = { timeline: null, counterValue: 0, kill: () => {} };
@@ -47,6 +82,7 @@ export function initPreloader() {
 
     const complete = () => {
       instance.completed = true;
+      initPreloader._resize?.();
       gsap.set(targets, { opacity: 1 });
       gsap.set(reveals, { opacity: 1, y: 0 });
       gsap.set(media, { opacity: 1 });
@@ -66,6 +102,8 @@ export function initPreloader() {
     }
 
     let entranceComplete = false;
+    let exitDeferred = false;
+    let exitStarted = false;
     if (shape) {
       gsap.set(shape, { borderRadius: "0% 0% 0% 0%" });
     }
@@ -258,11 +296,22 @@ export function initPreloader() {
 
     const startTime = performance.now();
     const beginExit = () => {
-      if (instance.completed) return;
+      if (instance.completed || exitStarted || exitDeferred) return;
       cancelAnimationFrame(frame);
       shown = 100;
       renderCounter(100);
       queueSteps(100);
+      if (stepTimeline.duration() && stepTimeline.progress() < 1) {
+        exitDeferred = true;
+        stepTimeline.eventCallback("onComplete", () => {
+          stepTimeline.eventCallback("onComplete", null);
+          exitDeferred = false;
+          beginExit();
+        });
+        if (entranceComplete && !stepTimeline.isActive()) stepTimeline.play();
+        return;
+      }
+      exitStarted = true;
       stepTimeline.pause().kill();
       years.forEach((year) => {
         year.dataset.preloaderCorner = year.dataset.preloaderYear === "2025" ? "tl" : "br";
@@ -319,6 +368,7 @@ export function initPreloader() {
     frame = requestAnimationFrame(tick);
 
     instance.kill = () => {
+      initPreloader._resize?.();
       cancelAnimationFrame(frame);
       clearTimeout(minimumTimer); clearTimeout(maximumTimer);
       clearTimeout(imageCheckTimer);

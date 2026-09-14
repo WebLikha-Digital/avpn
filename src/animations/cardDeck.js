@@ -76,6 +76,8 @@ export function initCardDeck() {
 
     // Resting cards are absolute so every card shares the viewport centre.
     const stack = (finalize = true) => {
+      instance.tween?.kill();
+      instance.tween = null;
       removeClones(root);
       gsap.set(track, { clearProps: "x" });
       track.style.display = "block";
@@ -152,6 +154,8 @@ export function initCardDeck() {
       row();
 
       const finish = () => {
+        if (root.dataset.deckState !== "expanding") return;
+
         setState("expanded");
         cards.forEach((card) => card.removeAttribute("tabindex"));
         root.removeAttribute("role");
@@ -185,6 +189,8 @@ export function initCardDeck() {
     const collapse = (instant = false) => {
       if (!["expanded", "expanding"].includes(root.dataset.deckState)) return;
 
+      instance.tween?.kill();
+      instance.tween = null;
       stopMarquee();
       setState("collapsing");
 

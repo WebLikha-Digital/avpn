@@ -83,6 +83,44 @@ test("data-ignore=true leaves that direct child untouched", async ({ page }) => 
   )).toBe(true);
 });
 
+test("data-duration sets the duration for every item in a group", async ({ page }) => {
+  const durations = await page.evaluate(async () => {
+    const { initContentReveal } = await import("/src/animations/contentReveal.js");
+    const group = document.querySelector('[data-testid="reveal-flat"]');
+
+    group.setAttribute("data-duration", "1200");
+    initContentReveal();
+
+    return group._contentRevealInstance.timeline
+      .getChildren()
+      .map((tween) => tween.duration());
+  });
+
+  expect(durations).toEqual([1.2, 1.2, 1.2, 1.2]);
+});
+
+test("data-duration resolves nested, item, and invalid values by precedence", async ({ page }) => {
+  const durations = await page.evaluate(async () => {
+    const { initContentReveal } = await import("/src/animations/contentReveal.js");
+    const group = document.querySelector('[data-testid="reveal-nested"]');
+    const directItem = group.children[0];
+    const nested = group.children[1].querySelector("[data-reveal-group-nested]");
+
+    group.setAttribute("data-duration", "1000");
+    directItem.setAttribute("data-duration", "400");
+    nested.setAttribute("data-duration", "2000");
+    nested.children[0].setAttribute("data-duration", "300");
+    nested.children[1].setAttribute("data-duration", "not-a-number");
+    initContentReveal();
+
+    return group._contentRevealInstance.timeline
+      .getChildren()
+      .map((tween) => tween.duration());
+  });
+
+  expect(durations).toEqual([0.4, 0.3, 1, 2, 2]);
+});
+
 test("nested children reveal in their own sequence at the parent slot", async ({ page }) => {
   const group = page.getByTestId("reveal-nested");
   const nestedParent = group.locator(":scope > *").nth(1);

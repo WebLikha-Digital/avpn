@@ -284,19 +284,23 @@ test("initializes the scroll-direction marquee", async ({ page }) => {
 
 test("draws every marked line in each draw-path wrapper", async ({ page }) => {
   const paths = page.locator("[data-draw-scroll-wrap] [data-draw-scroll-path]");
-  await expect(paths).toHaveCount(5);
+  await expect(paths).toHaveCount(7);
 
   expect(await page.locator("[data-draw-scroll-wrap]").evaluateAll((wrappers) =>
-    wrappers.map((wrapper) => ({
-      hasTrigger: Boolean(wrapper._drawTl && wrapper._drawTl.scrollTrigger),
-      targetCount: wrapper._drawTl?.getChildren().reduce(
-        (count, tween) => count + tween.targets().length,
-        0,
-      ) || 0,
-    })),
+    wrappers.map((wrapper) => {
+      const children = wrapper._drawTl?.getChildren?.() || [];
+      return {
+        hasTrigger: Boolean(wrapper._drawTl && wrapper._drawTl.scrollTrigger),
+        targetCount: children.length
+          ? children.reduce((count, tween) => count + tween.targets().length, 0)
+          : wrapper._drawTl?.targets?.().length || 0,
+      };
+    }),
   )).toEqual([
     { hasTrigger: true, targetCount: 1 },
     { hasTrigger: true, targetCount: 3 },
+    { hasTrigger: true, targetCount: 1 },
+    { hasTrigger: true, targetCount: 1 },
     // The connector inside the horizontal band: proves the wrapper still
     // builds a trigger when its scroller is the band rather than the window.
     { hasTrigger: true, targetCount: 1 },

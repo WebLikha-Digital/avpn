@@ -117,6 +117,20 @@ test("tears down below the minimum width and rebuilds exactly once", async ({ pa
     .toBe(1);
 });
 
+test("keeps the transform clear after a draw path rebuild", async ({ page }) => {
+  await loadFixture(page);
+  const image = page.locator(IMAGE);
+
+  await expect.poll(() => image.evaluate((element) => Boolean(element._scrollParallax))).toBe(true);
+  await page.evaluate(() => window.dispatchEvent(new Event("hscroll:rebuilt")));
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+
+  await page.setViewportSize({ width: 500, height: 800 });
+  await expect.poll(() => image.evaluate((element) => element.style.transform)).toBe("");
+  await page.waitForTimeout(350);
+  await expect.poll(() => image.evaluate((element) => element.style.transform)).toBe("");
+});
+
 test("leaves the image untouched for reduced motion", async ({ page }) => {
   await loadFixture(page, "reduce");
   const image = page.locator(IMAGE);

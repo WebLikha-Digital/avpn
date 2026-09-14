@@ -153,8 +153,9 @@ export function initDrawPathScroll() {
         wrap._drawTl = tl;
       });
 
-      // Make sure ScrollTrigger recalculates
-      ScrollTrigger.refresh();
+      // Refresh after the matchMedia callback returns so this context cannot
+      // capture tweens that other components create during refresh.
+      queueMicrotask(() => ScrollTrigger.refresh());
 
       // Cleanup when breakpoint changes
       return () => {

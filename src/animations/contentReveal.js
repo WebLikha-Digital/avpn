@@ -1,6 +1,6 @@
 import { gsap, ScrollTrigger } from "../lib/gsap.js";
 
-const DURATION = 0.8;
+const DEFAULT_DURATION = 0.8;
 const EASE = "power4.inOut";
 const DEFAULT_STAGGER = 100;
 const DEFAULT_DISTANCE = "2em";
@@ -25,6 +25,8 @@ const DEFAULT_START = "top 80%";
  *                                configured independently per group
  *   [data-distance]              starting y offset (default 2em), configurable
  *                                on a group, item, or nested group
+ *   [data-duration]              milliseconds per item (default 800),
+ *                                configurable on a group, item, or nested group
  *   [data-start]                 ScrollTrigger start (default "top 80%")
  *   [data-ignore="true"]         exclude a direct or nested child
  *   [data-ignore="false"]        on a nested group or its direct-child parent,
@@ -43,6 +45,7 @@ export function initContentReveal() {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
     const groupDistance = readDistance(group, DEFAULT_DISTANCE);
+    const groupDuration = readDuration(group, DEFAULT_DURATION);
     const groupStagger = readStagger(group);
     const items = group.children.length ? [...group.children] : [group];
     const sequence = items.filter((item) => item.getAttribute("data-ignore") !== "true");
@@ -53,7 +56,13 @@ export function initContentReveal() {
       const nested = resolveNestedGroup(item);
 
       if (!nested) {
-        addReveal(timeline, item, readDistance(item, groupDistance), position);
+        addReveal(
+          timeline,
+          item,
+          readDistance(item, groupDistance),
+          readDuration(item, groupDuration),
+          position,
+        );
         return;
       }
 
@@ -62,10 +71,11 @@ export function initContentReveal() {
         nested.getAttribute("data-ignore") === "false";
 
       if (includeParent) {
-        addReveal(timeline, item, groupDistance, position);
+        addReveal(timeline, item, groupDistance, groupDuration, position);
       }
 
       const nestedDistance = readDistance(nested, groupDistance);
+      const nestedDuration = readDuration(nested, groupDuration);
       const nestedStagger = readStagger(nested);
       [...nested.children]
         .filter((child) => child.getAttribute("data-ignore") !== "true")
@@ -74,6 +84,7 @@ export function initContentReveal() {
             timeline,
             child,
             readDistance(child, nestedDistance),
+            readDuration(child, nestedDuration),
             position + nestedIndex * nestedStagger,
           );
         });
@@ -95,13 +106,13 @@ export function initContentReveal() {
   });
 }
 
-function addReveal(timeline, target, distance, position) {
+function addReveal(timeline, target, distance, duration, position) {
   timeline.from(
     target,
     {
       y: distance,
       autoAlpha: 0,
-      duration: DURATION,
+      duration,
       ease: EASE,
       clearProps: "all",
     },
@@ -122,6 +133,11 @@ function readStagger(element) {
 
 function readDistance(element, fallback) {
   return element.getAttribute("data-distance") || fallback;
+}
+
+function readDuration(element, fallback) {
+  const value = Number.parseFloat(element.getAttribute("data-duration"));
+  return Number.isFinite(value) ? Math.max(0, value) / 1000 : fallback;
 }
 
 function teardown(group) {

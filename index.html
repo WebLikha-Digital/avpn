@@ -982,6 +982,32 @@
       [data-hover-row][data-hover-state="active"] .prog-overview_item-line {
         opacity: 0;
       }
+
+      .section_ecosystem { background:#F7F1EA; padding:120px 0; font-family:Archivo,system-ui,sans-serif; color:#121212; }
+      .ecosystem_container { max-width:1376px; padding:0 32px; margin:auto; }
+      .ecosystem_heading { font-family:"Open Sans",system-ui,sans-serif; font-size:72px; line-height:80px; font-weight:700; color:#002944; max-width:861px; margin:0 0 56px; }
+      .ecosystem_tab-list { display:flex; gap:17px; margin-left:66px; align-items:flex-end; }
+      .ecosystem_tab { width:240px; height:81px; border:0; border-radius:48px 48px 0 0; background:#EBE5DE; color:#121212; font:700 18px/26px Archivo,system-ui,sans-serif; cursor:pointer; opacity:.6; }
+      .ecosystem_tab.is-red { background:#F8CAC6; color:#E42919; }
+      .ecosystem_tab[data-tabs-state="active"] { opacity:1; }
+      .ecosystem_panel { min-height:715px; padding:32px 104px 96px; background:#EBE5DE; border-radius:48px; }
+      .ecosystem_panel[hidden] { display:none; }
+      .ecosystem_intro { max-width:590px; margin:0 0 24px; font:400 18px/26px Archivo,system-ui,sans-serif; color:#000; }
+      .ecosystem_deck { --deck-fan:3; position:relative; }
+      .ecosystem_deck-viewport { position:relative; height:440px; overflow:hidden; }
+      .ecosystem_deck-track { display:flex; gap:24px; align-items:center; height:100%; position:relative; }
+      .ecosystem_card { width:370px; height:400px; flex:0 0 auto; border-radius:24px; padding:24px 24px 32px; display:flex; flex-direction:column; gap:32px; box-shadow:10px 10px 20px rgba(0,0,0,.3); text-decoration:none; overflow:hidden; box-sizing:border-box; }
+      .ecosystem_card.is-teal { background:#00B4AE; color:#fff; } .ecosystem_card.is-orange { background:#F27C38; color:#fff; } .ecosystem_card.is-yellow { background:#FFD552; color:#121212; } .ecosystem_card.is-green { background:#007B69; color:#fff; } .ecosystem_card.is-red { background:#EB6054; color:#fff; } .ecosystem_card.is-blue { background:#91C7D6; color:#121212; }
+      .ecosystem_card-thumb { flex:1; min-height:0; border-radius:16px; background:rgba(255,255,255,.25); overflow:hidden; }
+      .ecosystem_card-thumb img { width:100%; height:100%; object-fit:cover; }
+      .ecosystem_card-title { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; font:500 24px/32px Archivo,system-ui,sans-serif; }
+      .ecosystem_card-date { font:500 16px/24px Archivo,system-ui,sans-serif; }
+      .ecosystem_deck-hint { margin:16px 0 0; text-align:center; color:rgba(0,0,0,.5); font:400 14px/20px Archivo,system-ui,sans-serif; }
+      .ecosystem_deck-collapse { display:block; margin:16px auto 0; padding:10px 20px; border:1px solid rgba(0,0,0,.2); border-radius:999px; background:transparent; font:500 12px/16px Archivo,system-ui,sans-serif; letter-spacing:.2em; text-transform:uppercase; cursor:pointer; }
+      .ecosystem_deck-collapse[hidden] { display:none; }
+      @media (max-width:991px) { .section_ecosystem { padding:80px 0; } .ecosystem_heading { font-size:48px; line-height:56px; } .ecosystem_panel { padding:24px 24px 64px; } .ecosystem_tab { width:200px; height:64px; } .ecosystem_card { width:300px; height:340px; } .ecosystem_deck-viewport { height:380px; } }
+      @media (max-width:767px) { .ecosystem_tab-list { margin:0 16px; gap:8px; } .ecosystem_tab { width:auto; flex:1 1 0; height:56px; font-size:16px; } .ecosystem_panel { border-radius:32px; padding-bottom:40px; } .ecosystem_card { width:260px; height:300px; gap:20px; } .ecosystem_card-title { font-size:20px; line-height:26px; } .ecosystem_deck-viewport { height:336px; } }
+      @media (prefers-reduced-motion: reduce) { .ecosystem_deck-viewport { overflow-x:auto; } }
     </style>
   </head>
   <body data-smooth-scroll-init>
@@ -1688,6 +1714,55 @@
 
         <div class="prog-overview_follower" data-follower-cursor>
           <div class="prog-overview_follower-inner" data-follower-cursor-inner></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section_ecosystem" data-testid="ecosystem">
+      <div class="ecosystem_container">
+        <h2 class="ecosystem_heading">How AVPN Helps Shape the Impact Ecosystem</h2>
+        <div class="ecosystem_tabs" data-tabs-init>
+          <div class="ecosystem_tab-list"><button class="ecosystem_tab" data-tabs-tab="learn" data-tabs-default>Learn with AVPN</button><button class="ecosystem_tab is-red" data-tabs-tab="voice">AVPN Leading Voice</button></div>
+          <div class="ecosystem_panel" data-tabs-panel="learn">
+            <p class="ecosystem_intro">Through AVPN’s engagements with the ecosystem, we have crystallised our knowledge, findings &amp; experience into the 41 publications published between July 2025 to June 2026, including reports and podcast episodes. Below are some publications available for public viewing.</p>
+            <div class="ecosystem_deck" data-deck-init><div class="ecosystem_deck-viewport" data-deck-viewport><div class="ecosystem_deck-track" data-deck-track>
+              <a class="ecosystem_card is-teal" href="#" data-deck-card><div class="ecosystem_card-thumb"></div><div class="ecosystem_card-content"><div class="ecosystem_card-title">Accelerating Gender Equality: Financing for SDG 5 in the APAC Region</div><div class="ecosystem_card-date">JUL 07 2025</div></div></a>
+              <a class="ecosystem_card is-orange" href="#" data-deck-card><div class="ecosystem_card-thumb"></div><div class="ecosystem_card-content"><div class="ecosystem_card-title">Unlocking Capital for Climate x Health : The Investment Landscape in Asia</div><div class="ecosystem_card-date">SEP 05 2025</div></div></a>
+              <a class="ecosystem_card is-yellow" href="#" data-deck-card><div class="ecosystem_card-thumb"></div><div class="ecosystem_card-content"><div class="ecosystem_card-title">The People-centric Energy Transition in Asia Pacific: A Framework for Inclusive &amp; Measurable Solutions</div><div class="ecosystem_card-date">SEP 30 2025</div></div></a>
+              <a class="ecosystem_card is-green" href="#" data-deck-card><div class="ecosystem_card-thumb"></div><div class="ecosystem_card-content"><div class="ecosystem_card-title">Innovative Financing for Infectious Diseases in South and Southeast Asia</div><div class="ecosystem_card-date">OCT 07 2025</div></div></a>
+              <a class="ecosystem_card is-red" href="#" data-deck-card><div class="ecosystem_card-thumb"></div><div class="ecosystem_card-content"><div class="ecosystem_card-title">Mobilising Partnerships and Philanthropy to Build Resilient Communities in Asia Pacific: Roundtable Insights Report</div><div class="ecosystem_card-date">OCT 10 2025</div></div></a>
+              <a class="ecosystem_card is-blue" href="#" data-deck-card><div class="ecosystem_card-thumb"></div><div class="ecosystem_card-content"><div class="ecosystem_card-title">Tracking Capital Flows Across Asia-Pacific: A Focus on Climate Action</div><div class="ecosystem_card-date">OCT 27 2025</div></div></a>
+              <a class="ecosystem_card is-teal" href="#" data-deck-card><div class="ecosystem_card-thumb"></div><div class="ecosystem_card-content"><div class="ecosystem_card-title">Capacity Building Landscape for Non-Profit Organisations in Indonesia</div></div></a>
+              <a class="ecosystem_card is-orange" href="#" data-deck-card><div class="ecosystem_card-thumb"></div><div class="ecosystem_card-content"><div class="ecosystem_card-title">Beyond Training: How Capacity Building Transforms Nonprofit Organisations</div></div></a>
+              <a class="ecosystem_card is-yellow" href="#" data-deck-card><div class="ecosystem_card-thumb"></div><div class="ecosystem_card-content"><div class="ecosystem_card-title">Driving Inclusive Growth Through Gender Lens Investing in Asian Public Markets</div></div></a>
+              <a class="ecosystem_card is-green" href="#" data-deck-card><div class="ecosystem_card-thumb"></div><div class="ecosystem_card-content"><div class="ecosystem_card-title">How Faith-Aligned Capital Can Catalyse Climate Action in Asia: A Toolkit</div></div></a>
+              <a class="ecosystem_card is-red" href="#" data-deck-card><div class="ecosystem_card-thumb"></div><div class="ecosystem_card-content"><div class="ecosystem_card-title">Landscape of Impact Capital in the Kingdom of Saudi Arabia</div></div></a>
+              <a class="ecosystem_card is-blue" href="#" data-deck-card><div class="ecosystem_card-thumb"></div><div class="ecosystem_card-content"><div class="ecosystem_card-title">Redefining Resilience for Patient and Catalytic Capital</div></div></a>
+              <a class="ecosystem_card is-teal" href="#" data-deck-card><div class="ecosystem_card-thumb"></div><div class="ecosystem_card-content"><div class="ecosystem_card-title">What Does Effective Capital Look Like in Practice</div></div></a>
+              <a class="ecosystem_card is-orange" href="#" data-deck-card><div class="ecosystem_card-thumb"></div><div class="ecosystem_card-content"><div class="ecosystem_card-title">The Way Forward - Organising for Ecosystem Resilience</div></div></a>
+              <a class="ecosystem_card is-yellow" href="#" data-deck-card><div class="ecosystem_card-thumb"></div><div class="ecosystem_card-content"><div class="ecosystem_card-title">AI for All: Workforce Skilling Policy Toolkit</div></div></a>
+              <a class="ecosystem_card is-green" href="#" data-deck-card><div class="ecosystem_card-thumb"></div><div class="ecosystem_card-content"><div class="ecosystem_card-title">Pioneering Impact - Vineet Rai's 20-Year Journey Building Ecosystems for the Underserved</div></div></a>
+              <a class="ecosystem_card is-red" href="#" data-deck-card><div class="ecosystem_card-thumb"></div><div class="ecosystem_card-content"><div class="ecosystem_card-title">A New Fiduciary Frontier: Ford Foundation and the Mission-Related Investment Movement</div></div></a>
+              <a class="ecosystem_card is-blue" href="#" data-deck-card><div class="ecosystem_card-thumb"></div><div class="ecosystem_card-content"><div class="ecosystem_card-title">Catalysing Asia’s Finance for People and Planet</div></div></a>
+              <a class="ecosystem_card is-teal" href="#" data-deck-card><div class="ecosystem_card-thumb"></div><div class="ecosystem_card-content"><div class="ecosystem_card-title">How Policies &amp; Incentives Build Impact Economies</div></div></a>
+            </div></div><p class="ecosystem_deck-hint" data-deck-hint data-deck-hint-stacked="Click the deck to reveal all publications" data-deck-hint-expanded="Hover to pause · Click a card to open it"></p><button class="ecosystem_deck-collapse" data-deck-collapse hidden>COLLAPSE</button></div>
+          </div>
+          <div class="ecosystem_panel" data-tabs-panel="voice">
+            <p class="ecosystem_intro">AVPN is beginning to speak its own voice in the impact ecosystem, featured in 39 news publications between July 2025 to June 2026, sharing its knowledge and viewpoints with the rest of the world. Examples of where we stand on various issues can be found below:</p>
+            <div class="ecosystem_deck" data-deck-init><div class="ecosystem_deck-viewport" data-deck-viewport><div class="ecosystem_deck-track" data-deck-track>
+              <a class="ecosystem_card is-red" href="https://www.thejakartapost.com/opinion/2026/01/30/underfunding-threatens-asias-cervical-cancer--elimination-promise" target="_blank" rel="noopener" data-deck-card><div class="ecosystem_card-thumb"></div><div class="ecosystem_card-content"><div class="ecosystem_card-title">Underfunding Threatens Asia’s Cervical Cancer Elimination Promise</div><div class="ecosystem_card-date">The Jakarta Post</div></div></a>
+              <a class="ecosystem_card is-blue" href="https://www.biospectrumasia.com/opinion/30/28016/closing-cervical-cancer-implementation-gaps-through-coordinated-financing-in-asia.html" target="_blank" rel="noopener" data-deck-card><div class="ecosystem_card-thumb"></div><div class="ecosystem_card-content"><div class="ecosystem_card-title">Closing Cervical Cancer Implementation Gaps Through Coordinated Financing in Asia</div><div class="ecosystem_card-date">BioSpectrum Asia</div></div></a>
+              <a class="ecosystem_card is-orange" href="https://government.economictimes.indiatimes.com/blog/transforming-indian-philanthropy-strategies-for-lasting-social-impact/126539299" target="_blank" rel="noopener" data-deck-card><div class="ecosystem_card-thumb"></div><div class="ecosystem_card-content"><div class="ecosystem_card-title">Transforming Indian Philanthropy: Strategies for Lasting Social Impact</div><div class="ecosystem_card-date">ET Government</div></div></a>
+              <a class="ecosystem_card is-yellow" href="https://www.hindustantimes.com/ht-insight/economy/beyond-csr-how-corporates-can-build-india-s-social-capital-101768975048508.html" target="_blank" rel="noopener" data-deck-card><div class="ecosystem_card-thumb"></div><div class="ecosystem_card-content"><div class="ecosystem_card-title">Beyond CSR: How Corporates Can Build India’s Social Capital</div><div class="ecosystem_card-date">Hindustan Times</div></div></a>
+              <a class="ecosystem_card is-green" href="https://www.theweek.in/news/health/2026/02/18/why-60-per-cent-of-rare-disease-patients-in-india-remain-undiagnosed.html" target="_blank" rel="noopener" data-deck-card><div class="ecosystem_card-thumb"></div><div class="ecosystem_card-content"><div class="ecosystem_card-title">Why 60 Per Cent of Rare Disease Patients in India Remain Undiagnosed</div><div class="ecosystem_card-date">The Week</div></div></a>
+              <a class="ecosystem_card is-teal" href="https://www.businessworld.in/article/if-impact-businesses-are-not-financially-sustainable-investors-start-looking-at-them-as-philanthropy-594390" target="_blank" rel="noopener" data-deck-card><div class="ecosystem_card-thumb"></div><div class="ecosystem_card-content"><div class="ecosystem_card-title">If Impact Businesses Are Not Financially Sustainable, Investors Start Looking at Them as Philanthropy</div><div class="ecosystem_card-date">BW Businessworld</div></div></a>
+              <a class="ecosystem_card is-red" href="https://www.businesstimes.com.sg/esg/avpn-launches-social-outcomes-exchange-connects-funders-verifiable-impacts-first-its-kind-asia" target="_blank" rel="noopener" data-deck-card><div class="ecosystem_card-thumb"></div><div class="ecosystem_card-content"><div class="ecosystem_card-title">AVPN Launches Social Outcomes Exchange, Connecting Funders to Verifiable Impacts</div><div class="ecosystem_card-date">The Business Times</div></div></a>
+              <a class="ecosystem_card is-blue" href="https://www.straitstimes.com/singapore/community/new-initiative-allows-the-wealthy-to-fund-organisations-helping-unemployed-youth-in-spore-thailand" target="_blank" rel="noopener" data-deck-card><div class="ecosystem_card-thumb"></div><div class="ecosystem_card-content"><div class="ecosystem_card-title">New Initiative Allows the Wealthy to Fund Organisations Helping Unemployed Youth in Singapore and Thailand</div><div class="ecosystem_card-date">The Straits Times</div></div></a>
+              <a class="ecosystem_card is-orange" href="https://www.pioneerspost.com/news-views/20250911/the-editors-post-combatting-impact-investing-colonialism-asia-avpn" target="_blank" rel="noopener" data-deck-card><div class="ecosystem_card-thumb"></div><div class="ecosystem_card-content"><div class="ecosystem_card-title">The Editor’s Post: Combatting Impact Investing Colonialism in Asia</div><div class="ecosystem_card-date">Pioneers Post</div></div></a>
+              <a class="ecosystem_card is-yellow" href="https://fortune.com/2026/03/08/avpn-asia-philanthropy-united-nations-sdgs/" target="_blank" rel="noopener" data-deck-card><div class="ecosystem_card-thumb"></div><div class="ecosystem_card-content"><div class="ecosystem_card-title">AVPN, Asia Philanthropy and the United Nations SDGs</div><div class="ecosystem_card-date">Fortune</div></div></a>
+              <a class="ecosystem_card is-green" href="https://www.bfm.my/content/podcast/avpns-dollar35m-ai-fund-moving-workers-and-msmes-past-basic-prompts" target="_blank" rel="noopener" data-deck-card><div class="ecosystem_card-thumb"></div><div class="ecosystem_card-content"><div class="ecosystem_card-title">AVPN’s $35m AI Fund: Moving Workers and MSMEs Past Basic Prompts</div><div class="ecosystem_card-date">BFM</div></div></a>
+            </div></div><p class="ecosystem_deck-hint" data-deck-hint data-deck-hint-stacked="Click the deck to reveal all publications" data-deck-hint-expanded="Hover to pause · Click a card to open it"></p><button class="ecosystem_deck-collapse" data-deck-collapse hidden>COLLAPSE</button></div>
+          </div>
         </div>
       </div>
     </section>

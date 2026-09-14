@@ -6,25 +6,25 @@ test.beforeEach(async ({ page }) => {
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
 });
 
-test("MENU opens, CLOSE closes, and scroll locks while open", async ({ page }) => {
+test("one toggle opens and closes, and scroll locks while open", async ({ page }) => {
   const nav = page.locator("[data-nav-init]");
   const toggle = nav.locator('[data-navigation-toggle="toggle"]');
   await toggle.click();
   await expect(nav).toHaveAttribute("data-navigation-status", "active");
   await expect(page.locator("html")).toHaveClass(/lenis-stopped/);
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
-  // The MENU pill fades out while the panel is open; CLOSE takes over.
-  await expect(toggle).toBeHidden();
-  await nav.locator(".nav_close-btn").click();
+  // Same button closes: labels slid up to CLOSE, icon rotated into an x.
+  await expect(toggle.locator("[data-sidenav-label]").first()).toHaveCSS("transform", /matrix\(1, 0, 0, 1, 0, -/);
+  await toggle.click();
   await expect(nav).toHaveAttribute("data-navigation-status", "not-active");
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
   await expect(page.locator("html")).not.toHaveClass(/lenis-stopped/);
 });
 
-test("close button, overlay, and Escape close the navigation", async ({ page }) => {
+test("overlay and Escape close the navigation", async ({ page }) => {
   const nav = page.locator("[data-nav-init]");
   const toggle = nav.locator('[data-navigation-toggle="toggle"]');
-  for (const close of [nav.locator(".nav_close-btn"), nav.locator(".nav_dark-bg")]) {
+  for (const close of [nav.locator(".nav_dark-bg")]) {
     await toggle.click();
     await close.click({ force: true });
     await expect(nav).toHaveAttribute("data-navigation-status", "not-active");

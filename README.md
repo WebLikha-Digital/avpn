@@ -54,6 +54,11 @@ dist/          bundled output pasted into Webflow custom code
   `data-parallax-trigger` (nearest matching ancestor, then first page match,
   then the nearest section), and `data-parallax-min-width` (default `768px`).
   Reduced-motion users and viewports below the minimum are left untouched.
+- `src/animations/storiesStack.js` — one-shot fade-up entrances for
+  `[data-stories-item]` rows plus a desktop-only, scrubbed recede as each row
+  exits through the top. The list supports `data-stories-scale="off"`,
+  `data-stories-scale-heading`, and `data-stories-scale-body`; reduced-motion
+  users and viewports below `992px` are left untouched.
 - [`docs/programmes-overview.md`](docs/programmes-overview.md) — the Programmes
   Overview section: element tree, the three placements that are load-bearing
   (path, hover bar, row reveal), measurements, and the CSS embed.

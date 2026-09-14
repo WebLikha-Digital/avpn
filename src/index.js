@@ -25,7 +25,7 @@ import { initListPreviewFollower } from "./animations/listPreviewFollower.js";
 import { initTunnel2 } from "./canvas/tunnel2.js";
 import { initPreloader } from "./animations/preloader.js";
 import { initEcosystemTabs } from "./animations/ecosystemTabs.js";
-import { initCardDeck } from "./animations/cardDeck.js";
+import { initEcosystemSlider } from "./animations/ecosystemSlider.js";
 import { initHamburgerNav } from "./animations/hamburgerNav.js";
 
 // Components that look up the band they sit in. The band has to exist before
@@ -56,7 +56,7 @@ function init() {
   initArcScrollTransition();
   initProgrammesOverview();
   initEcosystemTabs();
-  initCardDeck();
+  initEcosystemSlider();
   initListHoverReveal();
   initListPreviewFollower();
   initTunnel2();

@@ -246,6 +246,10 @@ export function initPreloader() {
       masks.push({ element: mask, widthEm });
       rollers.push(roller);
     }
+    const suffix = document.createElement("span");
+    suffix.dataset.odometerPart = "suffix";
+    suffix.textContent = "%";
+    counter.appendChild(suffix);
 
     const revealDigit = (index) => {
       if (index === 0 && instance.counterValue < 100) return;

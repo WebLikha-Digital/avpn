@@ -10,8 +10,8 @@ hero.
 - `[data-preloader-init]` is the overlay container.
 - `[data-preloader-bg]`, `[data-preloader-shape]`, and
   `[data-preloader-counter]` are its background, white disc, and counter. The
-  counter keeps `aria-hidden="true"` and is built into three odometer masks at
-  initialization.
+  counter keeps `aria-hidden="true"` and is built into three odometer masks
+  followed by a static `%` suffix at initialization.
 - Each year declares `data-preloader-corner="tl|tr|br|bl"`. 2025 starts at
   `br` and 2026 starts at `tl`; each year moves clockwise at 70 and 85:
 

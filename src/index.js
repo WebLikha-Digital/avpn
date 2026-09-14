@@ -26,6 +26,7 @@ import { initTunnel2 } from "./canvas/tunnel2.js";
 import { initPreloader } from "./animations/preloader.js";
 import { initEcosystemTabs } from "./animations/ecosystemTabs.js";
 import { initCardDeck } from "./animations/cardDeck.js";
+import { initHamburgerNav } from "./animations/hamburgerNav.js";
 
 // Components that look up the band they sit in. The band has to exist before
 // any of them initialize, and they all have to rebuild when a resize tears it
@@ -42,6 +43,7 @@ function initBandAware() {
 
 function init() {
   initLocomotiveScroll();
+  initHamburgerNav();
   initHorizontalScroller();
   initBandAware();
   initMarqueeScrollDirection();

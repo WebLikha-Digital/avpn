@@ -109,7 +109,7 @@ export function initSplitReveal() {
           duration: config.duration,
           stagger: config.stagger,
           delay,
-          ease: "expo.out",
+          ease: "smooth",
           scrollTrigger: {
             trigger,
             start,

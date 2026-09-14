@@ -147,8 +147,6 @@ function initEcosystemSlider(scope = document) {
         ? "Previous slide" : "Next slide");
     });
     originalItems.forEach((item, index) => {
-      item.setAttribute("role", "group");
-      item.setAttribute("aria-roledescription", "slide");
       item.setAttribute("aria-label", `Slide ${index + 1} of ${originalItems.length}`);
     });
     items.filter((item) => item.hasAttribute("data-radial-slider-clone")).forEach((item) => {
@@ -195,10 +193,9 @@ function initEcosystemSlider(scope = document) {
       });
     };
     const goTo = (targetIndex, duration = instance.reduced ? 0 : 1) => {
-      const currentIndex = getIndexFromProxy();
       gsap.killTweensOf(proxy);
       instance.arrowTween = gsap.to(proxy, {
-        rotation: -(currentIndex + targetIndex - currentIndex) * rotateStep,
+        rotation: -targetIndex * rotateStep,
         duration, ease: "radial", overwrite: true, onUpdate: render, onComplete: render,
       });
     };

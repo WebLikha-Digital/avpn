@@ -20,6 +20,8 @@ const DEFAULT_DURATION = 0.65;
  *   [data-shape-start]   optional ScrollTrigger start; overrides heading/default
  *   [data-shape-delay]   tween delay in seconds (default 0)
  *   [data-shape-once="false"] replays the reveal on re-entry; defaults to once
+ *   [data-shape-scroller="window"] resolve the trigger against the window's
+ *                         vertical scroll instead of an active horizontal band
  */
 export function initShapeReveal() {
   const shapes = document.querySelectorAll("[data-shape-reveal]");
@@ -33,7 +35,10 @@ export function initShapeReveal() {
     const shapeTriggerSelector = shape.getAttribute("data-shape-trigger");
     const hasExplicitTrigger = shapeTriggerSelector !== null;
     const heading = hasExplicitTrigger ? null : resolveHeading(shape);
-    const band = bandContext(shape);
+    const band =
+      shape.getAttribute("data-shape-scroller") === "window"
+        ? null
+        : bandContext(shape);
     const start =
       shape.getAttribute("data-shape-start") ||
       (heading && heading.getAttribute("data-split-start")) ||

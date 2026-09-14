@@ -3,6 +3,8 @@ import { test, expect } from "@playwright/test";
 const band = ".section_signature-events[data-hscroll-init]";
 const word = "[data-hparallax]";
 const shapes = "[data-shape-swap] > *";
+const leadPath = ".sig-events_line-lead [data-draw-scroll-path]";
+const signaturePin = ".section_signature-events [data-shape-reveal]";
 
 async function scrollTo(page, y) {
   // Locomotive eases window.scrollY, so drive it the way a user would and let
@@ -120,4 +122,103 @@ test("refuses to animate a wordmark left inside the scroller", async ({ page }) 
     .poll(() => warnings.filter((text) => text.includes("[hparallax]")).length)
     .toBeGreaterThan(0);
   expect(await page.locator(word).evaluate((el) => Boolean(el._horizontalParallax))).toBe(false);
+});
+
+test("reveals the lead line from the window while the main line stays scrubbed", async ({ page }) => {
+  const state = await page.locator(`${band} .sig-events_line-lead`).evaluate((wrap) => ({
+    hasTrigger: Boolean(wrap._drawTl?.scrollTrigger),
+    start: wrap._drawTl?.scrollTrigger?.vars.start,
+    horizontal: wrap._drawTl?.scrollTrigger?.vars.horizontal === true,
+    scrollerIsWindow: wrap._drawTl?.scrollTrigger?.scroller === window,
+  }));
+
+  expect(state).toEqual({
+    hasTrigger: true,
+    start: "top 60%",
+    horizontal: false,
+    scrollerIsWindow: true,
+  });
+  expect(await page.locator(`${band} .sig-events_line-main`).evaluate((wrap) => ({
+    horizontal: wrap._drawTl.scrollTrigger.vars.horizontal === true,
+    scrollerIsBand: wrap._drawTl.scrollTrigger.scroller ===
+      wrap.closest("[data-hscroll-init]").querySelector("[data-hscroll-viewport]"),
+  }))).toEqual({ horizontal: true, scrollerIsBand: true });
+
+  const triggerY = await page.locator(band).evaluate((section) => {
+    const rect = section.getBoundingClientRect();
+    return rect.top + window.scrollY - window.innerHeight * 0.6;
+  });
+
+  await scrollTo(page, Math.max(0, triggerY - 100));
+  const initialDash = await page.locator(leadPath).evaluate((path) => path.style.strokeDasharray);
+  expect(initialDash).toMatch(/(^|[, ]+)0(px|%)/);
+
+  const leadWrap = page.locator(`${band} .sig-events_line-lead`);
+  await page.evaluate((y) => window.scrollTo({ top: y, behavior: "instant" }), triggerY + 100);
+  await expect.poll(() => leadWrap.evaluate((wrap) => wrap._drawTl.progress())).toBeGreaterThan(0);
+  const midState = await leadWrap.evaluate((wrap) => ({
+    progress: wrap._drawTl.progress(),
+    dasharray: wrap.querySelector("[data-draw-scroll-path]").style.strokeDasharray,
+  }));
+  expect(midState.progress).toBeLessThan(1);
+  expect(midState.dasharray).not.toBe(initialDash);
+
+  await expect
+    .poll(() => leadWrap.evaluate((wrap) => wrap._drawTl.progress()), { timeout: 2_000 })
+    .toBe(1);
+  // DrawSVG's fully drawn state is "<length>px, 0.1px" — the gap never reaches 0.
+  const finalDash = await page.locator(leadPath).evaluate((path) => path.style.strokeDasharray);
+  const [drawn, gap] = finalDash.split(",").map(Number.parseFloat);
+  expect(drawn).toBeGreaterThanOrEqual(999);
+  expect(gap).toBeLessThanOrEqual(0.1);
+});
+
+test("reveals the first signature pin from the vertical section trigger", async ({ page }) => {
+  const pin = page.locator(signaturePin).first();
+  await expect(pin).toHaveAttribute("data-shape-scroller", "window");
+
+  const state = await pin.evaluate((shape) => ({
+    hasTrigger: Boolean(shape._shapeRevealTween?.scrollTrigger),
+    horizontal: shape._shapeRevealTween?.scrollTrigger?.vars.horizontal === true,
+    scrollerIsWindow: shape._shapeRevealTween?.scrollTrigger?.scroller === window,
+    start: shape._shapeRevealTween?.scrollTrigger?.vars.start,
+    delay: shape._shapeRevealTween?.delay(),
+  }));
+  expect(state).toMatchObject({
+    hasTrigger: true,
+    horizontal: false,
+    scrollerIsWindow: true,
+    start: "top 60%",
+  });
+  expect(state.delay).toBeCloseTo(0.8, 5);
+
+  const triggerY = await page.locator(band).evaluate((section) =>
+    section.getBoundingClientRect().top + window.scrollY - window.innerHeight * 0.6,
+  );
+  await scrollTo(page, Math.max(0, triggerY - 100));
+  expect(await pin.evaluate((shape) => getComputedStyle(shape).visibility)).toBe("hidden");
+
+  await scrollTo(page, triggerY + 100);
+  await page.waitForTimeout(1100);
+  await expect.poll(() => pin.evaluate((shape) => getComputedStyle(shape).visibility)).toBe("visible");
+});
+
+test("rebuilds signature reveal state without stacking on hscroll rebuild", async ({ page }) => {
+  const state = await page.locator(`${band} .sig-events_line-lead`).evaluate((wrap) => {
+    const oldTween = wrap._drawTl;
+    window.dispatchEvent(new CustomEvent("hscroll:rebuilt"));
+    return {
+      oldScrollTriggerCleared: oldTween.scrollTrigger === null,
+      oldInactive: oldTween.isActive() === false,
+      hasNewTween: Boolean(wrap._drawTl && wrap._drawTl !== oldTween),
+      hasOneTrigger: Boolean(wrap._drawTl?.scrollTrigger),
+    };
+  });
+
+  expect(state).toEqual({
+    oldScrollTriggerCleared: true,
+    oldInactive: true,
+    hasNewTween: true,
+    hasOneTrigger: true,
+  });
 });

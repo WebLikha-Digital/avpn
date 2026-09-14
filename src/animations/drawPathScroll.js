@@ -6,9 +6,10 @@ import { bandContext } from "./horizontalScroller.js";
  * repo's build and generalized to drive more than one line.
  *
  * Scrubs SVG stroke drawing from 0% to 100% across the active SVG's scroll range,
- * with an optional separate SVG for mobile.
+ * with an optional separate SVG for mobile. A reveal wrapper instead draws once
+ * when its trigger crosses the start point.
  *
- *   [data-draw-scroll-wrap]      configuration scope; one timeline per wrapper
+ *   [data-draw-scroll-wrap]      configuration scope; one animation per wrapper
  *     [data-draw-scroll-desktop] SVG used above 768px
  *       [data-draw-scroll-path]  every marked shape in here draws
  *     [data-draw-scroll-mobile]  optional SVG used at/below 767px
@@ -21,6 +22,12 @@ import { bandContext } from "./horizontalScroller.js";
  *   data-draw-scroll-end       ScrollTrigger end     (default "clamp(bottom center)")
  *   data-draw-scroll-stagger   seconds between each shape starting, when a
  *                              wrapper marks several (default 0 — all together)
+ *   data-draw-scroll-reveal    presence enables a one-shot 0.8s expo.out reveal;
+ *                              data-draw-scroll-end is ignored in this mode
+ *   data-draw-scroll-trigger   CSS selector for a vertical window trigger;
+ *                              nearest matching ancestor, then first page match,
+ *                              then the active SVG
+ *   data-draw-scroll-once      set to "false" to replay a reveal on re-entry
  *
  * Despite the attribute name, [data-draw-scroll-path] works on anything
  * DrawSVGPlugin accepts: path, line, polyline, polygon, rect, ellipse, circle.
@@ -100,16 +107,33 @@ export function initDrawPathScroll() {
         const paths = svgToUse.querySelectorAll("[data-draw-scroll-path]");
         if (!paths.length) return;
 
+        const reveal = wrap.hasAttribute("data-draw-scroll-reveal");
+        const triggerSelector = wrap.getAttribute("data-draw-scroll-trigger");
+        const hasWindowTrigger = triggerSelector !== null;
+        const trigger = hasWindowTrigger
+          ? resolveDrawTrigger(wrap, triggerSelector, svgToUse)
+          : svgToUse;
+
+        if (reveal && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          gsap.set(paths, { drawSVG: "100%" });
+          return;
+        }
+
         // Inside a horizontal band the wrapper never moves vertically, so the
         // defaults have to swap axis with it. An authored start/end still wins,
         // and has to be written in the band's axis when there is one.
         const band = bandContext(wrap);
+        const scrollBand = hasWindowTrigger ? null : band;
         const start =
           wrap.getAttribute("data-draw-scroll-start") ||
-          (band ? "clamp(left center)" : "clamp(top center)");
+          (reveal || hasWindowTrigger
+            ? "top 80%"
+            : band
+              ? "clamp(left center)"
+              : "clamp(top center)");
         const end =
           wrap.getAttribute("data-draw-scroll-end") ||
-          (band ? "clamp(right center)" : "clamp(bottom center)");
+          (scrollBand ? "clamp(right center)" : "clamp(bottom center)");
         const configuredStagger = Number.parseFloat(
           wrap.getAttribute("data-draw-scroll-stagger"),
         );
@@ -120,28 +144,49 @@ export function initDrawPathScroll() {
           ? Math.max(0, configuredStagger)
           : 0;
 
+        const once =
+          wrap.getAttribute("data-draw-scroll-once") !== "false";
+        const scrollTrigger = {
+          // Use the active signature SVG as the trigger for scrub mode. Reveal
+          // mode may replace it with an authored section/ancestor trigger.
+          trigger,
+          start,
+          ...(reveal
+            ? {
+                once,
+                ...(once ? {} : { toggleActions: "restart none none none" }),
+              }
+            : {
+                end,
+                scrub: true,
+                invalidateOnRefresh: true,
+                ...scrollBand,
+              }),
+        };
+
+        // Set every target immediately so paths stay invisible until the
+        // reveal fires, and so delayed scrub targets do not flash at load.
+        gsap.set(paths, { drawSVG: 0 });
+
+        if (reveal) {
+          wrap._drawTl = gsap.to(paths, {
+            drawSVG: "100%",
+            duration: 0.8,
+            ease: "expo.out",
+            stagger,
+            scrollTrigger,
+          });
+          return;
+        }
+
         const tl = gsap.timeline({
           defaults: {
             ease: "linear", // scroll speed controls easing
           },
           scrollTrigger: {
-            // Use the active signature SVG as the trigger. The outer Webflow
-            // component also contains text/photos and can be much taller than
-            // the artwork, which makes the draw feel delayed or instantaneous.
-            // The wrapper still owns the start/end/stagger configuration.
-            trigger: svgToUse,
-            start, // when the active SVG's leading edge reaches the viewport point
-            end, // when its trailing edge reaches the viewport point
-            scrub: true,
-            invalidateOnRefresh: true,
-            ...band,
+            ...scrollTrigger,
           },
         });
-
-        // Set every target immediately. A staggered fromTo can leave delayed
-        // targets at their authored SVG state until their turn begins, which
-        // makes the dot visible before the name has finished drawing.
-        gsap.set(paths, { drawSVG: 0 });
 
         // One tween over every shape. With stagger 0 they draw together and the
         // timeline is 1 unit long; with a stagger it grows to
@@ -171,4 +216,14 @@ export function initDrawPathScroll() {
       };
     }
   );
+}
+
+function resolveDrawTrigger(wrap, selector, fallback) {
+  if (!selector) return fallback;
+
+  try {
+    return wrap.closest(selector) || document.querySelector(selector) || fallback;
+  } catch {
+    return fallback;
+  }
 }

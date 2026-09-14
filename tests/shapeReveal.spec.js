@@ -2,6 +2,9 @@ import { test, expect } from "@playwright/test";
 
 const block = '[data-testid="shape-reveal"]';
 const shapes = `${block} [data-shape-reveal]`;
+const triggerBlock = '[data-testid="shape-reveal-trigger"]';
+const triggerShapes = `${triggerBlock} [data-shape-reveal]`;
+const fadeOriginShape = '[data-testid="shape-reveal-fade-origin"] [data-shape-reveal]';
 
 async function scrollToBlock(page) {
   const top = await page.locator(block).evaluate(
@@ -85,6 +88,86 @@ test("data-split-delay offsets the stored heading line tween", async ({ page }) 
     (heading) => heading._splitTween.delay(),
   );
   expect(delay).toBeCloseTo(0.1, 5);
+});
+
+test("explicit shape triggers and disc/fade presets use the wrapper as one unit", async ({ page }) => {
+  const targets = page.locator(triggerShapes);
+  await expect(targets).toHaveCount(2);
+
+  const state = await targets.evaluateAll((elements) =>
+    elements.map((element) => {
+      const tween = element._shapeRevealTween;
+      tween.pause();
+      tween.seek(0);
+      const styles = getComputedStyle(element);
+      const matrix = new DOMMatrixReadOnly(styles.transform);
+      return {
+        preset: element.getAttribute("data-shape-reveal"),
+        triggerIsWrapper: tween.scrollTrigger.trigger === element.closest("[data-testid=\"shape-reveal-trigger\"]"),
+        start: tween.scrollTrigger.vars.start,
+        delay: tween.delay(),
+        startVisibility: styles.visibility,
+        startScale: Math.hypot(matrix.a, matrix.b),
+        startTransform: element.style.transform,
+        startTransformOrigin: element.style.transformOrigin,
+      };
+    }),
+  );
+
+  expect(state.every((item) => item.triggerIsWrapper)).toBe(true);
+  expect(state.every((item) => item.start === "clamp(top 20%)")).toBe(true);
+  expect(state.find((item) => item.preset === "fade").delay).toBeCloseTo(0.15, 5);
+  expect(state.find((item) => item.preset === "disc")).toMatchObject({
+    startVisibility: "hidden",
+  });
+  expect(state.find((item) => item.preset === "disc").startScale).toBeCloseTo(0.9, 2);
+  expect(state.find((item) => item.preset === "fade")).toMatchObject({
+    startVisibility: "hidden",
+    startScale: 1,
+    startTransform: "",
+    startTransformOrigin: "",
+  });
+
+  const rest = await targets.evaluateAll((elements) =>
+    elements.map((element) => {
+      const tween = element._shapeRevealTween;
+      tween.pause();
+      tween.seek(tween.duration());
+      const styles = getComputedStyle(element);
+      const matrix = new DOMMatrixReadOnly(styles.transform);
+      return {
+        preset: element.getAttribute("data-shape-reveal"),
+        visibility: styles.visibility,
+        scale: Math.hypot(matrix.a, matrix.b),
+        transform: element.style.transform,
+        transformOrigin: element.style.transformOrigin,
+      };
+    }),
+  );
+
+  expect(rest.every((item) => item.visibility === "visible")).toBe(true);
+  expect(rest.find((item) => item.preset === "disc").scale).toBeCloseTo(1, 5);
+  expect(rest.find((item) => item.preset === "fade")).toMatchObject({
+    scale: 1,
+    transform: "",
+    transformOrigin: "",
+  });
+});
+
+test("fade preserves an authored transform origin", async ({ page }) => {
+  const target = page.locator(fadeOriginShape);
+  await expect(target).toHaveCount(1);
+
+  const origins = await target.evaluate((element) => {
+    const tween = element._shapeRevealTween;
+    tween.pause();
+    tween.seek(0);
+    const start = element.style.transformOrigin;
+    tween.seek(tween.duration());
+    return { start, end: element.style.transformOrigin };
+  });
+
+  expect(origins).toEqual({ start: "12px 34px", end: "12px 34px" });
 });
 
 test("reduced motion leaves shapes visible and without reveal tweens", async ({ page }) => {

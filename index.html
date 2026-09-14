@@ -201,6 +201,44 @@
         background: none;
         object-fit: cover;
       }
+      [data-testid="shape-reveal-trigger"] {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        min-height: 12rem;
+        margin-bottom: 4rem;
+        padding: 2rem;
+        background: #f7f1ea;
+      }
+      [data-testid="shape-reveal-trigger"] [data-shape-reveal] {
+        display: inline-block;
+        flex: none;
+        width: 5rem;
+        height: 5rem;
+        background: #e94f37;
+      }
+      [data-testid="shape-reveal-trigger"] [data-shape-reveal="disc"] {
+        border-radius: 50%;
+        background: #3f88c5;
+      }
+      [data-testid="shape-reveal-trigger"] [data-shape-reveal="fade"] {
+        border-radius: 50%;
+        background: #44bba4;
+      }
+      [data-testid="shape-reveal-fade-origin"] {
+        min-height: 8rem;
+        margin-bottom: 4rem;
+        padding: 2rem;
+        background: #f7f1ea;
+      }
+      [data-testid="shape-reveal-fade-origin"] [data-shape-reveal] {
+        display: block;
+        width: 4rem;
+        height: 4rem;
+        border-radius: 50%;
+        background: #44bba4;
+      }
       [data-testid="shape-reveal"] .shape-reveal-demo__pair {
         display: inline-flex;
         gap: 0.08em;
@@ -1059,6 +1097,38 @@
         <span data-shape-reveal="half" aria-hidden="true"></span>
         <span data-shape-reveal="circle" aria-hidden="true"></span>
       </div>
+    </div>
+
+    <p>Shape reveal — explicit triggers can sequence a disc and hub without
+      consulting the heading line.</p>
+
+    <div data-testid="shape-reveal-trigger">
+      <div class="shape-reveal-demo__line">
+        <span data-split="heading" data-split-start="clamp(top 95%)">Heading line</span>
+      </div>
+      <span
+        data-shape-reveal="disc"
+        data-shape-trigger='[data-testid="shape-reveal-trigger"]'
+        data-shape-start="clamp(top 20%)"
+        aria-hidden="true"
+      ></span>
+      <span
+        data-shape-reveal="fade"
+        data-shape-trigger='[data-testid="shape-reveal-trigger"]'
+        data-shape-start="clamp(top 20%)"
+        data-shape-delay="0.15"
+        aria-hidden="true"
+      ></span>
+    </div>
+
+    <div data-testid="shape-reveal-fade-origin">
+      <span
+        data-shape-reveal="fade"
+        data-shape-trigger='[data-testid="shape-reveal-fade-origin"]'
+        data-shape-start="clamp(top 20%)"
+        style="transform-origin: 12px 34px"
+        aria-hidden="true"
+      ></span>
     </div>
 
     <p>Scroll-direction marquee — the track accelerates horizontally with the

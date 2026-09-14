@@ -6,14 +6,20 @@ const DEFAULT_DURATION = 0.65;
 
 /**
  * Reveals inline brand shapes and circular photographs with the SplitText
- * heading in the same line. The authored state stays visible; gsap.from()
- * supplies the hidden state only after the bundle initializes.
+ * heading in the same line, or with an explicitly authored trigger. The
+ * authored state stays visible; gsap.from() supplies the hidden state only
+ * after the bundle initializes.
  *
  * Webflow contract (all attributes live on the shape itself):
- *   [data-shape-reveal]  circle (default), quarter, half, or photo
- *   [data-shape-origin]  transform origin (default "50% 50%")
+ *   [data-shape-reveal]  circle (default), quarter, half, photo, disc, or fade
+ *   [data-shape-origin]  transform origin (default "50% 50%"; ignored by fade)
  *   [data-shape-pair]    left or right entry for a paired half
+ *   [data-shape-trigger] optional CSS selector for the ScrollTrigger trigger;
+ *                        resolves the nearest matching ancestor, then the first
+ *                        page match, then the shape; bypasses heading lookup
+ *   [data-shape-start]   optional ScrollTrigger start; overrides heading/default
  *   [data-shape-delay]   tween delay in seconds (default 0)
+ *   [data-shape-once="false"] replays the reveal on re-entry; defaults to once
  */
 export function initShapeReveal() {
   const shapes = document.querySelectorAll("[data-shape-reveal]");
@@ -24,23 +30,37 @@ export function initShapeReveal() {
 
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
-    const heading = resolveHeading(shape);
+    const shapeTriggerSelector = shape.getAttribute("data-shape-trigger");
+    const hasExplicitTrigger = shapeTriggerSelector !== null;
+    const heading = hasExplicitTrigger ? null : resolveHeading(shape);
     const band = bandContext(shape);
-    const start = heading
-      ? heading.getAttribute("data-split-start") || defaultStart(band)
-      : defaultStart(band);
-    const once = heading
-      ? heading.getAttribute("data-split-once") !== "false"
-      : true;
-    const trigger = heading ? resolveTrigger(heading) : shape;
+    const start =
+      shape.getAttribute("data-shape-start") ||
+      (heading && heading.getAttribute("data-split-start")) ||
+      defaultStart(band);
+    const once =
+      shape.getAttribute("data-shape-once") !== null
+        ? shape.getAttribute("data-shape-once") !== "false"
+        : heading
+          ? heading.getAttribute("data-split-once") !== "false"
+          : true;
+    const trigger = hasExplicitTrigger
+      ? resolveShapeTrigger(shape)
+      : heading
+        ? resolveTrigger(heading)
+        : shape;
     const delay = readNumber(shape, "data-shape-delay", 0);
-    const origin = shape.getAttribute("data-shape-origin") || DEFAULT_ORIGIN;
     const preset = shape.getAttribute("data-shape-reveal");
-    const originalTransformOrigin = shape.style.transformOrigin;
+    let originalTransformOrigin;
 
-    // Set once before gsap.from() records its destination so the chosen origin
-    // remains fixed throughout the reveal instead of tweening back to 50% 50%.
-    gsap.set(shape, { transformOrigin: origin });
+    if (preset !== "fade") {
+      const origin = shape.getAttribute("data-shape-origin") || DEFAULT_ORIGIN;
+      originalTransformOrigin = shape.style.transformOrigin;
+
+      // Set once before gsap.from() records its destination so the chosen origin
+      // remains fixed throughout the reveal instead of tweening back to 50% 50%.
+      gsap.set(shape, { transformOrigin: origin });
+    }
 
     const common = {
       delay,
@@ -53,7 +73,22 @@ export function initShapeReveal() {
     };
 
     let tween;
-    if (preset === "quarter") {
+    if (preset === "disc") {
+      tween = gsap.from(shape, {
+        scale: 0.9,
+        autoAlpha: 0,
+        duration: 0.8,
+        ease: "expo.out",
+        ...common,
+      });
+    } else if (preset === "fade") {
+      tween = gsap.from(shape, {
+        autoAlpha: 0,
+        duration: 0.6,
+        ease: "expo.out",
+        ...common,
+      });
+    } else if (preset === "quarter") {
       tween = gsap.from(shape, {
         scale: 0.65,
         rotation: -45,
@@ -99,7 +134,9 @@ export function initShapeReveal() {
       });
     }
 
-    tween._shapeRevealOriginalTransformOrigin = originalTransformOrigin;
+    if (preset !== "fade") {
+      tween._shapeRevealOriginalTransformOrigin = originalTransformOrigin;
+    }
     shape._shapeRevealTween = tween;
   });
 }
@@ -138,6 +175,19 @@ function resolveTrigger(heading) {
   }
 }
 
+// Match wipeReveal's nearest-ancestor-else-first-match trigger rule. Invalid
+// authored selectors degrade to the shape so one instance cannot stop init.
+function resolveShapeTrigger(shape) {
+  const selector = shape.getAttribute("data-shape-trigger");
+  if (!selector) return shape;
+
+  try {
+    return shape.closest(selector) || document.querySelector(selector) || shape;
+  } catch {
+    return shape;
+  }
+}
+
 function teardown(shape) {
   const tween = shape._shapeRevealTween;
   if (!tween) return;
@@ -146,6 +196,8 @@ function teardown(shape) {
   tween.scrollTrigger?.kill();
   tween.revert();
   tween.kill();
-  shape.style.transformOrigin = originalTransformOrigin;
+  if (originalTransformOrigin !== undefined) {
+    shape.style.transformOrigin = originalTransformOrigin;
+  }
   shape._shapeRevealTween = null;
 }

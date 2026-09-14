@@ -1,4 +1,4 @@
-import { getLocomotiveScroll } from "../lib/locomotive.js";
+import { lockScroll } from "../lib/scrollLock.js";
 
 const CLOSE_TRANSITION_MS = 700;
 
@@ -22,6 +22,7 @@ export function initHamburgerNav() {
     ];
     const closeSiblings = accordion.getAttribute("data-accordion-close-siblings") === "true";
     let resetTimer;
+    let unlockScroll;
 
     const isActive = () => statusRoot.getAttribute("data-navigation-status") === "active";
     const syncAria = () => {
@@ -38,9 +39,12 @@ export function initHamburgerNav() {
     };
 
     const setScrollState = (active) => {
-      const scroll = getLocomotiveScroll();
-      if (active) scroll?.stop?.();
-      else scroll?.start?.();
+      if (active) {
+        if (!unlockScroll) unlockScroll = lockScroll({ className: "is-nav-open" });
+      } else if (unlockScroll) {
+        unlockScroll();
+        unlockScroll = undefined;
+      }
     };
 
     const resetAccordion = () => {
@@ -103,6 +107,8 @@ export function initHamburgerNav() {
     root._hamburgerNavInstance = {
       destroy() {
         clearTimeout(resetTimer);
+        if (unlockScroll) unlockScroll();
+        unlockScroll = undefined;
         menuToggle.removeEventListener("click", onToggleClick);
         closeToggles.forEach((toggle) => toggle.removeEventListener("click", onCloseClick));
         accordion.removeEventListener("click", onAccordionClick);
@@ -112,4 +118,3 @@ export function initHamburgerNav() {
     };
   });
 }
-

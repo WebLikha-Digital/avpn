@@ -1,5 +1,5 @@
 import { gsap, ScrollTrigger } from "../lib/gsap.js";
-import { getLocomotiveScroll } from "../lib/locomotive.js";
+import { lockScroll } from "../lib/scrollLock.js";
 
 const MINIMUM_MS = 2000;
 const MAXIMUM_MS = 8000;
@@ -79,54 +79,11 @@ export function initPreloader() {
     const instance = { timeline: null, counterValue: 0, kill: () => {} };
     container._preloaderInstance = instance;
 
-    const scroll = getLocomotiveScroll();
-    scroll?.lenisInstance?.stop();
-    const lockedScrollX = window.scrollX;
-    const lockedScrollY = window.scrollY;
-    const isEditableTarget = (target) => {
-      if (!(target instanceof Element)) return false;
-      return target.isContentEditable || Boolean(target.closest("input, textarea, select"));
-    };
-    const onWheel = (event) => event.preventDefault();
-    const onTouchMove = (event) => event.preventDefault();
-    const onKeyDown = (event) => {
-      if (!isEditableTarget(event.target) && [
-        "Space", "PageUp", "PageDown", "Home", "End", "ArrowUp", "ArrowDown",
-      ].includes(event.code)) event.preventDefault();
-    };
-    let snapFrame;
-    const snapScroll = () => {
-      window.scrollTo(lockedScrollX, lockedScrollY);
-      scroll?.lenisInstance?.scrollTo(lockedScrollY, { immediate: true, force: true, lock: true });
-    };
-    const onScroll = () => {
-      if (window.scrollX !== lockedScrollX || window.scrollY !== lockedScrollY) {
-        snapScroll();
-        if (!snapFrame) {
-          snapFrame = requestAnimationFrame(() => {
-            snapFrame = undefined;
-            if (document.documentElement.classList.contains("is-preloading")) snapScroll();
-          });
-        }
-      }
-    };
-    const listenerOptions = { capture: true, passive: false };
-    const removeScrollLock = () => {
-      if (snapFrame) cancelAnimationFrame(snapFrame);
-      snapFrame = undefined;
-      window.removeEventListener("wheel", onWheel, listenerOptions);
-      window.removeEventListener("touchmove", onTouchMove, listenerOptions);
-      window.removeEventListener("keydown", onKeyDown, listenerOptions);
-      window.removeEventListener("scroll", onScroll, listenerOptions);
-    };
-    window.addEventListener("wheel", onWheel, listenerOptions);
-    window.addEventListener("touchmove", onTouchMove, listenerOptions);
-    window.addEventListener("keydown", onKeyDown, listenerOptions);
-    window.addEventListener("scroll", onScroll, listenerOptions);
+    const unlockScroll = lockScroll();
 
     const complete = () => {
       instance.completed = true;
-      removeScrollLock();
+      unlockScroll();
       initPreloader._resize?.();
       gsap.set(targets, { opacity: 1 });
       gsap.set(reveals, { opacity: 1, y: 0 });
@@ -135,7 +92,6 @@ export function initPreloader() {
       years.forEach((year) => { year.style.visibility = "hidden"; });
       document.documentElement.classList.remove("is-preloading");
       container.style.display = "none";
-      scroll?.lenisInstance?.start();
       ScrollTrigger.refresh();
       window.dispatchEvent(new CustomEvent("preloader:complete"));
     };
@@ -426,7 +382,7 @@ export function initPreloader() {
     };
 
     instance.kill = () => {
-      removeScrollLock();
+      unlockScroll();
       initPreloader._resize?.();
       cancelAnimationFrame(frame);
       cancelAnimationFrame(entranceFrame);
@@ -439,7 +395,6 @@ export function initPreloader() {
       counterTween?.kill();
       stepTimeline.pause().kill();
       gsap.killTweensOf([...years, ...rollers, ...masks.map(({ element }) => element)]);
-      if (!instance.completed) scroll?.lenisInstance?.start();
     };
   });
 }

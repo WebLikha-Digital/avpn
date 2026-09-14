@@ -12,13 +12,23 @@ test("one toggle opens and closes, and scroll locks while open", async ({ page }
   await toggle.click();
   await expect(nav).toHaveAttribute("data-navigation-status", "active");
   await expect(page.locator("html")).toHaveClass(/lenis-stopped/);
+  await expect(page.locator("html")).toHaveClass(/is-nav-open/);
+  await expect(page.locator("html")).not.toHaveCSS("overflow", "clip");
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  const lockedScrollY = await page.evaluate(() => window.scrollY);
+  await page.mouse.wheel(0, 600);
+  await page.locator("body").press("ArrowDown");
+  await page.locator("body").press("Space");
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(lockedScrollY);
   // Same button closes: labels slid up to CLOSE, icon rotated into an x.
   await expect(toggle.locator("[data-sidenav-label]").first()).toHaveCSS("transform", /matrix\(1, 0, 0, 1, 0, -/);
   await toggle.click();
   await expect(nav).toHaveAttribute("data-navigation-status", "not-active");
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
   await expect(page.locator("html")).not.toHaveClass(/lenis-stopped/);
+  await expect(page.locator("html")).not.toHaveClass(/is-nav-open/);
+  await page.mouse.wheel(0, 600);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(lockedScrollY);
 });
 
 test("overlay and Escape close the navigation", async ({ page }) => {

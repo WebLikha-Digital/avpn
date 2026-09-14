@@ -48,6 +48,12 @@ dist/          bundled output pasted into Webflow custom code
 - [`docs/image-breaker.md`](docs/image-breaker.md) — the image breaker that
   closes the CEO's Foreword: how the sticky clip-path reveal works, the Webflow
   contract, measurements, and troubleshooting.
+- `src/animations/scrollParallax.js` — vertical image parallax for clipped
+  frames. Add `data-parallax` to the element to move; optional
+  `data-parallax-amount` (default `0.06`, clamped to `0–0.5`),
+  `data-parallax-trigger` (nearest matching ancestor, then first page match,
+  then the nearest section), and `data-parallax-min-width` (default `768px`).
+  Reduced-motion users and viewports below the minimum are left untouched.
 - [`docs/programmes-overview.md`](docs/programmes-overview.md) — the Programmes
   Overview section: element tree, the three placements that are load-bearing
   (path, hover bar, row reveal), measurements, and the CSS embed.

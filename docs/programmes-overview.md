@@ -32,8 +32,8 @@ state as a combo (`is-*`).
 section.section_programmes-overview                      [data-prog-overview-init]
 ├ div.prog-overview_path                                 [data-prog-overview-path]
 │ │                                                      [data-draw-scroll-wrap]
-│ │                                     [data-draw-scroll-start="top+=6.667% top"]
-│ │                                     [data-draw-scroll-end="top+=24.85% top"]
+│ │                                        [data-draw-scroll-start="top+=3% top"]
+│ │                                         [data-draw-scroll-end="top+=17.6% top"]
 │ └ svg                                                  [data-draw-scroll-desktop]
 │   └ path                                               [data-draw-scroll-path]
 └ div.prog-overview_sticky            [data-prog-overview-sticky] [data-follower-wrap]
@@ -70,7 +70,7 @@ already been fixed once. They are the three sections below.
 ### The path is a sibling of the sticky child, not a child of it
 
 `.prog-overview_path` is `position: absolute` with **percentage** geometry —
-`top: -20%; left: 39%; width: 24%; height: 300%` — so it is sized and placed by
+`top: -20%; left: 0; width: 100%; height: 300%` — so it is sized and placed by
 its containing block, which is the section (`position: relative`). It has to be
 a direct child of the section for those percentages to mean anything.
 
@@ -150,7 +150,7 @@ build sets the height directly instead.)
 | Element | Geometry |
 | --- | --- |
 | `.prog-overview_bg` | `absolute; top: 0; left: -25%; width: 150%; height: 100%` |
-| `.prog-overview_path` | `absolute; top: -20%; left: 39%; width: 24%; height: 300%` |
+| `.prog-overview_path` | `absolute; top: -20%; left: 0; width: 100%; height: 300%` |
 | `.prog-overview_intro` | `absolute; top: 26%; left: 0; right: 0` |
 | `.prog-overview_list` | `absolute; top: 6%; left: 0; right: 0; z-index: 2` |
 | `.prog-overview_bar` | `absolute; top: 0; left: 0; right: 0; height: 0; z-index: 0` |
@@ -190,9 +190,39 @@ Both offsets are therefore percentages of the element's own height, which keeps
 them viewport-proportional:
 
 ```
-data-draw-scroll-start="top+=6.667% top"   0.44vh of its 6.6vh
-data-draw-scroll-end="top+=24.85% top"     1.64vh below that same point
+data-draw-scroll-start="top+=3% top"      0.2vh before the section pins
+data-draw-scroll-end="top+=17.6% top"     60% of the way through the scrub
 ```
+
+The draw has to run *ahead* of the scroll. The path scrolls with the section and
+drifts a further `PATH_TRAVEL` on top, so the region on screen moves down the
+element by ~2.2vh over the scrub while the draw runs from the top of the path. A
+draw that spans the whole scrub leaves the pen tip above the viewport for the
+first third — the line is drawing, but where nobody can see it. Starting 0.2vh
+before the pin and finishing at 60% keeps the tip on screen from the moment the
+section arrives (measured at 1440×900: tip at 284px, 372px, 512px, 714px of the
+viewport at −20%, 0%, 10%, 20% of the scrub) and has the line complete before
+the rows settle.
+
+### The line's coordinate system
+
+The `viewBox` is `0 0 1440 6600` with `preserveAspectRatio="none"`: one x unit
+is `1/1440` of the section width, one y unit is `0.1vh` (the element is 660vh
+tall). Author the path in viewport terms and it holds across desktop widths.
+
+Two states matter, and the same subpath has to work in both. At the pin (scroll
+0% of the scrub) the viewport shows y `440–1440`; at the end of the scrub it
+shows `2682–3582`. The current path enters from beyond the right edge at
+`y≈515`, sweeps under the heading to the bottom-left, bows right through the
+unseen middle, and exits past the left edge at `y≈3400` — on screen at about 70%
+of the viewport height in the list state. It was drawn as Hermite segments (a
+point plus a tangent at each anchor) so each bend has one curvature; a
+Catmull-Rom spline through more points produced visible kinks.
+
+Keep the stroke as a plain `stroke-width`. `vector-effect: non-scaling-stroke`
+would make the width constant, but it also switches `stroke-dasharray` to screen
+units while `getTotalLength()` stays in user units, so the draw stops at ~94% and
+the line never reaches the edge. `4.5` on a `0.9` vertical scale reads as ~4px.
 
 ---
 
@@ -284,7 +314,9 @@ JavaScript.
   `data-draw-scroll-start` / `data-draw-scroll-end` on `.prog-overview_path`.
   They are offsets down that element, so they stay proportional as the section
   height changes.
-- **A different line**: replace the `d` attribute on the custom `path` element
-  and the `viewBox` on its parent `svg`. Keep it to a single subpath — SVG
-  restarts `stroke-dasharray` at every `M`, so a two-subpath shape draws both
-  halves from 0% at once.
+- **A different line**: replace the `d` attribute on the custom `path` element,
+  keeping the `viewBox` (see "The line's coordinate system") unless the element
+  geometry changes too. Keep it to a single subpath — SVG restarts
+  `stroke-dasharray` at every `M`, so a two-subpath shape draws both halves from
+  0% at once. Check the draw offsets afterwards: the tip must stay on screen
+  through the first part of the scrub.

@@ -56,72 +56,108 @@ export function initSplitReveal() {
   const headings = document.querySelectorAll('[data-split="heading"]');
 
   headings.forEach((heading) => {
-    // Idempotent re-init: undo a previous split before making a new one,
-    // otherwise splits stack and animations pile up on each other.
-    heading._splitOpacityTween?.kill();
-    heading._splitOpacityTween = null;
-    heading._splitInstance?.revert();
+    bindEcosystemTabReplay(heading);
+    if (heading.closest("[data-tabs-panel]")?.hidden) {
+      cleanupSplit(heading);
+      return;
+    }
 
-    const type = heading.getAttribute("data-split-reveal") || "lines";
-    const typesToSplit = TYPES_TO_SPLIT[type] || TYPES_TO_SPLIT.lines;
-    const config = SPLIT_CONFIG[type] || SPLIT_CONFIG.lines;
-    // Inside a horizontal band the heading never moves vertically, so the
-    // default has to swap axis with it. An authored start still wins, and has
-    // to be written in the band's axis when there is one.
-    const band = bandContext(heading);
-    const start =
-      heading.getAttribute("data-split-start") ||
-      (band ? "clamp(left 80%)" : "clamp(top 80%)");
-    const once = heading.getAttribute("data-split-once") !== "false";
-    const parsedDelay = Number.parseFloat(
-      heading.getAttribute("data-split-delay"),
-    );
-    const delay = Number.isFinite(parsedDelay) ? parsedDelay : 0;
-    const animateOpacity = heading.getAttribute("data-split-opacity") === "true";
-    const trigger = resolveTrigger(heading);
+    setupSplit(heading);
+  });
+}
 
-    heading._splitInstance = SplitText.create(heading, {
-      type: typesToSplit.join(", "),
-      mask: "lines",
-      autoSplit: true,
-      linesClass: "line",
-      wordsClass: "word",
-      charsClass: "letter",
-      onSplit(instance) {
-        const targets = instance[type] || instance.lines;
+function setupSplit(heading, replay = false) {
+  cleanupSplit(heading);
 
-        if (animateOpacity) {
-          heading._splitOpacityTween = gsap.to(targets, {
-            opacity: 0,
-            ease: "none",
-            scrollTrigger: {
-              trigger,
-              start: band ? "left 20%" : "top 20%",
-              end: band ? "right 20%" : "bottom 20%",
-              scrub: true,
-              ...band,
-            },
-          });
-        }
+  const type = heading.getAttribute("data-split-reveal") || "lines";
+  const typesToSplit = TYPES_TO_SPLIT[type] || TYPES_TO_SPLIT.lines;
+  const config = SPLIT_CONFIG[type] || SPLIT_CONFIG.lines;
+  // Inside a horizontal band the heading never moves vertically, so the
+  // default has to swap axis with it. An authored start still wins, and has
+  // to be written in the band's axis when there is one.
+  const band = bandContext(heading);
+  const start =
+    heading.getAttribute("data-split-start") ||
+    (band ? "clamp(left 80%)" : "clamp(top 80%)");
+  const once = heading.getAttribute("data-split-once") !== "false";
+  const parsedDelay = Number.parseFloat(
+    heading.getAttribute("data-split-delay"),
+  );
+  const delay = Number.isFinite(parsedDelay) ? parsedDelay : 0;
+  const animateOpacity = heading.getAttribute("data-split-opacity") === "true";
+  const trigger = resolveTrigger(heading);
 
-        heading._splitTween = gsap.from(targets, {
-          yPercent: 120,
-          duration: config.duration,
-          stagger: config.stagger,
-          delay,
-          ease: "smooth",
+  heading._splitInstance = SplitText.create(heading, {
+    type: typesToSplit.join(", "),
+    mask: "lines",
+    autoSplit: true,
+    linesClass: "line",
+    wordsClass: "word",
+    charsClass: "letter",
+    onSplit(instance) {
+      const targets = instance[type] || instance.lines;
+
+      if (animateOpacity && !replay) {
+        heading._splitOpacityTween = gsap.to(targets, {
+          opacity: 0,
+          ease: "none",
+          scrollTrigger: {
+            trigger,
+            start: band ? "left 20%" : "top 20%",
+            end: band ? "right 20%" : "bottom 20%",
+            scrub: true,
+            ...band,
+          },
+        });
+      }
+
+      heading._splitTween = gsap.from(targets, {
+        yPercent: 120,
+        duration: config.duration,
+        stagger: config.stagger,
+        delay,
+        ease: "smooth",
+        ...(replay ? {} : {
           scrollTrigger: {
             trigger,
             start,
             once,
             ...band,
           },
-        });
+        }),
+      });
 
-        return heading._splitTween;
-      },
-    });
+      return heading._splitTween;
+    },
   });
+}
+
+function cleanupSplit(heading) {
+  heading._splitTween?.scrollTrigger?.kill();
+  heading._splitTween?.kill();
+  heading._splitTween = null;
+  heading._splitOpacityTween?.scrollTrigger?.kill();
+  heading._splitOpacityTween?.kill();
+  heading._splitOpacityTween = null;
+  heading._splitInstance?.revert();
+  heading._splitInstance = null;
+}
+
+function bindEcosystemTabReplay(heading) {
+  const panel = heading.closest("[data-tabs-panel]");
+  const root = panel?.closest("[data-tabs-init]");
+  if (!panel || !root || root._splitRevealTabListener) return;
+
+  root._splitRevealTabListener = (event) => {
+    const activePanel = [...root.querySelectorAll("[data-tabs-panel]")]
+      .find((candidate) => candidate.dataset.tabsPanel === event.detail?.id);
+    if (!activePanel || activePanel.hidden) return;
+
+    activePanel.querySelectorAll('[data-split="heading"]').forEach((target) => {
+      setupSplit(target, true);
+    });
+  };
+  root.addEventListener("ecosystemtabs:change", root._splitRevealTabListener);
 }
 
 /**

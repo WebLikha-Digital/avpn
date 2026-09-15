@@ -34,3 +34,33 @@ test("tab switching measures the newly visible slider before revealing it", asyn
   });
   expect(centred).toBeLessThan(2);
 });
+
+test("reveals the default intro on scroll and replays each tab intro", async ({ page }) => {
+  const learn = page.locator('[data-tabs-panel="learn"] .ecosystem_intro');
+  const voice = page.locator('[data-tabs-panel="voice"] .ecosystem_intro');
+
+  await expect.poll(() => learn.locator(".line").count()).toBeGreaterThan(0);
+  await expect(voice.locator(".line")).toHaveCount(0);
+  await expect.poll(() => learn.evaluate((element) => Boolean(element._splitTween?.scrollTrigger))).toBe(true);
+
+  await learn.scrollIntoViewIfNeeded();
+  await expect.poll(() => learn.evaluate((element) => element._splitTween?.progress())).toBe(1);
+
+  const lineOffsets = (intro) => intro.evaluate((element) => [...element.querySelectorAll(".line")].map((line) => {
+    const transform = getComputedStyle(line).transform;
+    if (transform === "none") return 0;
+    const values = transform.startsWith("matrix3d(")
+      ? transform.slice(9, -1).split(",")
+      : transform.slice(7, -1).split(",");
+    return Math.abs(Number.parseFloat(values[transform.startsWith("matrix3d(") ? 13 : 5]));
+  }));
+
+  await page.locator('[data-tabs-tab="voice"]').click();
+  await expect.poll(() => voice.locator(".line").count()).toBeGreaterThan(0);
+  await expect.poll(async () => Math.max(...await lineOffsets(voice))).toBeGreaterThan(0);
+  await expect.poll(async () => Math.max(...await lineOffsets(voice))).toBeLessThan(1, { timeout: 2_000 });
+
+  await page.locator('[data-tabs-tab="learn"]').click();
+  await expect.poll(async () => Math.max(...await lineOffsets(learn))).toBeGreaterThan(0);
+  await expect.poll(async () => Math.max(...await lineOffsets(learn))).toBeLessThan(1, { timeout: 2_000 });
+});

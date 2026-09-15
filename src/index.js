@@ -22,8 +22,6 @@ import { initArcScrollTransition } from "./animations/arcScrollTransition.js";
 import { initProgrammesOverview } from "./animations/programmesOverview.js";
 import { initListHoverReveal } from "./animations/listHoverReveal.js";
 import { initListPreviewFollower } from "./animations/listPreviewFollower.js";
-import { initTunnel2 } from "./canvas/tunnel2.js";
-import { initPreloader } from "./animations/preloader.js";
 import { initEcosystemTabs } from "./animations/ecosystemTabs.js";
 import { initEcosystemSlider } from "./animations/ecosystemSlider.js";
 import { initHamburgerNav } from "./animations/hamburgerNav.js";
@@ -59,10 +57,8 @@ function init() {
   initEcosystemSlider();
   initListHoverReveal();
   initListPreviewFollower();
-  initTunnel2();
   watchImagesForRefresh();
   watchDocumentHeight();
-  initPreloader();
 }
 
 window.addEventListener(HSCROLL_REBUILT, initBandAware);

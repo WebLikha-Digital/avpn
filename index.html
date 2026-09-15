@@ -66,6 +66,16 @@
         width: 100%;
         height: 80vh;
       }
+      /* Tunnel image manifest: raw <img> tags initTunnel2() would otherwise
+         hide via JS. Hidden by CSS since the tunnel is currently disabled. */
+      [data-tunnel2-images] {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        opacity: 0;
+        pointer-events: none;
+      }
       /* Hero-shaped mount: wide and short, like the AVPN home hero (~2:1). */
       .tunnel-mount--hero {
         height: auto;

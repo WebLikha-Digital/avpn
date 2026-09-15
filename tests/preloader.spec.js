@@ -55,6 +55,8 @@ const installPreloaderSampler = (page) => {
   }, MOVE.duration);
 };
 
+// Preloader is disabled in src/index.js while the hero tunnel is retired; re-enable this suite by restoring the initPreloader import and call there (and the Webflow head-embed's is-preloading script, as noted in the PR).
+test.describe.skip("preloader", () => {
 test("counter is monotonic and reaches 100", async ({ page }) => {
   await page.goto("/?preloader=1");
   const values = await page.evaluate(async () => {
@@ -395,4 +397,5 @@ test("reduced motion resolves without a timeline", async ({ page }) => {
   await page.goto("/?preloader=1");
   await expect(page.locator("[data-preloader-init]")).toHaveCSS("display", "none");
   await expect.poll(() => page.locator("[data-preloader-init]").evaluate((node) => Boolean(node._preloaderInstance?.timeline))).toBe(false);
+});
 });

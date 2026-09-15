@@ -9,14 +9,15 @@ async function settle(root) {
       node.querySelector("[data-radial-slider-proxy]"),
     ).transform);
     await new Promise((resolve) => setTimeout(resolve, 100));
-    const after = await root.evaluate((node) => getComputedStyle(
-      node.querySelector("[data-radial-slider-proxy]"),
-    ).transform);
+    const after = await root.evaluate((node) => ({
+      transform: getComputedStyle(node.querySelector("[data-radial-slider-proxy]")).transform,
+      dragStatus: node.getAttribute("data-radial-slider-drag-status"),
+    }));
     return {
-      rotationStable: before === after,
-      dragStatus: await root.getAttribute("data-radial-slider-drag-status"),
+      rotationStable: before === after.transform,
+      dragStatus: after.dragStatus,
     };
-  }, { timeout: 5000 }).toEqual({ rotationStable: true, dragStatus: null });
+  }, { timeout: 5000 }).toEqual({ rotationStable: true, dragStatus: "grab" });
 }
 
 test.beforeEach(async ({ page }) => {
@@ -45,28 +46,13 @@ test("centres the active card and places neighbours on the wheel", async ({ page
   expect(geometry[2].top).toBeGreaterThan(geometry[0].top);
 });
 
-test("dragging does not change proxy or card rotations while drag is disabled", async ({ page }) => {
+test("dragging rotates cards and snaps to the new active index", async ({ page }) => {
   const root = page.locator(slider);
   await root.scrollIntoViewIfNeeded();
   await expect(root.locator(active)).toHaveCSS("opacity", "1");
   const box = await root.locator("[data-radial-slider-list]").boundingBox();
   const before = await root.evaluate((node) => {
     const proxy = node.querySelector("[data-radial-slider-proxy]");
-    const card = node.querySelector('[data-radial-slider-item-status="inview"]');
-    const angle = (element) => {
-      const matrix = new DOMMatrix(getComputedStyle(element).transform);
-      return Math.atan2(matrix.b, matrix.a);
-    };
-    const proxyMatrix = new DOMMatrix(getComputedStyle(proxy).transform);
-    return { proxy: Math.atan2(proxyMatrix.b, proxyMatrix.a), card: angle(card) };
-  });
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(box.x + box.width / 2 - 160, box.y + box.height / 2, { steps: 8 });
-  await page.mouse.up();
-  const after = await root.evaluate((node) => {
-    const proxy = node.querySelector("[data-radial-slider-proxy]");
-    const card = node.querySelector('[data-radial-slider-item-status="inview"]');
     const angle = (element) => {
       const matrix = new DOMMatrix(getComputedStyle(element).transform);
       return Math.atan2(matrix.b, matrix.a);
@@ -74,13 +60,64 @@ test("dragging does not change proxy or card rotations while drag is disabled", 
     const proxyMatrix = new DOMMatrix(getComputedStyle(proxy).transform);
     return {
       proxy: Math.atan2(proxyMatrix.b, proxyMatrix.a),
-      card: angle(card),
-      dragStatus: node.getAttribute("data-radial-slider-drag-status"),
+      cards: [...node.querySelectorAll(
+        '[data-radial-slider-item]:not([data-radial-slider-clone])',
+      )].map(angle),
+      index: node.querySelector("[data-radial-slider-index]").textContent,
     };
   });
-  expect(after.proxy).toBeCloseTo(before.proxy, 5);
-  expect(after.card).toBeCloseTo(before.card, 5);
-  expect(after.dragStatus).toBeNull();
+  const dragDistance = await root.evaluate((node) => {
+    const rotateStep = Math.abs(parseFloat(
+      getComputedStyle(node).getPropertyValue("--slider-rotate"),
+    )) || 18;
+    const firstCard = node.querySelector(
+      '[data-radial-slider-item]:not([data-radial-slider-clone])',
+    );
+    const cardHeight = firstCard.getBoundingClientRect().height;
+    const originY = parseFloat(getComputedStyle(firstCard).transformOrigin.split(" ")[1])
+      || cardHeight * 3.75;
+    const wheelRadius = Math.max(0, originY - cardHeight / 2);
+    return Math.ceil(Math.tan(rotateStep * 0.75 * Math.PI / 180) * wheelRadius);
+  });
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 - dragDistance, box.y + box.height / 2, { steps: 12 });
+  await expect(root).toHaveAttribute("data-radial-slider-drag-status", "grabbing");
+  const duringDrag = await root.evaluate((node) => {
+    const proxy = node.querySelector("[data-radial-slider-proxy]");
+    const angle = (element) => {
+      const matrix = new DOMMatrix(getComputedStyle(element).transform);
+      return Math.atan2(matrix.b, matrix.a);
+    };
+    const proxyMatrix = new DOMMatrix(getComputedStyle(proxy).transform);
+    return {
+      proxy: Math.atan2(proxyMatrix.b, proxyMatrix.a),
+      cards: [...node.querySelectorAll(
+        '[data-radial-slider-item]:not([data-radial-slider-clone])',
+      )].map(angle),
+    };
+  });
+  expect(duringDrag.proxy).not.toBeCloseTo(before.proxy, 5);
+  expect(duringDrag.cards.some((rotation, index) => (
+    !Object.is(rotation, before.cards[index]) && Math.abs(rotation - before.cards[index]) > 0.001
+  ))).toBe(true);
+  await page.mouse.up();
+  await settle(root);
+  const after = await root.evaluate((node) => {
+    const activeItem = node.querySelector('[data-radial-slider-item-status="active"]');
+    const originals = [...node.querySelectorAll(
+      '[data-radial-slider-item]:not([data-radial-slider-clone])',
+    )];
+    const originalIndex = originals.findIndex((item) => item.textContent === activeItem.textContent);
+    return {
+      activeCount: node.querySelectorAll('[data-radial-slider-item-status="active"]').length,
+      index: node.querySelector("[data-radial-slider-index]").textContent,
+      originalIndex,
+    };
+  });
+  expect(after.activeCount).toBe(1);
+  expect(after.index).not.toBe(before.index);
+  expect(after.index).toBe(`${String(after.originalIndex + 1).padStart(2, "0")}/19`);
 });
 
 test("controls wrap and side-card clicks centre without navigating", async ({ page }) => {

@@ -13,13 +13,15 @@ const DURATION = 0.8;
 const STAGGER = 0.1;
 const RISE = 40;
 const DEFAULT_PIN_OFFSET = 0;
+const DEFAULT_HEADING_SCALE = 0.5;
 const DEFAULT_SHAPE_SCALE = 0.5;
+const DEFAULT_BODY_SCALE = 0.75;
 
 /**
  * The Stories from AVPN Community list: each row's heading, shape and copy
  * fade up into place as that row scrolls into view. On desktop, each row also
- * pins while its bottom runway passes and its decorative shape recedes in sync
- * with the pin's scroll progress.
+ * pins while its bottom runway passes and its heading, decorative shape, and
+ * copy recede in sync with the pin's scroll progress.
  *
  * Per row rather than one timeline for the whole list, so a row that is still
  * below the fold when the section enters keeps its own entrance instead of
@@ -37,7 +39,9 @@ const DEFAULT_SHAPE_SCALE = 0.5;
  *   [data-stories-start]      optional: override the trigger point
  *   [data-stories-pin]        optional: "off" disables desktop pins/scaling
  *   [data-stories-pin-offset] optional: top pin offset in pixels (default 0)
+ *   [data-stories-heading-scale] optional: heading scale at the end (default 0.5)
  *   [data-stories-shape-scale] optional: shape scale at the end (default 0.5)
+ *   [data-stories-body-scale] optional: paragraph scale at the end (default 0.75)
  *
  * [data-stories-part] is optional because the row's own structure already says
  * what the parts are: the heading, the shape, and the paragraph. Tag them only
@@ -86,14 +90,18 @@ export function initStoriesStack() {
         if (list.getAttribute("data-stories-pin") === "off") return;
 
         const offset = readNumber(list, "data-stories-pin-offset", DEFAULT_PIN_OFFSET);
-        const scale = readNumber(list, "data-stories-shape-scale", DEFAULT_SHAPE_SCALE);
+        const scales = {
+          heading: readNumber(list, "data-stories-heading-scale", DEFAULT_HEADING_SCALE),
+          shape: readNumber(list, "data-stories-shape-scale", DEFAULT_SHAPE_SCALE),
+          body: readNumber(list, "data-stories-body-scale", DEFAULT_BODY_SCALE),
+        };
         const items = [...list.querySelectorAll("[data-stories-item]")];
         items.forEach((item, index) => {
           item.style.zIndex = String(index + 1);
         });
 
         list._storiesPinTweens = items.slice(0, -1).map((item) => {
-          const shape = item.querySelector(".stories-community_shape");
+          const parts = resolveScaleParts(item);
           const trigger = {
             trigger: item,
             start: `top ${offset}px`,
@@ -105,20 +113,22 @@ export function initStoriesStack() {
             invalidateOnRefresh: true,
           };
 
-          if (!shape) return gsap.timeline({ scrollTrigger: trigger });
-
-          shape.style.transformOrigin = "left top";
-          return gsap.fromTo(
-            shape,
-            { scale: 1 },
-            {
-              scale,
-              duration: 1,
-              ease: "none",
-              immediateRender: false,
-              scrollTrigger: trigger,
-            },
-          );
+          const timeline = gsap.timeline({ scrollTrigger: trigger });
+          [
+            [parts.heading, scales.heading],
+            [parts.shape, scales.shape],
+            [parts.body, scales.body],
+          ].forEach(([part, scale]) => {
+            if (!part) return;
+            gsap.set(part, { transformOrigin: "left top" });
+            timeline.fromTo(
+              part,
+              { scale: 1 },
+              { scale, duration: 1, ease: "none", immediateRender: false },
+              0,
+            );
+          });
+          return timeline;
         });
       });
 
@@ -168,7 +178,7 @@ function teardown(list) {
   list._storiesTweens = null;
 
   list.querySelectorAll("[data-stories-item]").forEach((item) => {
-    gsap.set(resolveParts(item), { clearProps: "opacity,transform" });
+    gsap.set(resolveParts(item), { clearProps: "opacity,transform,transformOrigin,scale" });
     item.style.zIndex = "";
   });
 }
@@ -182,10 +192,21 @@ function teardownPins(list) {
 
   list.querySelectorAll("[data-stories-item]").forEach((item) => {
     item.style.zIndex = "";
-    const shape = item.querySelector(".stories-community_shape");
-    if (!shape) return;
-    shape.style.scale = "";
-    shape.style.transformOrigin = "";
-    shape.style.transform = "";
+    gsap.set(resolveParts(item), { clearProps: "transform,transformOrigin,scale" });
   });
+}
+
+function resolveScaleParts(item) {
+  const parts = resolveParts(item);
+  const tagged = item.querySelectorAll("[data-stories-part]");
+  if (tagged.length) {
+    const [heading, shape, body] = parts;
+    return { heading, shape, body };
+  }
+
+  return {
+    heading: item.querySelector("h1, h2, h3, h4, h5, h6"),
+    shape: item.querySelector(".stories-community_shape"),
+    body: item.querySelector("p"),
+  };
 }

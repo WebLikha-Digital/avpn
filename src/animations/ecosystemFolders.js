@@ -121,6 +121,7 @@ export function initEcosystemFolders() {
         setGroupState("expanding", root.dataset.deckInit);
         instance.active = deck;
         deck.hoverTween?.kill();
+        deck.hoverTween = null;
         gsap.set([root, panel], { clearProps: "y,yPercent" });
         other?.root.setAttribute("data-deck-state", "inactive");
         other?.root.classList.add("is-ecosystem-deck-hidden");
@@ -215,13 +216,14 @@ export function initEcosystemFolders() {
       deck.collapseDeck = collapseDeck;
       if (window.matchMedia?.("(hover: hover)").matches) {
         localListen(folder, "pointerenter", () => {
-          if (root.dataset.deckState !== "stacked") return;
+          if (root.dataset.deckState !== "stacked" || group.dataset.foldersState !== "stacked") return;
           deck.hoverTween?.kill();
           deck.hoverTween = gsap.timeline().to(root, { y: -6, duration: 0.3, ease: "power2.out" })
             .to(panel, { yPercent: 6, duration: 0.3, ease: "power2.out" }, 0)
             .to(cards, { y: "-=40", x: (index) => (index % 2 ? 1 : -1) * Math.min(index * 7, 42), rotation: (index) => (index % 2 ? 1 : -1) * Math.min(8, index + 1), duration: 0.45, stagger: 0.025, ease: "power3.out" }, 0);
         });
         localListen(folder, "pointerleave", () => {
+          if (root.dataset.deckState !== "stacked" || group.dataset.foldersState !== "stacked") return;
           deck.hoverTween?.reverse();
         });
       }

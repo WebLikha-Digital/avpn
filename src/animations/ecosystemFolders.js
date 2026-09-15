@@ -129,7 +129,10 @@ export function initEcosystemFolders() {
         instance.active = deck;
         deck.hoverTween?.kill();
         deck.hoverTween = null;
-        gsap.set([root, panel], { clearProps: "y,yPercent" });
+        // Settle the hover lift over the same beat as the other folder's fade
+        // instead of snapping it away on click.
+        gsap.to(root, { y: 0, duration: 0.25, ease: "power2.out", clearProps: "y" });
+        if (panel) gsap.to(panel, { yPercent: 0, duration: 0.25, ease: "power2.out", clearProps: "yPercent" });
         other?.root.setAttribute("data-deck-state", "inactive");
         other?.root.classList.add("is-ecosystem-deck-hidden");
         if (other && !deck.reduced) {
@@ -168,7 +171,7 @@ export function initEcosystemFolders() {
           deck.tween = Flip.from(state, {
             absolute: true, scale: true,
             duration: 0.6,
-            stagger: { amount: Math.min(0.3, cards.length * 0.06) },
+            stagger: { amount: Math.min(0.15, cards.length * 0.03) },
             ease: "power3.inOut",
             onComplete: () => {
               gsap.set(root, { clearProps: "transform" });

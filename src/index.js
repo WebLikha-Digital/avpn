@@ -48,6 +48,7 @@ function init() {
   initHeroVideoGate();
   initHorizontalScroller();
   initEcosystemTabs();
+  initEcosystemFolders();
   initBandAware();
   initMarqueeScrollDirection();
   initContentReveal();
@@ -59,7 +60,6 @@ function init() {
   initArcScrollTransition();
   initProgrammesOverview();
   initEcosystemSlider();
-  initEcosystemFolders();
   initListHoverReveal();
   initListPreviewFollower();
   watchImagesForRefresh();

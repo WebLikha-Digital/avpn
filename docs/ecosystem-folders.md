@@ -20,6 +20,12 @@ second. The default speed is 60. A reduced-motion preference skips Flip and
 the ticker and leaves the expanded viewport natively horizontally scrollable.
 Resize relayout is debounced and only responds to width changes.
 
+Folder intros use the existing `data-split="heading"` masked line reveal. On
+every completed collapse, the group dispatches a bubbling
+`ecosystemfolders:collapsed` event with the collapsed deck id in `detail.id`.
+`splitReveal.js` listens once per group and replays the reveal for each visible
+folder intro after both decks have returned to the stacked layout.
+
 ## Drag
 
 In the expanded state, the viewport owns a proxy `Draggable` with `type: "x"`

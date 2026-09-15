@@ -85,6 +85,65 @@ test("expands, pauses marquee, collapses, and supports Esc", async ({ page }) =>
   await expect(deck.locator("[data-deck-folder]")).toBeFocused();
 });
 
+test("replays both folder intros after each collapse", async ({ page }) => {
+  const root = page.locator(folders);
+  const deck = root.locator(learn);
+  await deck.locator("[data-deck-folder]").click();
+  await expect(deck).toHaveAttribute("data-deck-state", "expanded");
+
+  await page.evaluate(() => {
+    const group = document.querySelector("[data-folders-init]");
+    window.__folderCollapseEvents = [];
+    group.addEventListener("ecosystemfolders:collapsed", (event) => {
+      window.__folderCollapseEvents.push(event.detail?.id);
+    });
+  });
+
+  const replay = page.evaluate(() => new Promise((resolve) => {
+    const group = document.querySelector("[data-folders-init]");
+    const onCollapsed = () => {
+      group.removeEventListener("ecosystemfolders:collapsed", onCollapsed);
+      const started = performance.now();
+      let moved = false;
+      const isIdentity = (value) => {
+        if (value === "none") return true;
+        const matrix = new DOMMatrix(value);
+        return matrix.a === 1 && matrix.b === 0 && matrix.c === 0 &&
+          matrix.d === 1 && matrix.e === 0 && matrix.f === 0;
+      };
+      const sample = () => {
+        const line = group.querySelector("[data-deck-init=learn] .line");
+        if (line && !isIdentity(getComputedStyle(line).transform)) moved = true;
+        if (performance.now() - started < 150) requestAnimationFrame(sample);
+        else resolve(moved);
+      };
+      requestAnimationFrame(sample);
+    };
+    group.addEventListener("ecosystemfolders:collapsed", onCollapsed);
+  }));
+
+  await deck.locator("[data-deck-collapse]").click();
+  expect(await replay).toBe(true);
+  expect(await page.evaluate(() => window.__folderCollapseEvents)).toEqual(["learn"]);
+  for (const id of ["learn", "voice"]) {
+    expect(await root.locator(`[data-deck-init=${id}] [data-split="heading"] .line`).count()).toBeGreaterThan(0);
+  }
+  await page.waitForTimeout(1200);
+  expect(await deck.locator(".line").evaluateAll((lines) => lines.every((line) => {
+    const value = getComputedStyle(line).transform;
+    if (value === "none") return true;
+    const matrix = new DOMMatrix(value);
+    return matrix.a === 1 && matrix.b === 0 && matrix.c === 0 &&
+      matrix.d === 1 && matrix.e === 0 && matrix.f === 0;
+  }))).toBe(true);
+
+  await deck.locator("[data-deck-folder]").press("Enter");
+  await expect(deck).toHaveAttribute("data-deck-state", "expanded");
+  await deck.locator("[data-deck-collapse]").click();
+  await expect(root).toHaveAttribute("data-folders-state", "stacked");
+  expect(await page.evaluate(() => window.__folderCollapseEvents)).toEqual(["learn", "learn"]);
+});
+
 test("reduced motion uses a native row and supports another cycle", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.reload();

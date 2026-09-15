@@ -25,11 +25,46 @@ test("renders two stacked cream folders and fans on hover", async ({ page }) => 
 test("expands, pauses marquee, collapses, and supports Esc", async ({ page }) => {
   const root = page.locator(folders);
   const deck = root.locator(learn);
+  const jumpPromise = page.evaluate(() => new Promise((resolve) => {
+    const root = document.querySelector("[data-folders-init]");
+    // Only the first cards: the far ones legitimately cover thousands of px in
+    // the 0.75s Flip, so a per-frame delta there is speed, not a layout jump.
+    const cards = [...root.querySelectorAll("[data-deck-init=learn] [data-deck-card]")].slice(0, 3);
+    let started = null;
+    let previous = null;
+    let previousTime = 0;
+    let maxJump = 0;
+    const sample = () => {
+      if (root.dataset.foldersState === "expanding") {
+        started ??= performance.now();
+        const now = performance.now();
+        const lefts = cards.map((card) => card.getBoundingClientRect().left);
+        if (previous && now - started > 100) {
+          // Normalise to a 60fps frame so dropped frames under parallel test
+          // load read as speed, not as a layout jump.
+          const frames = Math.max(1, (now - previousTime) / (1000 / 60));
+          maxJump = Math.max(maxJump, ...lefts.map((left, index) => Math.abs(left - previous[index]) / frames));
+        }
+        previous = lefts;
+        previousTime = now;
+        if (performance.now() - started > 900) return resolve(maxJump);
+      }
+      if (root.dataset.foldersState === "expanded") return resolve(maxJump);
+      requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  }));
   await deck.locator("[data-deck-folder]").click();
+  expect(await jumpPromise).toBeLessThan(60);
   await expect(root).toHaveAttribute("data-folders-state", "expanded");
   await expect(deck).toHaveAttribute("data-deck-state", "expanded");
   await expect(root.locator("[data-deck-init=voice]")).toBeHidden();
   await expect(deck.locator("[data-deck-collapse]")).toBeVisible();
+  expect(await deck.locator("[data-deck-collapse]").evaluate((button) => {
+    const box = button.getBoundingClientRect();
+    const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+    return hit === button || button.contains(hit);
+  })).toBe(true);
   await expect(deck.locator("[data-deck-card]").first()).not.toHaveAttribute("tabindex", /.+/);
   await page.mouse.move(0, 0);
   const before = await deck.locator("[data-deck-track]").evaluate((node) => node.getBoundingClientRect().left);

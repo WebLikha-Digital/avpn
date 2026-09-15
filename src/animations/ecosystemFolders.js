@@ -89,7 +89,7 @@ export function initEcosystemFolders() {
         folder.tabIndex = 0;
         setHint("stacked");
         if (collapse) collapse.hidden = true;
-        viewport.style.overflowX = "hidden";
+        viewport.style.overflowX = "";
       };
       const row = () => {
         track.style.display = "flex";
@@ -122,47 +122,62 @@ export function initEcosystemFolders() {
         instance.active = deck;
         deck.hoverTween?.kill();
         gsap.set([root, panel], { clearProps: "y,yPercent" });
-        const hideOther = () => {
-          if (!other) return;
-          other.root.hidden = true;
-        };
-        const state = deck.reduced ? null : Flip.getState(cards);
-        root.dataset.deckState = "expanding";
         other?.root.setAttribute("data-deck-state", "inactive");
         other?.root.classList.add("is-ecosystem-deck-hidden");
-        row();
-        if (!deck.reduced && panel) gsap.to(panel, { opacity: 0, duration: 0.35, ease: "power2.out" });
-        const reveal = () => {
-          gsap.set(root, { clearProps: "transform" });
-          gsap.set([deck.folder, deck.panel], { clearProps: "opacity,scale" });
-          hideOther();
-          finishExpand();
-          setGroupState("expanded", root.dataset.deckInit);
+        if (other && !deck.reduced) {
+          const currentLeft = root.getBoundingClientRect().left;
+          other.root.hidden = true;
+          const singleDeckLeft = root.getBoundingClientRect().left;
+          other.root.hidden = false;
+          const layoutShift = singleDeckLeft - currentLeft;
+          if (layoutShift) gsap.to(root, { x: layoutShift, duration: 0.25, ease: "power1.inOut" });
+        }
+        const beginExpand = () => {
+          if (group.dataset.foldersState !== "expanding") return;
+          if (other) other.root.hidden = true;
+          if (deck.reduced) {
+            root.dataset.deckState = "expanding";
+            row();
+            finishExpand();
+            setGroupState("expanded", root.dataset.deckInit);
+            return;
+          }
+          gsap.set(root, { clearProps: "x" });
+          const state = Flip.getState(cards);
+          root.dataset.deckState = "expanding";
+          row();
+          if (panel) gsap.to(panel, { opacity: 0, duration: 0.35, ease: "power2.out" });
+          deck.tween = Flip.from(state, {
+            absolute: true, scale: true,
+            duration: 0.75,
+            stagger: { amount: Math.min(0.4, cards.length * 0.08) },
+            ease: "power2.inOut",
+            onComplete: () => {
+              gsap.set(root, { clearProps: "transform" });
+              gsap.set([deck.folder, deck.panel], { clearProps: "opacity,scale" });
+              finishExpand();
+              setGroupState("expanded", root.dataset.deckInit);
+            },
+          });
         };
-        if (deck.reduced) {
-          reveal();
+        if (!other || deck.reduced) {
+          beginExpand();
           return;
         }
-        const hideTween = other ? gsap.to(other.root, { opacity: 0, scale: 0.92, duration: 0.28, onComplete: hideOther }) : null;
-        deck.tween = Flip.from(state, {
-          absolute: true,
-          duration: 0.75,
-          stagger: { amount: Math.min(0.4, cards.length * 0.08) },
-          ease: "power2.inOut",
-          onComplete: () => { hideTween?.kill(); reveal(); },
-        });
+        gsap.to(other.root, { opacity: 0, scale: 0.92, duration: 0.25, onComplete: beginExpand });
       };
       const collapseDeck = (instant = false) => {
         if (instance.active !== deck || !["expanded", "expanding", "collapsing"].includes(root.dataset.deckState)) return;
         deck.tween?.kill();
         deck.hoverTween?.kill();
         gsap.set([root, panel], { clearProps: "y,yPercent" });
-        stopMarquee(deck);
+        const state = deck.reduced ? null : Flip.getState(cards);
         root.dataset.deckState = "collapsing";
         setGroupState("collapsing", root.dataset.deckInit);
         const other = instance.decks.find((candidate) => candidate !== deck);
         if (instant || deck.reduced) {
           if (panel) gsap.set(panel, { clearProps: "opacity" });
+          stopMarquee(deck);
           stack();
           if (other) { other.root.hidden = false; other.root.classList.remove("is-ecosystem-deck-hidden"); gsap.set(other.root, { clearProps: "opacity,scale" }); stackDeck(other); }
           root.hidden = false;
@@ -171,16 +186,24 @@ export function initEcosystemFolders() {
           folder.focus();
           return;
         }
-        const state = Flip.getState(cards);
         stack(false);
         if (panel) gsap.to(panel, { opacity: 1, duration: 0.35, ease: "power2.out" });
-        const showOther = other ? gsap.to(other.root, { opacity: 1, scale: 1, duration: 0.35 }) : null;
         deck.tween = Flip.from(state, {
-          absolute: true, duration: 0.65,
+          absolute: true, scale: true, duration: 0.65,
           stagger: { amount: Math.min(0.3, cards.length * 0.06) }, ease: "power2.inOut",
           onComplete: () => {
             stack();
-            if (other) { other.root.hidden = false; other.root.classList.remove("is-ecosystem-deck-hidden"); showOther?.kill(); gsap.set(other.root, { clearProps: "opacity,scale" }); stackDeck(other); }
+            if (other) {
+              // Mirror of the expand compensation: un-hiding the other deck
+              // re-centres the row, so slide this deck from where it was
+              // instead of letting it snap.
+              const centredLeft = root.getBoundingClientRect().left;
+              other.root.hidden = false;
+              other.root.classList.remove("is-ecosystem-deck-hidden");
+              const layoutShift = centredLeft - root.getBoundingClientRect().left;
+              if (layoutShift) gsap.fromTo(root, { x: layoutShift }, { x: 0, duration: 0.25, ease: "power1.inOut", clearProps: "x" });
+              gsap.fromTo(other.root, { opacity: 0, scale: 0.92 }, { opacity: 1, scale: 1, duration: 0.35, onComplete: () => { stackDeck(other); } });
+            }
             instance.active = null;
             setGroupState("stacked");
             folder.focus();

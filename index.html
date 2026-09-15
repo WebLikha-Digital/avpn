@@ -39,6 +39,15 @@
       .sandbox-hero [data-preloader-media] { width: 100%; height: 18vh; margin-bottom: 2rem; background: #002944; }
       .sandbox-hero__content { position: relative; z-index: 1; }
       .sandbox-hero__years { display: flex; align-items: center; justify-content: center; gap: 1rem; }
+      .hero_bg { position: relative; height: 12rem; margin-bottom: 2rem; overflow: hidden; background: #234; }
+      .hero-bg_video { position: absolute; inset: 0; }
+      .hero-bg_video video { width: 100%; height: 100%; object-fit: cover; }
+      .hero-bg_video.is-desktop { display: block; }
+      .hero-bg_video.is-mobile { display: none; }
+      @media (max-width: 767px) {
+        .hero-bg_video.is-desktop { display: none; }
+        .hero-bg_video.is-mobile { display: block; }
+      }
       .sandbox-hero [data-preloader-target] { width: 22vw; min-width: 7rem; }
       .sandbox-hero [data-preloader-target] svg { display: block; width: 100%; }
       .sandbox-hero p { max-width: 30rem; font-size: clamp(1.5rem, 4vw, 3rem); }
@@ -1168,6 +1177,22 @@
         <div class="nav_foot"><div class="nav_address"><div class="nav_address-line">171 Tras Street</div><div class="nav_address-line">#10-179 Union Building</div><div class="nav_address-line">Singapore 079025</div></div><div class="nav_socials"><a class="nav_social" href="https://www.facebook.com/avpn.asia" target="_blank" rel="noopener" aria-label="AVPN on Facebook"><div class="nav_social-icon">f</div></a></div></div>
       </div>
     </nav>
+
+    <div class="hero_bg" data-testid="hero-video-gate">
+      <div class="hero-bg_video is-desktop">
+        <video muted playsinline preload="auto">
+          <source src="/fixtures/hero-desktop.mp4" type="video/mp4" />
+          <source src="/fixtures/hero-desktop.webm" type="video/webm" />
+        </video>
+      </div>
+      <div class="hero-bg_video is-mobile">
+        <video muted playsinline preload="auto">
+          <source src="/fixtures/hero-mobile.mp4" type="video/mp4" />
+          <source src="/fixtures/hero-mobile.webm" type="video/webm" />
+        </video>
+      </div>
+    </div>
+    <video id="hero-video-gate-unrelated" preload="none" src="/fixtures/unrelated.mp4"></video>
     <div class="preloader" data-preloader-init="true" aria-hidden="true">
       <div class="preloader_bg" data-preloader-bg="true"></div>
       <div class="preloader_shape" data-preloader-shape="true"></div>

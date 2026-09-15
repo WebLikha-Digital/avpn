@@ -110,6 +110,43 @@ test("controls wrap and side-card clicks centre without navigating", async ({ pa
   );
 });
 
+test("updates the original-card index through navigation wraps", async ({ page }) => {
+  const root = page.locator(slider);
+  await root.scrollIntoViewIfNeeded();
+  const index = root.locator("[data-radial-slider-index]");
+  const prev = root.locator('[data-radial-slider-control="prev"]');
+  const next = root.locator('[data-radial-slider-control="next"]');
+
+  await expect(index).toHaveText("01/19");
+  await next.click();
+  await settle(root);
+  await expect(index).toHaveText("02/19");
+  await prev.click();
+  await settle(root);
+  await prev.click();
+  await settle(root);
+  await expect(index).toHaveText("19/19");
+  await next.click();
+  await settle(root);
+  await expect(index).toHaveText("01/19");
+});
+
+test("autoplay advances and pauses while hovered", async ({ page }) => {
+  const root = page.locator(slider);
+  await root.scrollIntoViewIfNeeded();
+  const index = root.locator("[data-radial-slider-index]");
+  await expect(root).toHaveAttribute("data-radial-slider-autoplay", "playing");
+  await page.waitForTimeout(4000);
+  await expect(index).toHaveText("02/19", { timeout: 2000 });
+
+  await root.hover();
+  await expect(root).toHaveAttribute("data-radial-slider-autoplay", "paused");
+  await page.waitForTimeout(4100);
+  await expect(index).toHaveText("02/19");
+  await page.mouse.move(0, 0);
+  await expect(root).toHaveAttribute("data-radial-slider-autoplay", "playing");
+});
+
 test("keyboard, drag suppression, tab order, and active-link navigation work", async ({ page }) => {
   const root = page.locator(slider);
   await root.scrollIntoViewIfNeeded();

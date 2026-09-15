@@ -16,19 +16,18 @@ hovered or focused, while its tab panel is hidden, and while the document is
 hidden. Manual navigation restarts the full interval. Users with
 `prefers-reduced-motion: reduce` do not get autoplay.
 
-## Re-enable drag
+## Drag
 
-Set ENABLE_DRAG to true in src/animations/ecosystemSlider.js, run
-npm run build, and redeploy dist/animations.min.js. The Webflow embed keeps
-the [data-radial-slider-drag-status] grab/grabbing cursor rules, so no
-Webflow-side change is needed.
+Drag and swipe are on (ENABLE_DRAG in src/animations/ecosystemSlider.js).
+To turn them off, set the flag to false, run npm run build, and redeploy
+dist/animations.min.js. The Webflow embed keeps the
+[data-radial-slider-drag-status] grab/grabbing cursor rules either way.
 
-## Cursor marquee DOM contract
+## Card hover
 
-The ecosystem section carries [data-cursor-marquee-init] and contains one
-[data-cursor-marquee-status] element. Its descendant
-[data-cursor-marquee-text-target] elements receive the text from the
-data-cursor-marquee-text attribute on hovered cards. The status is idle
-outside the section, not-active over other section content, and active over
-a matching card. The cursor is pointer-events-free and fixed-positioned, so it
-can overlay cards without changing hit-testing.
+Hover styling lives in the page-style embed, not in JS. It scales the thumb
+image, deepens the card shadow, and underlines the title. It never sets the
+card's transform or opacity, because the slider writes rotation inline and the
+reveal animates opacity/y. The rules are scoped to
+[data-radial-slider-drag-status="grab"], so nothing changes while a drag is in
+progress (the slider sets the status to "grabbing" on press).

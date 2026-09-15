@@ -2,7 +2,7 @@ import { gsap, Draggable, ScrollTrigger } from "../lib/gsap.js";
 
 const RESIZE_DEBOUNCE = 200;
 const AUTOPLAY_INTERVAL = 4000;
-const ENABLE_DRAG = false;
+const ENABLE_DRAG = true;
 const mod = (value, total) => ((value % total) + total) % total;
 const reducedMotion = () => window.matchMedia?.(
   "(prefers-reduced-motion: reduce)",

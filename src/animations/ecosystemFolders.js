@@ -62,6 +62,14 @@ export function initEcosystemFolders() {
       const setHint = (state) => {
         if (hint) hint.textContent = hint.dataset[`deckHint${state[0].toUpperCase()}${state.slice(1)}`] || "";
       };
+      // Resting pose of a card in the stack; the hover fan and the collapse
+      // settle both return to it with an ease-out of their own rather than a
+      // reversed ease-out, which would read as ease-in.
+      const stackPose = (index, fan) => {
+        const depth = Math.min(index, 6);
+        const side = depth % 2 ? 1 : -1;
+        return { x: side * Math.min(6 * depth, 42), y: depth * 3, rotation: depth ? side * Math.min(fan, 8) * (depth / 6) : 0 };
+      };
       const stack = (finalize = true) => {
         deck.tween?.kill();
         deck.tween = null;
@@ -73,11 +81,9 @@ export function initEcosystemFolders() {
         const cardScale = number(styles.getPropertyValue("--deck-card-scale"), 0.62);
         cards.forEach((card, index) => {
           const depth = Math.min(index, 6);
-          const side = depth % 2 ? 1 : -1;
           gsap.set(card, {
             position: "absolute", left: "50%", top: "50%", xPercent: -50, yPercent: -50,
-            x: side * Math.min(6 * depth, 42), y: depth * 3,
-            rotation: depth ? side * Math.min(fan, 8) * (depth / 6) : 0,
+            ...stackPose(index, fan),
             scale: cardScale * (1 - depth * 0.006), zIndex: cards.length - index,
             clearProps: "right,bottom,boxShadow",
           });
@@ -132,7 +138,7 @@ export function initEcosystemFolders() {
           const singleDeckLeft = root.getBoundingClientRect().left;
           other.root.hidden = false;
           const layoutShift = singleDeckLeft - currentLeft;
-          if (layoutShift) gsap.to(root, { x: layoutShift, duration: 0.25, ease: "power1.inOut" });
+          if (layoutShift) gsap.to(root, { x: layoutShift, duration: 0.25, ease: "power2.out" });
         }
         const beginExpand = () => {
           if (group.dataset.foldersState !== "expanding") return;
@@ -158,12 +164,12 @@ export function initEcosystemFolders() {
             });
           }
           row();
-          if (panel) gsap.to(panel, { opacity: 0, duration: 0.35, ease: "power2.out" });
+          if (panel) gsap.to(panel, { opacity: 0, duration: 0.3, ease: "power2.out" });
           deck.tween = Flip.from(state, {
             absolute: true, scale: true,
-            duration: 0.75,
-            stagger: { amount: Math.min(0.4, cards.length * 0.08) },
-            ease: "power2.inOut",
+            duration: 0.6,
+            stagger: { amount: Math.min(0.3, cards.length * 0.06) },
+            ease: "power3.inOut",
             onComplete: () => {
               gsap.set(root, { clearProps: "transform" });
               gsap.set([deck.folder, deck.panel], { clearProps: "opacity,scale" });
@@ -176,7 +182,7 @@ export function initEcosystemFolders() {
           beginExpand();
           return;
         }
-        gsap.to(other.root, { opacity: 0, scale: 0.92, duration: 0.25, onComplete: beginExpand });
+        gsap.to(other.root, { opacity: 0, scale: 0.92, duration: 0.25, ease: "power2.out", onComplete: beginExpand });
       };
       const collapseDeck = (instant = false) => {
         if (instance.active !== deck || !["expanded", "expanding", "collapsing"].includes(root.dataset.deckState)) return;
@@ -210,15 +216,15 @@ export function initEcosystemFolders() {
           if (root.dataset.deckState !== "collapsing") return;
           const fanState = Flip.getState(cards);
           stack(false);
-          if (panel) gsap.to(panel, { opacity: 1, duration: 0.35, ease: "power2.out", delay: 0.1 });
+          if (panel) gsap.to(panel, { opacity: 1, duration: 0.35, ease: "power3.out" });
           deck.tween = Flip.from(fanState, {
-            absolute: true, scale: true, duration: 0.45, stagger: 0.02, ease: "power3.inOut",
+            absolute: true, scale: true, duration: 0.35, stagger: 0.015, ease: "power3.out",
             onComplete: finishCollapse,
           });
         };
         deck.tween = Flip.from(state, {
-          absolute: true, scale: true, duration: 0.65,
-          stagger: { amount: Math.min(0.3, cards.length * 0.06), from: "end" }, ease: "power2.inOut",
+          absolute: true, scale: true, duration: 0.55,
+          stagger: { amount: Math.min(0.25, cards.length * 0.05), from: "end" }, ease: "power3.inOut",
           onComplete: settle,
         });
         function finishCollapse() {
@@ -231,8 +237,8 @@ export function initEcosystemFolders() {
               other.root.hidden = false;
               other.root.classList.remove("is-ecosystem-deck-hidden");
               const layoutShift = centredLeft - root.getBoundingClientRect().left;
-              if (layoutShift) gsap.fromTo(root, { x: layoutShift }, { x: 0, duration: 0.25, ease: "power1.inOut", clearProps: "x" });
-              gsap.fromTo(other.root, { opacity: 0, scale: 0.92 }, { opacity: 1, scale: 1, duration: 0.35, onComplete: () => { stackDeck(other); } });
+              if (layoutShift) gsap.fromTo(root, { x: layoutShift }, { x: 0, duration: 0.3, ease: "power2.out", clearProps: "x" });
+              gsap.fromTo(other.root, { opacity: 0, scale: 0.92 }, { opacity: 1, scale: 1, duration: 0.3, ease: "power2.out", onComplete: () => { stackDeck(other); } });
             }
             instance.active = null;
             setGroupState("stacked");
@@ -245,13 +251,17 @@ export function initEcosystemFolders() {
         localListen(folder, "pointerenter", () => {
           if (root.dataset.deckState !== "stacked" || group.dataset.foldersState !== "stacked") return;
           deck.hoverTween?.kill();
-          deck.hoverTween = gsap.timeline().to(root, { y: -6, duration: 0.3, ease: "power2.out" })
-            .to(panel, { yPercent: 6, duration: 0.3, ease: "power2.out" }, 0)
-            .to(cards, { y: "-=40", x: (index) => (index % 2 ? 1 : -1) * Math.min(index * 7, 42), rotation: (index) => (index % 2 ? 1 : -1) * Math.min(8, index + 1), duration: 0.45, stagger: 0.025, ease: "power3.out" }, 0);
+          deck.hoverTween = gsap.timeline().to(root, { y: -6, duration: 0.35, ease: "power3.out" })
+            .to(panel, { yPercent: 6, duration: 0.35, ease: "power3.out" }, 0)
+            .to(cards, { y: (index) => stackPose(index, DEFAULT_FAN).y - 40, x: (index) => (index % 2 ? 1 : -1) * Math.min(index * 7, 42), rotation: (index) => (index % 2 ? 1 : -1) * Math.min(8, index + 1), duration: 0.35, stagger: 0.02, ease: "power3.out" }, 0);
         });
         localListen(folder, "pointerleave", () => {
           if (root.dataset.deckState !== "stacked" || group.dataset.foldersState !== "stacked") return;
-          deck.hoverTween?.reverse();
+          deck.hoverTween?.kill();
+          const fan = number(getComputedStyle(root).getPropertyValue("--deck-fan"), DEFAULT_FAN);
+          deck.hoverTween = gsap.timeline().to(root, { y: 0, duration: 0.3, ease: "power3.out" })
+            .to(panel, { yPercent: 0, duration: 0.3, ease: "power3.out" }, 0)
+            .to(cards, { x: (index) => stackPose(index, fan).x, y: (index) => stackPose(index, fan).y, rotation: (index) => stackPose(index, fan).rotation, duration: 0.3, stagger: 0.015, ease: "power3.out" }, 0);
         });
       }
       localListen(folder, "click", (event) => { event.preventDefault(); expand(); });

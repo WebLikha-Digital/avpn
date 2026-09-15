@@ -1120,16 +1120,19 @@
       .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_card { flex:0 0 auto; }
       .ecosystem_deck[data-deck-state="expanded"] .ecosystem_deck-panel { opacity:0; }
       .ecosystem_deck.is-ecosystem-deck-hidden { pointer-events:none; }
-      .ecosystem_deck .ecosystem_card-img { transition:transform .6s cubic-bezier(.22,1,.36,1); }
+      /* Card hover: short `ease` for shadow/underline, ease-out-quart for the image. */
+      .ecosystem_deck .ecosystem_card { transition:box-shadow .2s ease; }
+      .ecosystem_deck .ecosystem_card-img { transition:transform .4s cubic-bezier(.165,.84,.44,1); }
+      .ecosystem_deck .ecosystem_card-title { text-decoration:underline transparent; text-underline-offset:4px; transition:text-decoration-color .2s ease; }
       @media (hover:hover) and (pointer:fine) {
         .ecosystem_deck[data-deck-state="expanded"] .ecosystem_card:hover { box-shadow:14px 14px 28px rgba(0,0,0,.38); }
         .ecosystem_deck[data-deck-state="expanded"] .ecosystem_card:hover .ecosystem_card-img { transform:scale(1.06); }
-        .ecosystem_deck[data-deck-state="expanded"] .ecosystem_card:hover .ecosystem_card-title { text-decoration:underline; text-underline-offset:4px; }
+        .ecosystem_deck[data-deck-state="expanded"] .ecosystem_card:hover .ecosystem_card-title { text-decoration-color:currentColor; }
       }
       @media (max-width:991px) { .ecosystem_folders { flex-direction:column; align-items:center; gap:40px; } .ecosystem_deck { --deck-card-h:340px; flex:0 1 380px; max-width:380px; } .ecosystem_deck[data-deck-state="expanded"] { flex:0 1 100%; max-width:100%; } }
       @media (max-width:767px) { .ecosystem_deck { --deck-card-h:300px; max-width:320px; } .ecosystem_deck[data-deck-state="expanded"] { max-width:100%; } }
       @media (hover:none) { .ecosystem_deck-folder { cursor:pointer; } }
-      @media (prefers-reduced-motion:reduce) { .ecosystem_deck-folder,.ecosystem_deck-panel,.ecosystem_deck .ecosystem_card-img { transition:none; } .ecosystem_deck[data-deck-state="expanded"] .ecosystem_deck-viewport { overflow-x:auto; } }
+      @media (prefers-reduced-motion:reduce) { .ecosystem_deck-folder,.ecosystem_deck-panel,.ecosystem_deck .ecosystem_card,.ecosystem_deck .ecosystem_card-img,.ecosystem_deck .ecosystem_card-title { transition:none; } .ecosystem_deck[data-deck-state="expanded"] .ecosystem_card:hover .ecosystem_card-img { transform:none; } .ecosystem_deck[data-deck-state="expanded"] .ecosystem_deck-viewport { overflow-x:auto; } }
 
       /* Legacy radial-slider CSS mirror retained for comparison; the commented
          radial markup above is inactive in this sandbox folder demo. */

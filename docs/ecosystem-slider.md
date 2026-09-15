@@ -4,6 +4,18 @@ The ecosystem radial slider is initialized from [data-radial-slider-init].
 The injected [data-radial-slider-proxy] remains the rotation target used by
 the controls, keyboard navigation, and card-centering logic.
 
+## Index and autoplay
+
+An optional [data-radial-slider-index] element inside the slider root is updated
+on every render as a zero-padded `current/total` readout, such as `01/19`.
+Both values count the original cards; generated clones are excluded.
+
+After the slider is revealed, autoplay advances one card every
+`AUTOPLAY_INTERVAL` milliseconds (4000 by default). It pauses while the root is
+hovered or focused, while its tab panel is hidden, and while the document is
+hidden. Manual navigation restarts the full interval. Users with
+`prefers-reduced-motion: reduce` do not get autoplay.
+
 ## Re-enable drag
 
 Set ENABLE_DRAG to true in src/animations/ecosystemSlider.js, run

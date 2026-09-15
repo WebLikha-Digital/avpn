@@ -1,6 +1,7 @@
 import { gsap, Draggable, ScrollTrigger } from "../lib/gsap.js";
 
 const RESIZE_DEBOUNCE = 200;
+const AUTOPLAY_INTERVAL = 4000;
 const ENABLE_DRAG = false;
 const mod = (value, total) => ((value % total) + total) % total;
 const reducedMotion = () => window.matchMedia?.(
@@ -24,6 +25,8 @@ function initEcosystemSlider(scope = document) {
       ":scope > [data-radial-slider-item]:not([data-radial-slider-clone])",
     )];
     if (!originalItems.length) return;
+    const index = root.querySelector("[data-radial-slider-index]");
+    if (index) index.textContent = `01/${String(originalItems.length).padStart(2, "0")}`;
 
     const panel = root.closest("[data-tabs-panel]");
     const tabsRoot = root.closest("[data-tabs-init]");
@@ -34,6 +37,8 @@ function initEcosystemSlider(scope = document) {
       root, collection, list, originalItems, controls, panel, tabsRoot,
       draggable: null, proxy: null, proxyWrap: null, revealTimeline: null,
       revealTrigger: null, arrowTween: null, listeners: [],
+      autoplayTimer: null, autoplayRevealed: false, autoplayHovered: false,
+      autoplayFocused: false, autoplayInView: false, revealStarted: false,
       activeIndex: 0, reduced: reducedMotion(),
     };
     root._ecosystemSliderInstance = instance;
@@ -50,6 +55,9 @@ function initEcosystemSlider(scope = document) {
     if (tabsRoot) listen(tabsRoot, "ecosystemtabs:change", onTabChange);
 
     instance.reveal = () => {
+      if (instance.revealStarted) return;
+      instance.revealStarted = true;
+      instance.autoplayRevealed = true;
       instance.revealTimeline?.kill();
       const items = [...list.querySelectorAll(":scope > [data-radial-slider-item]")];
       gsap.set(items, { opacity: instance.reduced ? 1 : 0, y: instance.reduced ? 0 : 40 });
@@ -61,8 +69,12 @@ function initEcosystemSlider(scope = document) {
         opacity: 1, y: 0, duration: 0.6, ease: "smooth",
         stagger: { each: 0.05, from: "center" },
       });
+      updateAutoplay();
     };
     instance.kill = () => {
+      clearTimeout(instance.autoplayTimer);
+      instance.autoplayTimer = null;
+      root.removeAttribute("data-radial-slider-autoplay");
       instance.draggable?.kill();
       instance.arrowTween?.kill();
       if (instance.proxy) gsap.killTweensOf(instance.proxy);
@@ -186,6 +198,12 @@ function initEcosystemSlider(scope = document) {
       const realIndex = getIndexFromProxy();
       const activeIndex = mod(Math.round(realIndex), totalItems);
       instance.activeIndex = activeIndex;
+      const indexReadout = root.querySelector("[data-radial-slider-index]");
+      if (indexReadout) {
+        const current = String(mod(activeIndex, originalItems.length) + 1).padStart(2, "0");
+        const total = String(originalItems.length).padStart(2, "0");
+        indexReadout.textContent = `${current}/${total}`;
+      }
       items.forEach((item, index) => {
         setRotation[index](nearestDelta(index, realIndex, totalItems) * rotateStep);
         const active = index === activeIndex;
@@ -194,12 +212,37 @@ function initEcosystemSlider(scope = document) {
         item.setAttribute("aria-current", active ? "true" : "false");
       });
     };
-    const goTo = (targetIndex, duration = instance.reduced ? 0 : 1) => {
+    const canPlay = () => !instance.reduced && instance.autoplayRevealed
+      && instance.autoplayInView
+      && !instance.autoplayHovered && !instance.autoplayFocused
+      && !document.hidden && !panel?.hidden;
+    const updateAutoplay = () => {
+      clearTimeout(instance.autoplayTimer);
+      instance.autoplayTimer = null;
+      if (!canPlay()) {
+        if (instance.autoplayRevealed && !instance.reduced) {
+          root.setAttribute("data-radial-slider-autoplay", "paused");
+        }
+        return;
+      }
+      root.setAttribute("data-radial-slider-autoplay", "playing");
+      instance.autoplayTimer = setTimeout(() => {
+        instance.autoplayTimer = null;
+        if (!canPlay()) {
+          updateAutoplay();
+          return;
+        }
+        goTo(Math.round(getIndexFromProxy()) + 1, instance.reduced ? 0 : 1, true);
+        updateAutoplay();
+      }, AUTOPLAY_INTERVAL);
+    };
+    const goTo = (targetIndex, duration = instance.reduced ? 0 : 1, automatic = false) => {
       gsap.killTweensOf(proxy);
       instance.arrowTween = gsap.to(proxy, {
         rotation: -targetIndex * rotateStep,
         duration, ease: "radial", overwrite: true, onUpdate: render, onComplete: render,
       });
+      if (!automatic) updateAutoplay();
     };
     const onClick = (event) => {
       const item = event.target.closest?.("a[data-radial-slider-item]");
@@ -215,7 +258,19 @@ function initEcosystemSlider(scope = document) {
       event.preventDefault();
       goTo(Math.round(getIndexFromProxy()) + (event.key === "ArrowRight" ? 1 : -1));
     };
+    const onPointerEnter = () => { instance.autoplayHovered = true; updateAutoplay(); };
+    const onPointerLeave = () => { instance.autoplayHovered = false; updateAutoplay(); };
+    const onFocusIn = () => { instance.autoplayFocused = true; updateAutoplay(); };
+    const onFocusOut = (event) => {
+      if (event.relatedTarget && root.contains(event.relatedTarget)) return;
+      instance.autoplayFocused = false;
+      updateAutoplay();
+    };
+    const onVisibilityChange = () => updateAutoplay();
     listen(root, "click", onClick, true); listen(root, "keydown", onKeyDown);
+    listen(root, "pointerenter", onPointerEnter); listen(root, "pointerleave", onPointerLeave);
+    listen(root, "focusin", onFocusIn); listen(root, "focusout", onFocusOut);
+    listen(document, "visibilitychange", onVisibilityChange);
     controls.forEach((control) => listen(control, "click", () => goTo(
       Math.round(getIndexFromProxy()) + (control.dataset.radialSliderControl === "next" ? 1 : -1),
     )));
@@ -241,7 +296,15 @@ function initEcosystemSlider(scope = document) {
       onThrowComplete: () => { root.setAttribute("data-radial-slider-drag-status", "grab"); render(); },
     })[0];
     render();
-    instance.revealTrigger = ScrollTrigger.create({ trigger: root, start: "top 80%", once: true, onEnter: instance.reveal });
+    instance.revealTrigger = ScrollTrigger.create({
+      trigger: root,
+      start: "top 80%",
+      onEnter: instance.reveal,
+      onToggle: (self) => {
+        instance.autoplayInView = self.isActive;
+        updateAutoplay();
+      },
+    });
   });
 }
 

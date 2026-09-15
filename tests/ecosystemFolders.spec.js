@@ -76,7 +76,33 @@ test("expands, pauses marquee, collapses, and supports Esc", async ({ page }) =>
   const paused = await deck.locator("[data-deck-track]").evaluate((node) => node.getBoundingClientRect().left);
   await page.waitForTimeout(120);
   expect(await deck.locator("[data-deck-track]").evaluate((node) => node.getBoundingClientRect().left)).toBeCloseTo(paused, 0);
+
+  const fadeSample = page.evaluate(() => new Promise((resolve) => {
+    const deck = document.querySelector("[data-deck-init=learn]");
+    const button = deck.querySelector("[data-deck-collapse]");
+    button.addEventListener("click", () => requestAnimationFrame(() => resolve({
+      opacity: Number.parseFloat(getComputedStyle(button).opacity),
+      state: deck.dataset.deckState,
+    })), { once: true });
+  }));
+  const collapsingTiming = page.evaluate(() => new Promise((resolve) => {
+    const deck = document.querySelector("[data-deck-init=learn]");
+    const button = deck.querySelector("[data-deck-collapse]");
+    let clickedAt;
+    const observer = new MutationObserver(() => {
+      if (deck.dataset.deckState !== "collapsing") return;
+      observer.disconnect();
+      resolve(performance.now() - clickedAt);
+    });
+    observer.observe(deck, { attributes: true, attributeFilter: ["data-deck-state"] });
+    button.addEventListener("click", () => { clickedAt = performance.now(); }, { once: true });
+  }));
   await deck.locator("[data-deck-collapse]").click();
+  const fade = await fadeSample;
+  expect(fade.opacity).toBeGreaterThan(0);
+  expect(fade.opacity).toBeLessThan(1);
+  expect(fade.state).toBe("expanded");
+  expect(await collapsingTiming).toBeGreaterThanOrEqual(150);
   await expect(root).toHaveAttribute("data-folders-state", "stacked");
   await expect(root.locator("[data-deck-init=voice]")).not.toBeHidden();
   await deck.locator("[data-deck-folder]").press("Enter");

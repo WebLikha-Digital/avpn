@@ -107,3 +107,61 @@ test("folders stack on mobile", async ({ page }) => {
   await expect(root).toHaveCSS("flex-direction", "column");
   await expect(root.locator(".ecosystem_deck").first()).toHaveCSS("max-width", "380px");
 });
+
+test("drags the infinite row with inertia and keeps links safe", async ({ page }) => {
+  const root = page.locator(folders);
+  const deck = root.locator(learn);
+  await deck.locator("[data-deck-folder]").click();
+  await expect(deck).toHaveAttribute("data-deck-state", "expanded");
+  await page.mouse.move(0, 0);
+  await page.waitForTimeout(120);
+
+  const cardPoint = await deck.locator("[data-deck-viewport]").evaluate((viewport) => {
+    const viewportBox = viewport.getBoundingClientRect();
+    const card = [...viewport.querySelectorAll("[data-deck-card]")].find((candidate) => {
+      const box = candidate.getBoundingClientRect();
+      return box.right > viewportBox.left && box.left < viewportBox.right && box.bottom > viewportBox.top && box.top < viewportBox.bottom;
+    });
+    if (!card) throw new Error("No visible publication card found for drag test");
+    card.href = "#drag-test";
+    const box = card.getBoundingClientRect();
+    return { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+  });
+  const hashBefore = await page.evaluate(() => location.hash);
+  const before = await deck.locator("[data-deck-track]").evaluate((track) => track.getBoundingClientRect().left);
+  await page.mouse.move(cardPoint.x, cardPoint.y);
+  await page.mouse.down();
+  await expect(deck.locator("[data-deck-viewport]")).toHaveAttribute("data-deck-drag-status", "grabbing");
+  for (let offset = 60; offset <= 300; offset += 60) {
+    await page.mouse.move(cardPoint.x - offset, cardPoint.y);
+  }
+  const duringDrag = await deck.locator("[data-deck-track]").evaluate((track) => track.getBoundingClientRect().left);
+  expect(duringDrag - before).toBeLessThan(-200);
+  expect(duringDrag - before).toBeGreaterThan(-380);
+  await page.mouse.up();
+  await expect(deck.locator("[data-deck-viewport]")).toHaveAttribute("data-deck-drag-status", "grab");
+  await page.waitForTimeout(50);
+  expect(await page.evaluate(() => location.hash)).toBe(hashBefore);
+
+  // Let the inertia throw settle before the clean click, or the card under the
+  // pointer is still moving and the click lands on a neighbour or a gap.
+  await expect.poll(async () => deck.evaluate((root) => root._ecosystemDeckInstance.throwActive), { timeout: 4000 }).toBe(false);
+  const cleanPoint = await deck.locator("[data-deck-viewport]").evaluate((viewport) => {
+    const viewportBox = viewport.getBoundingClientRect();
+    // A card fully inside the window: a half-off-screen card at the left edge
+    // has been seen to miss under parallel test load.
+    const card = [...viewport.querySelectorAll("[data-deck-card]")].find((candidate) => {
+      const box = candidate.getBoundingClientRect();
+      return box.left > Math.max(viewportBox.left, 0) + 40 && box.right < Math.min(viewportBox.right, window.innerWidth) - 40;
+    });
+    if (!card) throw new Error("No fully visible publication card found for clean click");
+    card.href = "#drag-test";
+    const box = card.getBoundingClientRect();
+    return { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+  });
+  await page.mouse.click(cleanPoint.x, cleanPoint.y);
+  expect(await page.evaluate(() => location.hash)).toBe("#drag-test");
+  await page.mouse.move(0, 0);
+  const movingBefore = await deck.locator("[data-deck-track]").evaluate((track) => track.getBoundingClientRect().left);
+  await expect.poll(async () => deck.locator("[data-deck-track]").evaluate((track) => track.getBoundingClientRect().left), { timeout: 1500 }).toBeLessThan(movingBefore);
+});

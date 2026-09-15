@@ -20,6 +20,16 @@ second. The default speed is 60. A reduced-motion preference skips Flip and
 the ticker and leaves the expanded viewport natively horizontally scrollable.
 Resize relayout is debounced and only responds to width changes.
 
+## Drag
+
+In the expanded state, the viewport owns a proxy `Draggable` with `type: "x"`
+and inertia enabled. Drag deltas update the same wrapped `deck.offset` used by
+the marquee ticker, so the row has no edges or snap points. `--deck-speed`
+continues to control autoplay; pressing pauses autoplay through the inertia
+throw, then playback resumes when the throw settles. A movement of four pixels
+or more suppresses the link click that follows the drag. Reduced-motion users
+do not receive a Draggable or inertia and keep the native horizontal scroller.
+
 The future Webflow build needs the same namespaced attributes, the two folder
 roots, the cream folder SVG/panel artwork, the publication links, and the
 page-style CSS mirror. Webflow owns the classes, copy, links, and responsive

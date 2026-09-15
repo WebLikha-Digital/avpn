@@ -1,4 +1,4 @@
-import { gsap, Flip } from "../lib/gsap.js";
+import { gsap, Flip, Draggable, InertiaPlugin } from "../lib/gsap.js";
 
 const DEFAULT_FAN = 8;
 const DEFAULT_SPEED = 60;
@@ -45,7 +45,9 @@ export function initEcosystemFolders() {
       const deck = {
         root, folder, panel, viewport, track, collapse, hint, cards,
         reduced, paused: false, offset: 0, setWidth: 0, ticker: null,
-        tween: null, hoverTween: null, listeners: [],
+        tween: null, hoverTween: null, listeners: [], draggable: null,
+        proxy: null, throwActive: false, dragPaused: false,
+        movedSincePress: false, proxyX: 0,
       };
       instance.decks.push(deck);
       root._ecosystemDeckInstance = deck;
@@ -99,6 +101,7 @@ export function initEcosystemFolders() {
         setHint("stacked");
         if (collapse) collapse.hidden = true;
         viewport.style.overflowX = "";
+        viewport.removeAttribute("data-deck-drag-status");
       };
       const row = () => {
         track.style.display = "flex";
@@ -123,7 +126,11 @@ export function initEcosystemFolders() {
         setHint("expanded");
         if (collapse) collapse.hidden = false;
         viewport.style.overflowX = deck.reduced ? "auto" : "hidden";
-        if (!deck.reduced) startMarquee(deck);
+        if (!deck.reduced) {
+          startMarquee(deck);
+          createDrag(deck);
+          viewport.setAttribute("data-deck-drag-status", "grab");
+        }
       };
       const expand = () => {
         if (group.dataset.foldersState !== "stacked" || root.dataset.deckState !== "stacked") return;
@@ -195,6 +202,7 @@ export function initEcosystemFolders() {
         if (instance.active !== deck || !["expanded", "expanding", "collapsing"].includes(root.dataset.deckState)) return;
         deck.tween?.kill();
         deck.hoverTween?.kill();
+        killDrag(deck);
         gsap.set([root, panel], { clearProps: "y,yPercent" });
         if (!instant && !deck.reduced) alignOriginalsToView(deck);
         const state = deck.reduced ? null : Flip.getState(cards);
@@ -271,7 +279,12 @@ export function initEcosystemFolders() {
             .to(cards, { x: (index) => stackPose(index, fan).x, y: (index) => stackPose(index, fan).y, rotation: (index) => stackPose(index, fan).rotation, duration: 0.3, stagger: 0.015, ease: "power3.out" }, 0);
         });
       }
-      localListen(folder, "click", (event) => { event.preventDefault(); expand(); });
+      localListen(folder, "click", (event) => {
+        // The folder wraps the open row too; only the stacked folder is the button.
+        if (root.dataset.deckState !== "stacked") return;
+        event.preventDefault();
+        expand();
+      });
       localListen(folder, "keydown", (event) => {
         if (["Enter", " "].includes(event.key)) { event.preventDefault(); expand(); }
       });
@@ -280,6 +293,11 @@ export function initEcosystemFolders() {
       localListen(viewport, "pointerleave", () => { deck.paused = false; });
       localListen(viewport, "focusin", () => { deck.paused = true; });
       localListen(viewport, "focusout", (event) => { if (!viewport.contains(event.relatedTarget)) deck.paused = false; });
+      localListen(track, "click", (event) => {
+        if (!deck.movedSincePress) return;
+        event.preventDefault();
+        event.stopPropagation();
+      }, true);
       deck.stack = stack;
       stack();
     });
@@ -310,7 +328,15 @@ export function initEcosystemFolders() {
         const instance = group._ecosystemFoldersInstance;
         instance?.decks.forEach((deck) => {
           if (deck.root.dataset.deckState === "stacked") deck.stack?.();
-          else if (deck.root.dataset.deckState === "expanded") { stopMarquee(deck); if (!instance.reduced) startMarquee(deck); }
+          else if (deck.root.dataset.deckState === "expanded") {
+            killDrag(deck);
+            stopMarquee(deck);
+            if (!instance.reduced) {
+              startMarquee(deck);
+              createDrag(deck);
+              deck.viewport.setAttribute("data-deck-drag-status", "grab");
+            }
+          }
         });
       });
     }, 120);
@@ -336,11 +362,83 @@ function startMarquee(deck) {
   deck.setWidth = originalsWidth;
   deck.offset = 0;
   deck.ticker = () => {
-    if (deck.paused || !deck.setWidth) return;
+    if (deck.paused || deck.dragPaused || deck.throwActive || !deck.setWidth) return;
     deck.offset = (deck.offset - speed * gsap.ticker.deltaRatio(60) / 60) % deck.setWidth;
     gsap.set(deck.track, { x: deck.offset });
   };
   gsap.ticker.add(deck.ticker, false, true);
+}
+
+function createDrag(deck) {
+  if (deck.reduced || deck.draggable || deck.root.dataset.deckState !== "expanded") return;
+  const proxy = document.createElement("div");
+  proxy.setAttribute("aria-hidden", "true");
+  proxy.dataset.deckDragProxy = "";
+  proxy.style.cssText = "position:absolute; width:1px; height:1px; pointer-events:none; opacity:0;";
+  deck.viewport.appendChild(proxy);
+  deck.proxy = proxy;
+  deck.proxyX = 0;
+  const render = (x) => {
+    if (!deck.setWidth) return;
+    const delta = x - deck.proxyX;
+    if (delta) {
+      deck.offset = wrapOffset(deck.offset + delta, deck.setWidth);
+      gsap.set(deck.track, { x: deck.offset });
+    }
+    deck.proxyX = x;
+  };
+  deck.draggable = Draggable.create(proxy, {
+    type: "x",
+    trigger: deck.viewport,
+    inertia: Boolean(InertiaPlugin),
+    allowEventDefault: true,
+    minimumMovement: 4,
+    bounds: false,
+    onPress() {
+      deck.movedSincePress = false;
+      deck.dragPaused = true;
+      deck.throwActive = false;
+      this.tween?.kill();
+      gsap.killTweensOf(proxy);
+      gsap.set(proxy, { x: 0 });
+      deck.proxyX = 0;
+      deck.viewport.setAttribute("data-deck-drag-status", "grabbing");
+    },
+    onDragStart() {
+      deck.movedSincePress = true;
+    },
+    onDrag() { render(this.x); },
+    onThrowUpdate() { render(this.x); },
+    onRelease() {
+      deck.viewport.setAttribute("data-deck-drag-status", "grab");
+      deck.throwActive = Boolean(this.tween);
+      if (!deck.throwActive) deck.dragPaused = false;
+    },
+    onDragEnd() {
+      deck.viewport.setAttribute("data-deck-drag-status", "grab");
+    },
+    onThrowComplete() {
+      deck.throwActive = false;
+      deck.dragPaused = false;
+      deck.proxyX = 0;
+      gsap.set(proxy, { x: 0 });
+      deck.viewport.setAttribute("data-deck-drag-status", "grab");
+    },
+  })[0];
+}
+
+function killDrag(deck) {
+  deck.throwActive = false;
+  deck.dragPaused = false;
+  deck.movedSincePress = false;
+  deck.proxyX = 0;
+  if (deck.proxy) gsap.killTweensOf(deck.proxy);
+  deck.draggable?.tween?.kill();
+  deck.draggable?.kill();
+  deck.draggable = null;
+  deck.proxy?.remove();
+  deck.proxy = null;
+  deck.viewport?.removeAttribute("data-deck-drag-status");
 }
 
 /**
@@ -370,6 +468,14 @@ function stopMarquee(deck) {
   removeClones(deck.root);
 }
 
+function wrapOffset(value, width) {
+  if (!width) return value;
+  let next = value;
+  while (next <= -width) next += width;
+  while (next >= width) next -= width;
+  return next;
+}
+
 function removeClones(root) { root.querySelectorAll("[data-deck-clone]").forEach((clone) => clone.remove()); }
 function number(value, fallback) { const parsed = Number.parseFloat(value); return Number.isFinite(parsed) ? parsed : fallback; }
 function gap(track) { const styles = getComputedStyle(track); return number(styles.columnGap || styles.gap, 24); }
@@ -378,5 +484,6 @@ function teardown(group) {
   if (!instance) return;
   instance.listeners?.forEach((remove) => remove());
   instance.decks?.forEach((deck) => { deck.tween?.kill(); stopMarquee(deck); deck.listeners?.forEach((remove) => remove()); });
+  instance.decks?.forEach((deck) => killDrag(deck));
   group._ecosystemFoldersInstance = null;
 }

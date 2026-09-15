@@ -188,12 +188,29 @@ export function initEcosystemFolders() {
           folder.focus();
           return;
         }
+        // Two phases: the row flies back into the raised fan (the hover pose,
+        // held above the folder), then the fan settles into the folder as the
+        // panel fades in — the reverse of hover → click → fly out.
         stack(false);
-        if (panel) gsap.to(panel, { opacity: 1, duration: 0.35, ease: "power2.out" });
+        viewport.style.overflowX = "";
+        gsap.set(cards, { y: "-=40", x: (index) => (index % 2 ? 1 : -1) * Math.min(index * 7, 42), rotation: (index) => (index % 2 ? 1 : -1) * Math.min(8, index + 1) });
+        if (panel) gsap.set(panel, { opacity: 0 });
+        const settle = () => {
+          if (root.dataset.deckState !== "collapsing") return;
+          const fanState = Flip.getState(cards);
+          stack(false);
+          if (panel) gsap.to(panel, { opacity: 1, duration: 0.35, ease: "power2.out", delay: 0.1 });
+          deck.tween = Flip.from(fanState, {
+            absolute: true, scale: true, duration: 0.45, stagger: 0.02, ease: "power3.inOut",
+            onComplete: finishCollapse,
+          });
+        };
         deck.tween = Flip.from(state, {
           absolute: true, scale: true, duration: 0.65,
           stagger: { amount: Math.min(0.3, cards.length * 0.06), from: "end" }, ease: "power2.inOut",
-          onComplete: () => {
+          onComplete: settle,
+        });
+        function finishCollapse() {
             stack();
             if (other) {
               // Mirror of the expand compensation: un-hiding the other deck
@@ -209,8 +226,7 @@ export function initEcosystemFolders() {
             instance.active = null;
             setGroupState("stacked");
             folder.focus();
-          },
-        });
+        }
       };
       deck._collapse = collapseDeck;
       deck.collapseDeck = collapseDeck;

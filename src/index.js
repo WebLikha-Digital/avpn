@@ -27,6 +27,7 @@ import { initEcosystemSlider } from "./animations/ecosystemSlider.js";
 import { initCursorMarquee } from "./animations/cursorMarquee.js";
 import { initHamburgerNav } from "./animations/hamburgerNav.js";
 import { initHeroVideoGate } from "./animations/heroVideoGate.js";
+import { initHeroEntrance } from "./animations/heroEntrance.js";
 
 // Components that look up the band they sit in. The band has to exist before
 // any of them initialize, and they all have to rebuild when a resize tears it
@@ -63,6 +64,7 @@ function init() {
   initListPreviewFollower();
   watchImagesForRefresh();
   watchDocumentHeight();
+  initHeroEntrance();
 }
 
 window.addEventListener(HSCROLL_REBUILT, initBandAware);

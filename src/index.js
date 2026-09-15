@@ -24,6 +24,7 @@ import { initListHoverReveal } from "./animations/listHoverReveal.js";
 import { initListPreviewFollower } from "./animations/listPreviewFollower.js";
 import { initEcosystemTabs } from "./animations/ecosystemTabs.js";
 import { initEcosystemSlider } from "./animations/ecosystemSlider.js";
+import { initCursorMarquee } from "./animations/cursorMarquee.js";
 import { initHamburgerNav } from "./animations/hamburgerNav.js";
 import { initHeroVideoGate } from "./animations/heroVideoGate.js";
 
@@ -57,6 +58,7 @@ function init() {
   initArcScrollTransition();
   initProgrammesOverview();
   initEcosystemSlider();
+  initCursorMarquee();
   initListHoverReveal();
   initListPreviewFollower();
   watchImagesForRefresh();

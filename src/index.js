@@ -45,6 +45,7 @@ function init() {
   initLocomotiveScroll();
   initHamburgerNav();
   initHorizontalScroller();
+  initEcosystemTabs();
   initBandAware();
   initMarqueeScrollDirection();
   initContentReveal();
@@ -55,7 +56,6 @@ function init() {
   initStoriesStack();
   initArcScrollTransition();
   initProgrammesOverview();
-  initEcosystemTabs();
   initEcosystemSlider();
   initListHoverReveal();
   initListPreviewFollower();

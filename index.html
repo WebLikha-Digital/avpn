@@ -1098,7 +1098,9 @@
       .ecosystem_deck-intro { min-height:52px; margin:24px auto 0; opacity:1 !important; visibility:visible !important; }
       .ecosystem_deck[data-deck-state="stacked"] .ecosystem_deck-intro { display:block; }
       .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-header { display:flex; }
-      .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-intro { display:none; }
+      /* Hidden through collapsing too, so the split reveal runs once on the settled folder rather than showing under the fan first. */
+      .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"],[data-deck-state="collapsing"]) .ecosystem_deck-intro,
+      .ecosystem_deck[data-deck-state="collapsing"] .ecosystem_deck-hint { display:none; }
       .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) { display:flex; flex-direction:column; }
       /* Header sits under the row so the open row starts where the folder stood. */
       .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-header { order:2; margin:72px 0 0; }

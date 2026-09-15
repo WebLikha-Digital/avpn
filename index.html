@@ -635,6 +635,25 @@
       }
       .arc-demo--reveal { background: #f7f1ea; color: #183b45; }
       .arc-demo--reveal [data-arc-scroll-transition] { color: #183b45; }
+      .stories-stack-demo {
+        position: relative; min-height: 150vh; margin: 0 -2rem 2rem;
+        padding: 0 2rem; background: #f7f1ea; color: #183b45; overflow: hidden;
+      }
+      .stories-stack-demo__line { position: absolute; inset: 0 15%; pointer-events: none; z-index: 0; }
+      .stories-stack-demo__line svg { width: 100%; height: 100%; }
+      .stories-stack-demo__list { position: relative; z-index: 1; max-width: 48rem; margin: 0 auto; }
+      .stories-stack-demo__item { padding: 3.5rem 0 14rem; border-top: 1px dashed #183b45; background: transparent; }
+      .stories-community_item-inner { display: flex; flex-direction: column; gap: 1.5rem; }
+      .stories-stack-demo__media { display: flex; align-items: center; gap: 2rem; }
+      .stories-stack-demo__heading { margin: 0; font-size: clamp(2rem, 5vw, 4rem); }
+      .stories-stack-demo__shape { display: block; width: 5rem; height: 5rem; flex: none; background: #e94f37; border-radius: 50%; }
+      .stories-stack-demo__shape.is-leaf { border-radius: 100% 0; background: #3f88c5; }
+      .stories-stack-demo__shape.is-rounded { border-radius: 1.5rem; background: #44bba4; }
+      .stories-stack-demo__body { max-width: 34rem; margin: 0; font-size: 1.25rem; line-height: 1.45; }
+      @media (max-width: 991px) {
+        .stories-stack-demo { padding-inline: 1.5rem; }
+        .stories-stack-demo__item { padding-bottom: 3.5rem; }
+      }
       [data-arc-scroll-transition] svg { display: block; width: 100%; height: 100%; }
       [data-arc-scroll-transition] path { fill: currentColor; }
       .hband__panel {
@@ -1738,6 +1757,41 @@
     <section class="arc-demo arc-demo--reveal">
       <div class="arc-demo__content">Arc scroll transition — reveal</div>
       <div data-arc-scroll-transition data-mode="reveal" data-curve="12" aria-hidden="true"></div>
+    </section>
+
+    <p>Stories from AVPN Community — rows fade up on entry, then pin and scale
+      their shapes on desktop. The dashed line stays behind the rows.</p>
+
+    <section class="stories-stack-demo" data-testid="stories-stack">
+      <div class="stories-stack-demo__line" aria-hidden="true"
+           data-draw-scroll-wrap data-draw-scroll-start="clamp(top 85%)"
+           data-draw-scroll-end="clamp(bottom 55%)">
+        <svg viewBox="0 0 400 1000" preserveAspectRatio="none" fill="none"
+             stroke="#183b45" stroke-width="2" stroke-dasharray="1 10"
+             stroke-linecap="round" data-draw-scroll-desktop>
+          <path data-draw-scroll-path d="M200 0 C 50 180, 350 320, 200 500 S 50 820, 200 1000" />
+        </svg>
+      </div>
+      <div class="stories-stack-demo__list" data-stories-init data-stories-pin-offset="128">
+        <div class="stories-stack-demo__item" data-stories-item>
+          <div class="stories-community_item-inner"><div class="stories-stack-demo__media">
+            <h3 class="stories-stack-demo__heading">Taiwan AI Engagement</h3>
+            <div class="stories-stack-demo__shape stories-community_shape" aria-hidden="true"></div>
+          </div><p class="stories-stack-demo__body">Building shared learning and responsible pathways for AI impact across Asia.</p></div>
+        </div>
+        <div class="stories-stack-demo__item" data-stories-item>
+          <div class="stories-community_item-inner"><div class="stories-stack-demo__media">
+            <h3 class="stories-stack-demo__heading">Philanthropy Fellowship</h3>
+            <div class="stories-stack-demo__shape is-leaf stories-community_shape" aria-hidden="true"></div>
+          </div><p class="stories-stack-demo__body">Connecting leaders and funders to strengthen the region’s social investment ecosystem.</p></div>
+        </div>
+        <div class="stories-stack-demo__item" data-stories-item>
+          <div class="stories-community_item-inner"><div class="stories-stack-demo__media">
+            <h3 class="stories-stack-demo__heading">ACAII Fund</h3>
+            <div class="stories-stack-demo__shape is-rounded stories-community_shape" aria-hidden="true"></div>
+          </div><p class="stories-stack-demo__body">Unlocking catalytic capital for locally led solutions and durable community impact.</p></div>
+        </div>
+      </div>
     </section>
 
 

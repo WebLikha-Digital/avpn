@@ -54,6 +54,9 @@ dist/          bundled output pasted into Webflow custom code
 - [`docs/image-breaker.md`](docs/image-breaker.md) — the image breaker that
   closes the CEO's Foreword: how the sticky clip-path reveal works, the Webflow
   contract, measurements, and troubleshooting.
+- `src/animations/storiesStack.js` — Stories from AVPN Community row entrance,
+  desktop stacked-row pinning, and scrubbed shape scale. Webflow attributes are
+  `data-stories-pin`, `data-stories-pin-offset`, and `data-stories-shape-scale`.
 - `src/animations/scrollParallax.js` — vertical image parallax for clipped
   frames. Add `data-parallax` to the element to move; optional
   `data-parallax-amount` (default `0.06`, clamped to `0–0.5`),

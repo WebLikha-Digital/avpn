@@ -1113,9 +1113,9 @@
       .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-folder { height:calc(var(--deck-card-h) - 56px); aspect-ratio:auto; background:transparent; box-shadow:none; transition:none; }
       .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-cover { inset:0; overflow:visible; background:transparent; }
       /* Expanded row bleeds edge to edge of the viewport; the section clips it.
-         Negative top/bottom insets leave room for the card shadows inside the clip. */
-      .ecosystem_deck[data-deck-state="expanding"] .ecosystem_deck-viewport { inset:-48px auto -56px calc(50% - 50vw); width:100vw; overflow:visible; }
-      .ecosystem_deck[data-deck-state="expanded"] .ecosystem_deck-viewport { inset:-48px auto -56px calc(50% - 50vw); width:100vw; overflow:hidden; }
+         Negative top/bottom insets leave room for the card shadows (hover: 14px 14px 28px) inside the clip. */
+      .ecosystem_deck[data-deck-state="expanding"] .ecosystem_deck-viewport { inset:-68px auto -76px calc(50% - 50vw); width:100vw; overflow:visible; }
+      .ecosystem_deck[data-deck-state="expanded"] .ecosystem_deck-viewport { inset:-68px auto -76px calc(50% - 50vw); width:100vw; overflow:hidden; }
       .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-track { display:flex; align-items:center; gap:24px; width:max-content; height:100%; }
       .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_card { flex:0 0 auto; }
       .ecosystem_deck[data-deck-state="expanded"] .ecosystem_deck-panel { opacity:0; }

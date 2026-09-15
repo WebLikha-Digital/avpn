@@ -57,7 +57,13 @@ export function initSplitReveal() {
 
   headings.forEach((heading) => {
     bindEcosystemTabReplay(heading);
+    bindEcosystemFoldersReplay(heading);
     if (heading.closest("[data-tabs-panel]")?.hidden) {
+      cleanupSplit(heading);
+      return;
+    }
+    const deck = heading.closest("[data-deck-init]");
+    if (deck && (deck.hidden || deck.dataset.deckState !== "stacked")) {
       cleanupSplit(heading);
       return;
     }
@@ -68,6 +74,10 @@ export function initSplitReveal() {
 
 function setupSplit(heading, replay = false) {
   cleanupSplit(heading);
+  // A replay can only be asked for by the folder decks, whose intros may still
+  // be display:none; do not split a zero-size element. Initial setup keeps
+  // splitting regardless so headings hidden at load reveal when they appear.
+  if (replay && (heading.hidden || !heading.getClientRects().length)) return;
 
   const type = heading.getAttribute("data-split-reveal") || "lines";
   const typesToSplit = TYPES_TO_SPLIT[type] || TYPES_TO_SPLIT.lines;
@@ -158,6 +168,20 @@ function bindEcosystemTabReplay(heading) {
     });
   };
   root.addEventListener("ecosystemtabs:change", root._splitRevealTabListener);
+}
+
+function bindEcosystemFoldersReplay(heading) {
+  const group = heading.closest("[data-folders-init]");
+  if (!group || group._splitRevealFoldersListener) return;
+
+  group._splitRevealFoldersListener = () => {
+    group.querySelectorAll('[data-split="heading"]').forEach((target) => {
+      const deck = target.closest("[data-deck-init]");
+      if (deck?.hidden) return;
+      setupSplit(target, true);
+    });
+  };
+  group.addEventListener("ecosystemfolders:collapsed", group._splitRevealFoldersListener);
 }
 
 /**

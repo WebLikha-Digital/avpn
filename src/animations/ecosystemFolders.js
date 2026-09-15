@@ -28,6 +28,12 @@ export function initEcosystemFolders() {
       if (active) group.dataset.foldersActive = active;
       else group.removeAttribute("data-folders-active");
     };
+    const dispatchCollapsed = (id) => {
+      group.dispatchEvent(new CustomEvent("ecosystemfolders:collapsed", {
+        bubbles: true,
+        detail: { id },
+      }));
+    };
 
     roots.forEach((root) => {
       const folder = root.querySelector("[data-deck-folder]");
@@ -218,6 +224,7 @@ export function initEcosystemFolders() {
           instance.active = null;
           setGroupState("stacked");
           folder.focus();
+          dispatchCollapsed(root.dataset.deckInit);
           return;
         }
         // Two phases: the row flies back into the raised fan (the hover pose,
@@ -258,6 +265,7 @@ export function initEcosystemFolders() {
             instance.active = null;
             setGroupState("stacked");
             folder.focus();
+            dispatchCollapsed(root.dataset.deckInit);
         }
       };
       deck._collapse = collapseDeck;

@@ -61,6 +61,8 @@ test("expands, pauses marquee, collapses, and supports Esc", async ({ page }) =>
   await expect(root.locator("[data-deck-init=voice]")).toBeHidden();
   await expect(deck.locator("[data-deck-collapse]")).toBeVisible();
   expect(await deck.locator("[data-deck-collapse]").evaluate((button) => {
+    // The pill sits under the row; bring it on screen or elementFromPoint returns null.
+    button.scrollIntoView({ block: "center" });
     const box = button.getBoundingClientRect();
     const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
     return hit === button || button.contains(hit);

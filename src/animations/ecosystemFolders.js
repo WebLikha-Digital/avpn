@@ -53,8 +53,13 @@ export function initEcosystemFolders() {
         reduced, paused: false, offset: 0, setWidth: 0, ticker: null,
         tween: null, hoverTween: null, listeners: [], draggable: null,
         proxy: null, throwActive: false, dragPaused: false,
-        movedSincePress: false, proxyX: 0,
+        movedSincePress: false, proxyX: 0, footerFadeTween: null,
       };
+      deck.footer = [
+        root.querySelector("[data-deck-title]"),
+        hint,
+        collapse,
+      ].filter(Boolean);
       instance.decks.push(deck);
       root._ecosystemDeckInstance = deck;
       root.dataset.deckState = "stacked";
@@ -139,6 +144,7 @@ export function initEcosystemFolders() {
         }
       };
       const expand = () => {
+        killFooterFade(deck);
         if (group.dataset.foldersState !== "stacked" || root.dataset.deckState !== "stacked") return;
         const other = instance.decks.find((candidate) => candidate !== deck);
         setGroupState("expanding", root.dataset.deckInit);
@@ -206,16 +212,14 @@ export function initEcosystemFolders() {
       };
       const collapseDeck = (instant = false) => {
         if (instance.active !== deck || !["expanded", "expanding", "collapsing"].includes(root.dataset.deckState)) return;
+        if (deck.footerFadeTween && !instant && !deck.reduced) return;
+        if (instant || deck.reduced) killFooterFade(deck);
         deck.tween?.kill();
         deck.hoverTween?.kill();
         killDrag(deck);
-        gsap.set([root, panel], { clearProps: "y,yPercent" });
-        if (!instant && !deck.reduced) alignOriginalsToView(deck);
-        const state = deck.reduced ? null : Flip.getState(cards);
-        root.dataset.deckState = "collapsing";
-        setGroupState("collapsing", root.dataset.deckInit);
         const other = instance.decks.find((candidate) => candidate !== deck);
         if (instant || deck.reduced) {
+          gsap.set([root, panel], { clearProps: "y,yPercent" });
           if (face.length) gsap.set(face, { clearProps: "opacity" });
           stopMarquee(deck);
           stack();
@@ -227,6 +231,25 @@ export function initEcosystemFolders() {
           dispatchCollapsed(root.dataset.deckInit);
           return;
         }
+
+        deck.footerFadeTween = gsap.to(deck.footer, {
+          opacity: 0,
+          duration: 0.2,
+          ease: "power2.out",
+          onComplete: () => {
+            deck.footerFadeTween = null;
+            // Esc during the fly-out is allowed: the expand tween was killed above, so the deck is still "expanding".
+            if (instance.active !== deck || !["expanded", "expanding"].includes(root.dataset.deckState)) return;
+            continueCollapse();
+          },
+        });
+
+        function continueCollapse() {
+        gsap.set([root, panel], { clearProps: "y,yPercent" });
+        alignOriginalsToView(deck);
+        const state = Flip.getState(cards);
+        root.dataset.deckState = "collapsing";
+        setGroupState("collapsing", root.dataset.deckInit);
         // Two phases: the row flies back into the raised fan (the hover pose,
         // held above the folder), then the fan settles into the folder as the
         // panel fades in — the reverse of hover → click → fly out.
@@ -265,7 +288,9 @@ export function initEcosystemFolders() {
             instance.active = null;
             setGroupState("stacked");
             folder.focus();
+            gsap.set(deck.footer, { clearProps: "opacity" });
             dispatchCollapsed(root.dataset.deckInit);
+        }
         }
       };
       deck._collapse = collapseDeck;
@@ -449,6 +474,12 @@ function killDrag(deck) {
   deck.viewport?.removeAttribute("data-deck-drag-status");
 }
 
+function killFooterFade(deck) {
+  deck.footerFadeTween?.kill();
+  deck.footerFadeTween = null;
+  if (deck.footer?.length) gsap.set(deck.footer, { clearProps: "opacity" });
+}
+
 /**
  * The marquee scrolls the originals off screen and shows their clones. Before
  * collapsing, shift the track by whole set widths so the originals sit exactly
@@ -491,7 +522,7 @@ function teardown(group) {
   const instance = group._ecosystemFoldersInstance;
   if (!instance) return;
   instance.listeners?.forEach((remove) => remove());
-  instance.decks?.forEach((deck) => { deck.tween?.kill(); stopMarquee(deck); deck.listeners?.forEach((remove) => remove()); });
+  instance.decks?.forEach((deck) => { deck.tween?.kill(); killFooterFade(deck); stopMarquee(deck); deck.listeners?.forEach((remove) => remove()); });
   instance.decks?.forEach((deck) => killDrag(deck));
   group._ecosystemFoldersInstance = null;
 }

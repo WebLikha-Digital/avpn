@@ -26,6 +26,8 @@ every completed collapse, the group dispatches a bubbling
 `splitReveal.js` listens once per group and replays the reveal for each visible
 folder intro after both decks have returned to the stacked layout.
 
+The expanded footer fades out for 0.2 seconds before a normal collapse begins.
+
 ## Drag
 
 In the expanded state, the viewport owns a proxy `Draggable` with `type: "x"`

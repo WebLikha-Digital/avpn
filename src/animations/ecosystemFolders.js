@@ -171,6 +171,7 @@ export function initEcosystemFolders() {
         deck.tween?.kill();
         deck.hoverTween?.kill();
         gsap.set([root, panel], { clearProps: "y,yPercent" });
+        if (!instant && !deck.reduced) alignOriginalsToView(deck);
         const state = deck.reduced ? null : Flip.getState(cards);
         root.dataset.deckState = "collapsing";
         setGroupState("collapsing", root.dataset.deckInit);
@@ -190,7 +191,7 @@ export function initEcosystemFolders() {
         if (panel) gsap.to(panel, { opacity: 1, duration: 0.35, ease: "power2.out" });
         deck.tween = Flip.from(state, {
           absolute: true, scale: true, duration: 0.65,
-          stagger: { amount: Math.min(0.3, cards.length * 0.06) }, ease: "power2.inOut",
+          stagger: { amount: Math.min(0.3, cards.length * 0.06), from: "end" }, ease: "power2.inOut",
           onComplete: () => {
             stack();
             if (other) {
@@ -294,6 +295,25 @@ function startMarquee(deck) {
     gsap.set(deck.track, { x: deck.offset });
   };
   gsap.ticker.add(deck.ticker, false, true);
+}
+
+/**
+ * The marquee scrolls the originals off screen and shows their clones. Before
+ * collapsing, shift the track by whole set widths so the originals sit exactly
+ * where the visible clones are; the clones can then be removed with no visual
+ * change and the originals fly back from where the user sees them.
+ */
+function alignOriginalsToView(deck) {
+  if (!deck.ticker || !deck.setWidth) return;
+  const viewport = deck.viewport.getBoundingClientRect();
+  const originLeft = deck.track.getBoundingClientRect().left - deck.offset;
+  const viewCentre = viewport.left + viewport.width / 2;
+  const setCentre = originLeft + deck.offset + deck.setWidth / 2;
+  const sets = Math.round((viewCentre - setCentre) / deck.setWidth);
+  if (sets) {
+    deck.offset += sets * deck.setWidth;
+    gsap.set(deck.track, { x: deck.offset });
+  }
 }
 
 function stopMarquee(deck) {

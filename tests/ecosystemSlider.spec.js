@@ -16,7 +16,7 @@ async function settle(root) {
       rotationStable: before === after,
       dragStatus: await root.getAttribute("data-radial-slider-drag-status"),
     };
-  }, { timeout: 5000 }).toEqual({ rotationStable: true, dragStatus: "grab" });
+  }, { timeout: 5000 }).toEqual({ rotationStable: true, dragStatus: null });
 }
 
 test.beforeEach(async ({ page }) => {
@@ -45,32 +45,42 @@ test("centres the active card and places neighbours on the wheel", async ({ page
   expect(geometry[2].top).toBeGreaterThan(geometry[0].top);
 });
 
-test("drag updates proxy and card rotations continuously", async ({ page }) => {
+test("dragging does not change proxy or card rotations while drag is disabled", async ({ page }) => {
   const root = page.locator(slider);
   await root.scrollIntoViewIfNeeded();
   await expect(root.locator(active)).toHaveCSS("opacity", "1");
   const box = await root.locator("[data-radial-slider-list]").boundingBox();
-  const samples = [];
+  const before = await root.evaluate((node) => {
+    const proxy = node.querySelector("[data-radial-slider-proxy]");
+    const card = node.querySelector('[data-radial-slider-item-status="inview"]');
+    const angle = (element) => {
+      const matrix = new DOMMatrix(getComputedStyle(element).transform);
+      return Math.atan2(matrix.b, matrix.a);
+    };
+    const proxyMatrix = new DOMMatrix(getComputedStyle(proxy).transform);
+    return { proxy: Math.atan2(proxyMatrix.b, proxyMatrix.a), card: angle(card) };
+  });
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
-  for (let step = 1; step <= 8; step += 1) {
-    await page.mouse.move(box.x + box.width / 2 - step * 20, box.y + box.height / 2);
-    samples.push(await root.evaluate((node) => {
-      const proxy = node.querySelector("[data-radial-slider-proxy]");
-      const card = node.querySelector('[data-radial-slider-item-status="inview"]');
-      const angle = (element) => {
-        const matrix = new DOMMatrix(getComputedStyle(element).transform);
-        return Math.atan2(matrix.b, matrix.a);
-      };
-      const proxyMatrix = new DOMMatrix(getComputedStyle(proxy).transform);
-      return { proxy: Math.atan2(proxyMatrix.b, proxyMatrix.a), card: angle(card) };
-    }));
-  }
+  await page.mouse.move(box.x + box.width / 2 - 160, box.y + box.height / 2, { steps: 8 });
   await page.mouse.up();
-  const monotonic = (values) => values.every((value, index) => index === 0 || value >= values[index - 1])
-    || values.every((value, index) => index === 0 || value <= values[index - 1]);
-  expect(monotonic(samples.map((sample) => sample.proxy))).toBe(true);
-  expect(new Set(samples.map((sample) => sample.card)).size).toBeGreaterThan(1);
+  const after = await root.evaluate((node) => {
+    const proxy = node.querySelector("[data-radial-slider-proxy]");
+    const card = node.querySelector('[data-radial-slider-item-status="inview"]');
+    const angle = (element) => {
+      const matrix = new DOMMatrix(getComputedStyle(element).transform);
+      return Math.atan2(matrix.b, matrix.a);
+    };
+    const proxyMatrix = new DOMMatrix(getComputedStyle(proxy).transform);
+    return {
+      proxy: Math.atan2(proxyMatrix.b, proxyMatrix.a),
+      card: angle(card),
+      dragStatus: node.getAttribute("data-radial-slider-drag-status"),
+    };
+  });
+  expect(after.proxy).toBeCloseTo(before.proxy, 5);
+  expect(after.card).toBeCloseTo(before.card, 5);
+  expect(after.dragStatus).toBeNull();
 });
 
 test("controls wrap and side-card clicks centre without navigating", async ({ page }) => {

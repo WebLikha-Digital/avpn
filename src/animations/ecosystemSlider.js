@@ -1,6 +1,7 @@
 import { gsap, Draggable, ScrollTrigger } from "../lib/gsap.js";
 
 const RESIZE_DEBOUNCE = 200;
+const ENABLE_DRAG = false;
 const mod = (value, total) => ((value % total) + total) % total;
 const reducedMotion = () => window.matchMedia?.(
   "(prefers-reduced-motion: reduce)",
@@ -14,6 +15,7 @@ function initEcosystemSlider(scope = document) {
 
   roots.forEach((root) => {
     root._ecosystemSliderInstance?.kill();
+    if (!ENABLE_DRAG) root.removeAttribute("data-radial-slider-drag-status");
     const collection = root.querySelector("[data-radial-slider-collection]");
     const list = root.querySelector("[data-radial-slider-list]");
     if (!collection || !list) return;
@@ -31,7 +33,7 @@ function initEcosystemSlider(scope = document) {
     const instance = {
       root, collection, list, originalItems, controls, panel, tabsRoot,
       draggable: null, proxy: null, proxyWrap: null, revealTimeline: null,
-      revealTrigger: null, arrowTween: null, listeners: [], movedSincePress: false,
+      revealTrigger: null, arrowTween: null, listeners: [],
       activeIndex: 0, reduced: reducedMotion(),
     };
     root._ecosystemSliderInstance = instance;
@@ -202,7 +204,7 @@ function initEcosystemSlider(scope = document) {
     const onClick = (event) => {
       const item = event.target.closest?.("a[data-radial-slider-item]");
       if (!item || !root.contains(item)) return;
-      if (instance.movedSincePress) { event.preventDefault(); return; }
+      if (ENABLE_DRAG && instance.movedSincePress) { event.preventDefault(); return; }
       const itemIndex = items.indexOf(item);
       if (itemIndex < 0 || itemIndex === instance.activeIndex) return;
       event.preventDefault();
@@ -217,7 +219,7 @@ function initEcosystemSlider(scope = document) {
     controls.forEach((control) => listen(control, "click", () => goTo(
       Math.round(getIndexFromProxy()) + (control.dataset.radialSliderControl === "next" ? 1 : -1),
     )));
-    instance.draggable = Draggable.create(proxy, {
+    if (ENABLE_DRAG) instance.draggable = Draggable.create(proxy, {
       type: "rotation", trigger: [proxy, ...items], inertia: !instance.reduced,
       allowEventDefault: true,
       throwResistance: 2000, dragResistance: 0.05, maxDuration: 1, minDuration: 0.5,

@@ -203,22 +203,69 @@ test("reveals the first signature pin from the vertical section trigger", async 
   await expect.poll(() => pin.evaluate((shape) => getComputedStyle(shape).visibility)).toBe("visible");
 });
 
+test("reveals a later card button as its active band scrolls horizontally", async ({ page }) => {
+  const button = page.locator(`${band} .sig-events_card-link`).nth(1);
+  const state = await button.evaluate((link) => {
+    const group = link.closest("[data-reveal-group]");
+    const trigger = group._contentRevealInstance.trigger;
+    const viewport = group.closest("[data-hscroll-init]").querySelector("[data-hscroll-viewport]");
+    return {
+      autoAlpha: Number.parseFloat(getComputedStyle(link).opacity),
+      visibility: getComputedStyle(link).visibility,
+      horizontal: trigger.vars.horizontal === true,
+      scrollerIsBand: trigger.scroller === viewport,
+      start: trigger.vars.start,
+      triggerStart: trigger.start,
+      bandTop: group.closest("[data-hscroll-init]").getBoundingClientRect().top + window.scrollY,
+    };
+  });
+
+  expect(state).toMatchObject({
+    autoAlpha: 0,
+    visibility: "hidden",
+    horizontal: true,
+    scrollerIsBand: true,
+    start: "clamp(left 80%)",
+  });
+
+  await scrollTo(page, state.bandTop + state.triggerStart - 100);
+  await expect.poll(() => button.evaluate((link) => getComputedStyle(link).visibility)).toBe("hidden");
+
+  await scrollTo(page, state.bandTop + state.triggerStart + 100);
+  await expect.poll(() => button.evaluate((link) => getComputedStyle(link).visibility)).toBe("visible");
+  await expect.poll(() => button.evaluate((link) => Number.parseFloat(getComputedStyle(link).opacity))).toBe(1);
+
+  await scrollTo(page, state.bandTop + state.triggerStart + 400);
+  await expect(button).toBeVisible();
+});
+
 test("rebuilds signature reveal state without stacking on hscroll rebuild", async ({ page }) => {
-  const state = await page.locator(`${band} .sig-events_line-lead`).evaluate((wrap) => {
+  const state = await page.locator(`${band} .sig-events_line-lead`).evaluate(async (wrap, bandSelector) => {
+    const { ScrollTrigger } = await import("/src/lib/gsap.js");
     const oldTween = wrap._drawTl;
+    const group = document.querySelector(`${bandSelector} .sig-events_card-body-col`);
+    const oldContentReveal = group._contentRevealInstance;
     window.dispatchEvent(new CustomEvent("hscroll:rebuilt"));
     return {
       oldScrollTriggerCleared: oldTween.scrollTrigger === null,
       oldInactive: oldTween.isActive() === false,
       hasNewTween: Boolean(wrap._drawTl && wrap._drawTl !== oldTween),
       hasOneTrigger: Boolean(wrap._drawTl?.scrollTrigger),
+      hasNewContentReveal: Boolean(
+        group._contentRevealInstance && group._contentRevealInstance !== oldContentReveal,
+      ),
+      contentRevealTriggers: ScrollTrigger.getAll().filter(
+        (trigger) => trigger.vars.trigger === group,
+      ).length,
     };
-  });
+  }, band);
 
   expect(state).toEqual({
     oldScrollTriggerCleared: true,
     oldInactive: true,
     hasNewTween: true,
     hasOneTrigger: true,
+    hasNewContentReveal: true,
+    contentRevealTriggers: 1,
   });
 });

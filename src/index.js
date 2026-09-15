@@ -38,6 +38,7 @@ function initBandAware() {
   initSplitReveal();
   initShapeReveal();
   initWipeReveal();
+  initContentReveal();
   initHorizontalParallax();
   initShapeSwap();
 }
@@ -51,7 +52,6 @@ function init() {
   initEcosystemFolders();
   initBandAware();
   initMarqueeScrollDirection();
-  initContentReveal();
   initForewordFade();
   initClipReveal();
   initScrollParallax();

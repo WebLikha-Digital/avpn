@@ -1,5 +1,10 @@
 import { test, expect } from "@playwright/test";
 
+// The radial slider and tab markup are commented out of the sandbox while the
+// folder-deck demo (feat/ecosystem-folders) is evaluated. Re-enable or delete
+// with that decision.
+test.skip(true, "ecosystem tabs/slider markup is disabled in the sandbox during the folder-deck demo");
+
 const slider = "[data-tabs-panel=learn] [data-radial-slider-init]";
 const active = '[data-radial-slider-item-status="active"]';
 

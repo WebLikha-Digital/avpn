@@ -32,6 +32,9 @@ export function initEcosystemFolders() {
     roots.forEach((root) => {
       const folder = root.querySelector("[data-deck-folder]");
       const panel = root.querySelector("[data-deck-panel]");
+      const bezel = root.querySelector("[data-deck-bezel]");
+      // Everything that reads as the folder face: shell + panel, faded and pinned as one.
+      const face = [bezel, panel].filter(Boolean);
       const viewport = root.querySelector("[data-deck-viewport]");
       const track = root.querySelector("[data-deck-track]");
       const collapse = root.querySelector("[data-deck-collapse]");
@@ -112,7 +115,7 @@ export function initEcosystemFolders() {
       const finishExpand = () => {
         if (root.dataset.deckState !== "expanding") return;
         root.dataset.deckState = "expanded";
-        if (panel) gsap.set(panel, { clearProps: "left,top,width,height,right,bottom" });
+        if (face.length) gsap.set(face, { clearProps: "left,top,width,height,right,bottom" });
         folder.setAttribute("aria-expanded", "true");
         folder.removeAttribute("tabindex");
         folder.removeAttribute("role");
@@ -157,17 +160,18 @@ export function initEcosystemFolders() {
           const state = Flip.getState(cards);
           // Pin the folder face where it stood: the deck goes full width for
           // the row, and the panel must not stretch with it while it fades.
-          const panelRect = panel?.getBoundingClientRect();
+          const faceRects = face.map((layer) => layer.getBoundingClientRect());
           root.dataset.deckState = "expanding";
-          if (panel && panelRect) {
-            const folderRect = folder.getBoundingClientRect();
-            gsap.set(panel, {
-              left: panelRect.left - folderRect.left, top: panelRect.top - folderRect.top,
-              width: panelRect.width, height: panelRect.height, right: "auto", bottom: "auto",
+          const folderRect = folder.getBoundingClientRect();
+          face.forEach((layer, index) => {
+            const rect = faceRects[index];
+            gsap.set(layer, {
+              left: rect.left - folderRect.left, top: rect.top - folderRect.top,
+              width: rect.width, height: rect.height, right: "auto", bottom: "auto",
             });
-          }
+          });
           row();
-          if (panel) gsap.to(panel, { opacity: 0, duration: 0.3, ease: "power2.out" });
+          if (face.length) gsap.to(face, { opacity: 0, duration: 0.3, ease: "power2.out" });
           deck.tween = Flip.from(state, {
             absolute: true, scale: true,
             duration: 0.6,
@@ -175,7 +179,7 @@ export function initEcosystemFolders() {
             ease: "power3.inOut",
             onComplete: () => {
               gsap.set(root, { clearProps: "transform" });
-              gsap.set([deck.folder, deck.panel], { clearProps: "opacity,scale" });
+              gsap.set([deck.folder, ...face], { clearProps: "opacity,scale" });
               finishExpand();
               setGroupState("expanded", root.dataset.deckInit);
             },
@@ -198,7 +202,7 @@ export function initEcosystemFolders() {
         setGroupState("collapsing", root.dataset.deckInit);
         const other = instance.decks.find((candidate) => candidate !== deck);
         if (instant || deck.reduced) {
-          if (panel) gsap.set(panel, { clearProps: "opacity" });
+          if (face.length) gsap.set(face, { clearProps: "opacity" });
           stopMarquee(deck);
           stack();
           if (other) { other.root.hidden = false; other.root.classList.remove("is-ecosystem-deck-hidden"); gsap.set(other.root, { clearProps: "opacity,scale" }); stackDeck(other); }
@@ -214,12 +218,12 @@ export function initEcosystemFolders() {
         stack(false);
         viewport.style.overflowX = "";
         gsap.set(cards, { y: "-=40", x: (index) => (index % 2 ? 1 : -1) * Math.min(index * 7, 42), rotation: (index) => (index % 2 ? 1 : -1) * Math.min(8, index + 1) });
-        if (panel) gsap.set(panel, { opacity: 0 });
+        if (face.length) gsap.set(face, { opacity: 0 });
         const settle = () => {
           if (root.dataset.deckState !== "collapsing") return;
           const fanState = Flip.getState(cards);
           stack(false);
-          if (panel) gsap.to(panel, { opacity: 1, duration: 0.35, ease: "power3.out" });
+          if (face.length) gsap.to(face, { opacity: 1, duration: 0.35, ease: "power3.out" });
           deck.tween = Flip.from(fanState, {
             absolute: true, scale: true, duration: 0.35, stagger: 0.015, ease: "power3.out",
             onComplete: finishCollapse,

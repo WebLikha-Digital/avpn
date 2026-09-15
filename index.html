@@ -1068,15 +1068,18 @@
       /* Sandbox demo mirror of a future Webflow page-style embed: ecosystem folder decks. */
       .ecosystem_folders { display:flex; flex-wrap:wrap; gap:48px; justify-content:center; align-items:flex-start; container-type:inline-size; }
       .ecosystem_deck { --deck-speed:60; --deck-fan:8; --deck-card-scale:.62; --deck-card-h:400px; position:relative; flex:0 1 380px; width:100%; max-width:380px; min-width:0; container-type:inline-size; }
-      .ecosystem_deck-folder { outline:none; position:relative; aspect-ratio:544/522; height:auto; border-radius:clamp(24px,3cqw,48px); background:#E6DED4; box-shadow:0 18px 40px rgba(0,41,68,.12); cursor:pointer; isolation:isolate; transition:box-shadow .3s ease; }
+      .ecosystem_deck-folder { outline:none; position:relative; aspect-ratio:544/522; height:auto; border-radius:clamp(24px,3cqw,48px); cursor:pointer; isolation:isolate; }
+      /* The shell (bezel + cover backdrop) is its own layer so it can be pinned and faded with the panel while the deck goes full width. */
+      .ecosystem_deck-bezel { position:absolute; inset:0; z-index:0; border-radius:inherit; background:#E6DED4; box-shadow:0 18px 40px rgba(0,41,68,.12); pointer-events:none; }
+      .ecosystem_deck-bezel::after { content:""; position:absolute; inset:0 0 34% 0; border-radius:inherit; background:#EFE8E0; }
       .ecosystem_deck[data-deck-state="stacked"] .ecosystem_deck-folder:focus-visible { outline:2px solid #002944; outline-offset:4px; }
       .ecosystem_deck-surface { position:relative; height:100%; border-radius:inherit; }
       /* Cover and viewport stay unclipped so the stacked cards poke out above the folder. */
-      .ecosystem_deck-cover { position:absolute; z-index:1; inset:0 0 34% 0; border-radius:inherit; background:#EFE8E0; }
+      .ecosystem_deck-cover { position:absolute; z-index:1; inset:0 0 34% 0; border-radius:inherit; }
       .ecosystem_deck-viewport { position:absolute; inset:4cqw 0 0; }
       .ecosystem_deck-track { position:relative; width:100%; height:100%; }
       /* The panel clips its own SVG (the path overshoots the viewBox bottom by design). */
-      .ecosystem_deck-panel { position:absolute; inset:0; z-index:5; overflow:hidden; border-radius:inherit; pointer-events:none; transition:opacity .25s ease; }
+      .ecosystem_deck-panel { position:absolute; inset:0; z-index:5; overflow:hidden; border-radius:inherit; pointer-events:none; }
       .ecosystem_deck-panel > svg { position:absolute; inset:0; width:100%; height:100%; overflow:visible; filter:drop-shadow(0 -6px 14px rgba(0,0,0,.08)); }
       .ecosystem_deck-panel-content { position:absolute; inset:38% 7% 7%; display:flex; flex-direction:column; justify-content:space-between; }
       .ecosystem_deck-header { position:relative; z-index:2; display:none; align-items:center; justify-content:space-between; gap:16px; color:#002944; }
@@ -1108,8 +1111,9 @@
       .ecosystem_deck[data-deck-state="expanding"] .ecosystem_deck-track,
       .ecosystem_deck[data-deck-state="expanded"] .ecosystem_deck-viewport { inset:0; }
       .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) { flex:1 1 100%; max-width:none; }
-      .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-folder { height:calc(var(--deck-card-h) - 56px); aspect-ratio:auto; background:transparent; box-shadow:none; transition:none; }
-      .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-cover { inset:0; overflow:visible; background:transparent; }
+      .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-folder { height:calc(var(--deck-card-h) - 56px); aspect-ratio:auto; }
+      .ecosystem_deck[data-deck-state="expanded"] .ecosystem_deck-bezel { opacity:0; }
+      .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-cover { inset:0; overflow:visible; }
       /* Expanded row bleeds edge to edge of the viewport; the section clips it.
          Negative top/bottom insets leave room for the card shadows (hover: 14px 14px 28px) inside the clip. */
       .ecosystem_deck[data-deck-state="expanding"] .ecosystem_deck-viewport { inset:-68px auto -76px calc(50% - 50vw); width:100vw; overflow:visible; }
@@ -2175,6 +2179,7 @@
         <div class="ecosystem_folders" data-folders-init data-folders-state="stacked">
         <article class="ecosystem_deck ecosystem_deck-learn" id="ecosystem-deck-learn" data-deck-init="learn" data-deck-meta="July 2025 – June 2026" style="--deck-speed:60; --deck-fan:8;">
           <div class="ecosystem_deck-folder" data-deck-folder aria-expanded="false">
+            <div class="ecosystem_deck-bezel" data-deck-bezel aria-hidden="true"></div>
             <div class="ecosystem_deck-surface">
             <div class="ecosystem_deck-cover">
               <div class="ecosystem_deck-viewport" data-deck-viewport><div class="ecosystem_deck-track" data-deck-track>
@@ -2211,6 +2216,7 @@
         </article>
         <article class="ecosystem_deck ecosystem_deck-voice" id="ecosystem-deck-voice" data-deck-init="voice" data-deck-meta="July 2025 – June 2026" style="--deck-speed:60; --deck-fan:8;">
           <div class="ecosystem_deck-folder" data-deck-folder aria-expanded="false">
+            <div class="ecosystem_deck-bezel" data-deck-bezel aria-hidden="true"></div>
             <div class="ecosystem_deck-surface">
             <div class="ecosystem_deck-cover">
               <div class="ecosystem_deck-viewport" data-deck-viewport><div class="ecosystem_deck-track" data-deck-track>

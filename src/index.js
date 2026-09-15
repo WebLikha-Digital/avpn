@@ -25,6 +25,7 @@ import { initListPreviewFollower } from "./animations/listPreviewFollower.js";
 import { initEcosystemTabs } from "./animations/ecosystemTabs.js";
 import { initEcosystemSlider } from "./animations/ecosystemSlider.js";
 import { initHamburgerNav } from "./animations/hamburgerNav.js";
+import { initHeroVideoGate } from "./animations/heroVideoGate.js";
 
 // Components that look up the band they sit in. The band has to exist before
 // any of them initialize, and they all have to rebuild when a resize tears it
@@ -42,6 +43,7 @@ function initBandAware() {
 function init() {
   initLocomotiveScroll();
   initHamburgerNav();
+  initHeroVideoGate();
   initHorizontalScroller();
   initEcosystemTabs();
   initBandAware();

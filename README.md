@@ -37,6 +37,10 @@ dist/          bundled output pasted into Webflow custom code
 
 - [`docs/tunnel2.md`](docs/tunnel2.md) — the solid-image tunnel variant: image
   proportions, alignment, sharpness, Webflow setup, tunables, troubleshooting.
+  Retired from the hero on 2026-09-15;
+  [`docs/hero-tunnel2-rollback.md`](docs/hero-tunnel2-rollback.md) records the
+  repo and Webflow state at retirement and how to bring the tunnel and
+  preloader back.
 - [`docs/locomotive.md`](docs/locomotive.md) — page-wide smooth scroll and
   `data-scroll-speed` parallax: Webflow setup, tuning, troubleshooting.
 - [`docs/horizontal-scroller.md`](docs/horizontal-scroller.md) — a horizontal

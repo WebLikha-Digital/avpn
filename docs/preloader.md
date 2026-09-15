@@ -1,5 +1,12 @@
 # Home page preloader
 
+> **Disabled on 2026-09-15** together with the hero tunnel: `src/index.js` no
+> longer calls `initPreloader()`, the Webflow head script that sets
+> `html.is-preloading` is commented out, and `tests/preloader.spec.js` is
+> wrapped in `test.describe.skip`. Everything below still describes the code as
+> it exists. Re-enable steps are in
+> [`hero-tunnel2-rollback.md`](hero-tunnel2-rollback.md).
+
 The preloader is a repository-owned animation keyed entirely by the Webflow
 attributes below. Webflow keeps the overlay as the first body child and places
 the hero targets, reveal items, media mount, and tunnel image manifest in the

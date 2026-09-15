@@ -76,7 +76,9 @@ export function initEcosystemFolders() {
         deck.listeners.push(() => target.removeEventListener(type, handler, options));
       };
       const setHint = (state) => {
-        if (hint) hint.textContent = hint.dataset[`deckHint${state[0].toUpperCase()}${state.slice(1)}`] || "";
+        if (!hint || hint.dataset.deckHintState === state) return;
+        hint.dataset.deckHintState = state;
+        hint.textContent = hint.dataset[`deckHint${state[0].toUpperCase()}${state.slice(1)}`] || "";
       };
       // Resting pose of a card in the stack; the hover fan and the collapse
       // settle both return to it with an ease-out of their own rather than a

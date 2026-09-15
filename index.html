@@ -1067,7 +1067,7 @@
 
       /* Sandbox demo mirror of a future Webflow page-style embed: ecosystem folder decks. */
       .ecosystem_folders { display:flex; flex-wrap:wrap; gap:48px; justify-content:center; align-items:flex-start; container-type:inline-size; }
-      .ecosystem_deck { --deck-speed:60; --deck-fan:8; --deck-card-scale:.62; position:relative; flex:0 1 380px; width:100%; max-width:380px; min-width:0; container-type:inline-size; }
+      .ecosystem_deck { --deck-speed:60; --deck-fan:8; --deck-card-scale:.62; --deck-card-h:400px; position:relative; flex:0 1 380px; width:100%; max-width:380px; min-width:0; container-type:inline-size; }
       .ecosystem_deck-folder { position:relative; aspect-ratio:544/522; height:auto; border-radius:clamp(24px,3cqw,48px); background:#E6DED4; box-shadow:0 18px 40px rgba(0,41,68,.12); cursor:pointer; isolation:isolate; transition:box-shadow .3s ease; }
       .ecosystem_deck-surface { position:relative; height:100%; border-radius:inherit; }
       /* Cover and viewport stay unclipped so the stacked cards poke out above the folder. */
@@ -1078,7 +1078,7 @@
       .ecosystem_deck-panel { position:absolute; inset:0; z-index:5; overflow:hidden; border-radius:inherit; pointer-events:none; transition:opacity .25s ease; }
       .ecosystem_deck-panel > svg { position:absolute; inset:0; width:100%; height:100%; overflow:visible; filter:drop-shadow(0 -6px 14px rgba(0,0,0,.08)); }
       .ecosystem_deck-panel-content { position:absolute; inset:38% 7% 7%; display:flex; flex-direction:column; justify-content:space-between; }
-      .ecosystem_deck-header { position:relative; z-index:2; display:none; align-items:center; justify-content:space-between; gap:16px; margin:0 0 16px; color:#002944; }
+      .ecosystem_deck-header { position:relative; z-index:2; display:none; align-items:center; justify-content:space-between; gap:16px; color:#002944; }
       .ecosystem_deck-title { font:700 clamp(22px,2.5cqw,36px)/1.1 "Open Sans",system-ui,sans-serif; }
       .ecosystem_deck-tab { display:flex; flex-direction:column; gap:4px; color:#002944; }
       .ecosystem_deck-tab strong { font:700 clamp(24px,3.1cqw,48px)/1.05 "Open Sans",system-ui,sans-serif; }
@@ -1098,7 +1098,8 @@
       .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-header { display:flex; }
       .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-intro { display:none; }
       .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) { display:flex; flex-direction:column; }
-      .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-header { order:0; }
+      /* Header sits under the row so the open row starts where the folder stood. */
+      .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-header { order:2; margin:72px 0 0; }
       .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-folder { order:1; }
       .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-hint { order:3; }
       .ecosystem_deck[data-deck-state="expanding"] .ecosystem_deck-cover { z-index:6; overflow:visible; }
@@ -1108,7 +1109,7 @@
       .ecosystem_deck[data-deck-state="expanding"] .ecosystem_deck-track,
       .ecosystem_deck[data-deck-state="expanded"] .ecosystem_deck-viewport { inset:0; }
       .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) { flex:1 1 100%; max-width:none; }
-      .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-folder { height:clamp(260px,31cqw,420px); background:transparent; box-shadow:none; }
+      .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-folder { height:calc(var(--deck-card-h) - 56px); aspect-ratio:auto; background:transparent; box-shadow:none; }
       .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-cover { inset:0; overflow:visible; background:transparent; }
       /* Expanded row bleeds edge to edge of the viewport; the section clips it.
          Negative top/bottom insets leave room for the card shadows inside the clip. */
@@ -1124,8 +1125,8 @@
         .ecosystem_deck[data-deck-state="expanded"] .ecosystem_card:hover .ecosystem_card-img { transform:scale(1.06); }
         .ecosystem_deck[data-deck-state="expanded"] .ecosystem_card:hover .ecosystem_card-title { text-decoration:underline; text-underline-offset:4px; }
       }
-      @media (max-width:991px) { .ecosystem_folders { flex-direction:column; align-items:center; gap:40px; } .ecosystem_deck { flex:0 1 380px; max-width:380px; } .ecosystem_deck[data-deck-state="expanded"] { flex:0 1 100%; max-width:100%; } }
-      @media (max-width:767px) { .ecosystem_deck { max-width:320px; } .ecosystem_deck[data-deck-state="expanded"] { max-width:100%; } }
+      @media (max-width:991px) { .ecosystem_folders { flex-direction:column; align-items:center; gap:40px; } .ecosystem_deck { --deck-card-h:340px; flex:0 1 380px; max-width:380px; } .ecosystem_deck[data-deck-state="expanded"] { flex:0 1 100%; max-width:100%; } }
+      @media (max-width:767px) { .ecosystem_deck { --deck-card-h:300px; max-width:320px; } .ecosystem_deck[data-deck-state="expanded"] { max-width:100%; } }
       @media (hover:none) { .ecosystem_deck-folder { cursor:pointer; } }
       @media (prefers-reduced-motion:reduce) { .ecosystem_deck-folder,.ecosystem_deck-panel,.ecosystem_deck .ecosystem_card-img { transition:none; } .ecosystem_deck[data-deck-state="expanded"] .ecosystem_deck-viewport { overflow-x:auto; } }
 

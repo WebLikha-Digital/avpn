@@ -1110,7 +1110,7 @@
       .ecosystem_deck[data-deck-state="expanding"] .ecosystem_deck-track,
       .ecosystem_deck[data-deck-state="expanded"] .ecosystem_deck-viewport { inset:0; }
       .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) { flex:1 1 100%; max-width:none; }
-      .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-folder { height:calc(var(--deck-card-h) - 56px); aspect-ratio:auto; background:transparent; box-shadow:none; }
+      .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-folder { height:calc(var(--deck-card-h) - 56px); aspect-ratio:auto; background:transparent; box-shadow:none; transition:none; }
       .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-cover { inset:0; overflow:visible; background:transparent; }
       /* Expanded row bleeds edge to edge of the viewport; the section clips it.
          Negative top/bottom insets leave room for the card shadows inside the clip. */

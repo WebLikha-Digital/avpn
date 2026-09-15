@@ -172,6 +172,45 @@ test("replays both folder intros after each collapse", async ({ page }) => {
   expect(await page.evaluate(() => window.__folderCollapseEvents)).toEqual(["learn", "learn"]);
 });
 
+test("replays both folder hints without replacing the other hint after collapse", async ({ page }) => {
+  const root = page.locator(folders);
+  const deck = root.locator(learn);
+  const otherHint = root.locator("[data-deck-init=voice] [data-deck-hint]");
+  await page.evaluate(() => { document.querySelectorAll("[data-deck-hint]").forEach((hint) => hint.setAttribute("data-split", "heading")); window.dispatchEvent(new CustomEvent("hscroll:rebuilt")); });
+  await deck.locator("[data-deck-folder]").click();
+  await expect(deck).toHaveAttribute("data-deck-state", "expanded");
+  const replay = page.evaluate(() => new Promise((resolve) => {
+    const group = document.querySelector("[data-folders-init]");
+    const otherHint = group.querySelector("[data-deck-init=voice] [data-deck-hint]");
+    let eventSeen = false, replayMutation = false, postEventMutations = 0, moved = { learn: false, voice: false };
+    const observer = new MutationObserver(() => { if (eventSeen && !replayMutation) replayMutation = true; else if (eventSeen) postEventMutations += 1; });
+    observer.observe(otherHint, { childList: true });
+    group.addEventListener("ecosystemfolders:collapsed", () => {
+      eventSeen = true;
+      const started = performance.now();
+      const sample = () => {
+        ["learn", "voice"].forEach((id) => { const line = group.querySelector(`[data-deck-init=${id}] [data-deck-hint] .line`); if (line && new DOMMatrix(getComputedStyle(line).transform).f > 0) moved[id] = true; });
+        if (performance.now() - started < 500) requestAnimationFrame(sample);
+        else setTimeout(() => { observer.disconnect(); resolve({ moved, replayMutation, postEventMutations }); }, 700);
+      };
+      requestAnimationFrame(sample);
+    }, { once: true });
+  }));
+
+  await deck.locator("[data-deck-collapse]").click();
+  const result = await replay;
+  expect(result.moved).toEqual({ learn: true, voice: true });
+  expect(result.replayMutation).toBe(true);
+  expect(result.postEventMutations).toBe(0);
+  for (const id of ["learn", "voice"]) {
+    const hint = root.locator(`[data-deck-init=${id}] [data-deck-hint]`);
+    expect(await hint.locator(".line").count()).toBeGreaterThan(0);
+    expect(await hint.locator(".line").evaluateAll((lines) => lines.every((line) =>
+      ["none", "matrix(1, 0, 0, 1, 0, 0)"].includes(getComputedStyle(line).transform)))).toBe(true);
+  }
+  await expect(root.locator(`${learn} [data-deck-hint]`)).toHaveText("Click the folder to reveal all publications");
+});
+
 test("reduced motion uses a native row and supports another cycle", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.reload();

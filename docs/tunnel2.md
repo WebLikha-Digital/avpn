@@ -1,5 +1,11 @@
 # Tunnel 2 — dev notes
 
+> **Retired from the Home hero on 2026-09-15** in favour of a native Webflow
+> background video. The component, its docs, and the Webflow manifest are all
+> still in place; `src/index.js` just no longer calls `initTunnel2()`. See
+> [`hero-tunnel2-rollback.md`](hero-tunnel2-rollback.md) for the exact state
+> and the steps to bring it back.
+
 An infinite solid-image corridor rendered with three.js. Every segment can
 carry an image panel on the floor, ceiling, and both walls; there is no
 wireframe layer. The component lives in `src/canvas/tunnel2.js` and initializes

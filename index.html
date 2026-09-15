@@ -1097,15 +1097,19 @@
       .ecosystem_deck-collapse { padding:10px 16px; border:1px solid #002944; border-radius:999px; background:#F7F1EA; color:#002944; font:700 12px/1 Archivo,system-ui,sans-serif; letter-spacing:.08em; cursor:pointer; }
       .ecosystem_deck-intro { min-height:52px; margin:24px auto 0; opacity:1 !important; visibility:visible !important; }
       .ecosystem_deck[data-deck-state="stacked"] .ecosystem_deck-intro { display:block; }
-      .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-header { display:flex; }
       /* Hidden through collapsing too, so the split reveal runs once on the settled folder rather than showing under the fan first. */
       .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"],[data-deck-state="collapsing"]) .ecosystem_deck-intro,
       .ecosystem_deck[data-deck-state="collapsing"] .ecosystem_deck-hint { display:none; }
       .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) { display:flex; flex-direction:column; }
-      /* Header sits under the row so the open row starts where the folder stood. */
-      .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-header { order:2; margin:72px 0 0; }
+      /* Under the open row the title, hint and COLLAPSE stack centred. The header
+         becomes display:contents so its two children join the deck's column
+         with the hint between them; the pill keeps its own stacking above the
+         bleeding viewport. */
+      .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-header { display:contents; }
       .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-folder { order:1; }
-      .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-hint { order:3; }
+      .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-title { order:2; margin:72px 0 0; text-align:center; }
+      .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-hint { order:3; margin:8px 0 0; }
+      .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-collapse { order:4; position:relative; z-index:2; align-self:center; margin:16px 0 0; }
       .ecosystem_deck[data-deck-state="expanding"] .ecosystem_deck-cover { z-index:6; overflow:visible; }
       .ecosystem_deck[data-deck-state="expanding"] .ecosystem_deck-surface,
       .ecosystem_deck[data-deck-state="expanded"] .ecosystem_deck-surface { overflow:visible; }

@@ -106,6 +106,7 @@ export function initEcosystemFolders() {
       const finishExpand = () => {
         if (root.dataset.deckState !== "expanding") return;
         root.dataset.deckState = "expanded";
+        if (panel) gsap.set(panel, { clearProps: "left,top,width,height,right,bottom" });
         folder.setAttribute("aria-expanded", "true");
         folder.removeAttribute("tabindex");
         folder.removeAttribute("role");
@@ -145,7 +146,17 @@ export function initEcosystemFolders() {
           }
           gsap.set(root, { clearProps: "x" });
           const state = Flip.getState(cards);
+          // Pin the folder face where it stood: the deck goes full width for
+          // the row, and the panel must not stretch with it while it fades.
+          const panelRect = panel?.getBoundingClientRect();
           root.dataset.deckState = "expanding";
+          if (panel && panelRect) {
+            const folderRect = folder.getBoundingClientRect();
+            gsap.set(panel, {
+              left: panelRect.left - folderRect.left, top: panelRect.top - folderRect.top,
+              width: panelRect.width, height: panelRect.height, right: "auto", bottom: "auto",
+            });
+          }
           row();
           if (panel) gsap.to(panel, { opacity: 0, duration: 0.35, ease: "power2.out" });
           deck.tween = Flip.from(state, {

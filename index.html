@@ -1068,7 +1068,8 @@
       /* Sandbox demo mirror of a future Webflow page-style embed: ecosystem folder decks. */
       .ecosystem_folders { display:flex; flex-wrap:wrap; gap:48px; justify-content:center; align-items:flex-start; container-type:inline-size; }
       .ecosystem_deck { --deck-speed:60; --deck-fan:8; --deck-card-scale:.62; --deck-card-h:400px; position:relative; flex:0 1 380px; width:100%; max-width:380px; min-width:0; container-type:inline-size; }
-      .ecosystem_deck-folder { position:relative; aspect-ratio:544/522; height:auto; border-radius:clamp(24px,3cqw,48px); background:#E6DED4; box-shadow:0 18px 40px rgba(0,41,68,.12); cursor:pointer; isolation:isolate; transition:box-shadow .3s ease; }
+      .ecosystem_deck-folder { outline:none; position:relative; aspect-ratio:544/522; height:auto; border-radius:clamp(24px,3cqw,48px); background:#E6DED4; box-shadow:0 18px 40px rgba(0,41,68,.12); cursor:pointer; isolation:isolate; transition:box-shadow .3s ease; }
+      .ecosystem_deck[data-deck-state="stacked"] .ecosystem_deck-folder:focus-visible { outline:2px solid #002944; outline-offset:4px; }
       .ecosystem_deck-surface { position:relative; height:100%; border-radius:inherit; }
       /* Cover and viewport stay unclipped so the stacked cards poke out above the folder. */
       .ecosystem_deck-cover { position:absolute; z-index:1; inset:0 0 34% 0; border-radius:inherit; background:#EFE8E0; }

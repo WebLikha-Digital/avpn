@@ -215,9 +215,12 @@ Two states matter, and the same subpath has to work in both. At the pin (scroll
 shows `2682–3582`. The current path enters from beyond the right edge at
 `y≈515`, sweeps under the heading to the bottom-left, bows right through the
 unseen middle, and exits past the left edge at `y≈3400` — on screen at about 70%
-of the viewport height in the list state. It was drawn as Hermite segments (a
-point plus a tangent at each anchor) so each bend has one curvature; a
-Catmull-Rom spline through more points produced visible kinks.
+of the viewport height in the list state. The `d` is a natural cubic spline
+through seven anchors, parameterised by chord length and converted segment by
+segment to cubic Béziers — C2-continuous, so curvature never jumps at a joint.
+Two earlier drafts kinked: a Catmull-Rom through sixteen points wobbled, and
+Hermite segments with hand-set tangents were tangent-continuous but not
+curvature-continuous, which the eye reads as a bend at every anchor.
 
 Keep the stroke as a plain `stroke-width`. `vector-effect: non-scaling-stroke`
 would make the width constant, but it also switches `stroke-dasharray` to screen

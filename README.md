@@ -35,6 +35,8 @@ dist/          bundled output pasted into Webflow custom code
 
 ## Component docs
 
+- [`docs/hero-entrance.md`](docs/hero-entrance.md) — the Home page hero entrance:
+  first-paint gate, reveal timing, reduced motion, and completion lifecycle.
 - [`docs/tunnel2.md`](docs/tunnel2.md) — the solid-image tunnel variant: image
   proportions, alignment, sharpness, Webflow setup, tunables, troubleshooting.
   Retired from the hero on 2026-09-15;

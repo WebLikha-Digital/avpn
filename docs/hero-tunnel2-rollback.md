@@ -114,6 +114,9 @@ the tunnel; ship one or the other.
 
 ### Repository
 
+> 2026-09-16: The preloader was not restored because `heroEntrance.js` (PR #78)
+> now owns the hero reveal. `tests/preloader.spec.js` remains skipped.
+
 1. `src/index.js`: restore
 
    ```js

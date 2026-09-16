@@ -8,7 +8,7 @@ test.beforeEach(async ({ page }) => {
   });
   await page.goto("/");
   await page.waitForLoadState("networkidle");
-  await expect.poll(() => page.locator(".mask-demo__inner .line").count()).toBeGreaterThan(0);
+  await expect.poll(() => page.locator("canvas").count()).toBeGreaterThan(0);
   expect(errors, "the preview should boot without browser errors").toEqual([]);
 });
 
@@ -19,6 +19,166 @@ test("boots every preview component", async ({ page }) => {
   await expect
     .poll(() => page.locator(".mask-demo__inner .line").count())
     .toBeGreaterThan(0);
+  await expect(page.locator("[data-tunnel2-init] canvas")).toHaveCount(1);
+});
+
+test("uploads every tunnel2 texture before its first render", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__tunnel2Ready = null;
+    document.addEventListener("tunnel2:ready", (event) => {
+      window.__tunnel2Ready = event.detail;
+    });
+  });
+  await page.goto("/");
+  await page.locator("[data-tunnel2-init]").evaluate((mount) => {
+    mount.scrollIntoView({ behavior: "instant", block: "center" });
+  });
+  await page.evaluate(() => new Promise(requestAnimationFrame));
+  await expect.poll(() => page.locator("[data-tunnel2-init]").evaluate((mount) => ({
+    uploaded: mount._tunnel2?.uploaded ?? 0,
+    textureCount: mount._tunnel2?.textureCount ?? -1,
+    firstRenderUploaded: mount._tunnel2?.firstRenderUploaded,
+  }))).toEqual({ uploaded: 12, textureCount: 12, firstRenderUploaded: 12 });
+  await expect.poll(() => page.evaluate(() => window.__tunnel2Ready)).toEqual({
+    uploaded: 12,
+    textureCount: 12,
+  });
+  await expect.poll(() => page.locator("[data-tunnel2-init]").evaluate((mount) =>
+    mount._tunnel2.gpuTextures(),
+  )).toBe(12);
+});
+
+test("keeps pooled texture versions stable while tunnel2 recycles segments", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__tunnel2Ready = false;
+    document.addEventListener("tunnel2:ready", () => {
+      window.__tunnel2Ready = true;
+    });
+    const observer = new MutationObserver(() => {
+      const mount = document.querySelector("[data-tunnel2-init]");
+      if (!mount) return;
+      mount.setAttribute("data-tunnel2-speed", "100");
+      observer.disconnect();
+    });
+    observer.observe(document, { childList: true, subtree: true });
+  });
+  await page.goto("/");
+  await expect.poll(() => page.evaluate(() => window.__tunnel2Ready)).toBe(true);
+  const mount = page.locator("[data-tunnel2-init]");
+  await mount.evaluate((node) => {
+    node.scrollIntoView({ behavior: "instant", block: "center" });
+  });
+  await page.evaluate(() => new Promise(requestAnimationFrame));
+  const before = await mount.evaluate((node) => ({
+    versions: node._tunnel2.textureVersions(),
+    cloneCount: node._tunnel2.cloneCount,
+    cacheSize: node._tunnel2.cacheSize,
+  }));
+  expect(before.cloneCount).toBe(before.cacheSize);
+  await expect.poll(
+    () => mount.evaluate((node) => node._tunnel2.recycled),
+    { timeout: 15_000 },
+  ).toBeGreaterThan(0);
+  const after = await mount.evaluate((node) => ({
+    versions: node._tunnel2.textureVersions(),
+    cloneCount: node._tunnel2.cloneCount,
+    cacheSize: node._tunnel2.cacheSize,
+  }));
+  expect(after.versions).toEqual(before.versions);
+  expect(after.cloneCount).toBe(before.cloneCount);
+  expect(after.cloneCount).toBe(after.cacheSize);
+});
+
+test("confines tunnel2 images to surfaces and cycles each pool in order", async ({ page }) => {
+  await expect.poll(() => page.locator("[data-tunnel2-init] canvas").count()).toBe(1);
+  const tileData = await page.locator("[data-tunnel2-init]").evaluate((mount) => {
+    const scene = mount.__tunnel2?.scene;
+    const tiles = [];
+    // Segments are populated in descending z (initial build, then each recycle
+    // appends at the far end), so sorting by z restores creation order even
+    // after the loop has recycled a segment.
+    [...(scene?.children ?? [])]
+      .filter((segment) => segment.children.some((mesh) => mesh.name === "tile"))
+      .sort((a, b) => b.position.z - a.position.z)
+      .forEach((segment) => {
+        segment.children.forEach((mesh) => {
+          if (mesh.name === "tile") tiles.push(mesh.userData);
+        });
+      });
+    return tiles;
+  });
+
+  const expected = {
+    left: [0, 1, 2],
+    right: [3, 4, 5],
+    top: [6, 7, 8],
+    bottom: [9, 10, 11],
+  };
+  for (const [surface, indices] of Object.entries(expected)) {
+    const actual = tileData
+      .filter((tile) => tile.surface === surface)
+      .map((tile) => tile.sourceIndex);
+    expect(actual.length).toBeGreaterThanOrEqual(indices.length * 2);
+    actual.forEach((sourceIndex, index) => {
+      expect(sourceIndex).toBe(indices[index % indices.length]);
+    });
+  }
+});
+
+
+// The bundle is a module script that mounts the tunnel as soon as it runs, before
+// DOMContentLoaded. A manifest rewrite has to land while the document is still
+// parsing, so watch the parser instead of waiting for the event: once something
+// follows the mount, the manifest's own children are complete and can be swapped.
+const rewriteTunnel2Manifest = (page, html) =>
+  page.addInitScript((markup) => {
+    const observer = new MutationObserver(() => {
+      const mount = document.querySelector("[data-tunnel2-init]");
+      if (!mount?.nextElementSibling) return;
+      mount.querySelector("[data-tunnel2-images]").innerHTML = markup;
+      observer.disconnect();
+    });
+    observer.observe(document, { childList: true, subtree: true });
+  }, html);
+
+test("lets unassigned tunnel2 images land on every surface", async ({ page }) => {
+  await rewriteTunnel2Manifest(
+    page,
+    `<img alt="" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2' height='2'%3E%3Crect width='2' height='2' fill='red'/%3E%3C/svg%3E">`,
+  );
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+
+  const surfaces = await page.locator("[data-tunnel2-init]").evaluate((mount) => {
+    const tiles = [];
+    mount.__tunnel2?.scene.children.forEach((segment) => {
+      segment.children.forEach((mesh) => {
+        if (mesh.name === "tile") tiles.push(mesh.userData);
+      });
+    });
+    return [...new Set(tiles.map((tile) => tile.surface))];
+  });
+  expect([...surfaces].sort()).toEqual(["bottom", "left", "right", "top"]);
+});
+
+test("leaves a surface empty when it has no eligible images", async ({ page }) => {
+  await rewriteTunnel2Manifest(
+    page,
+    `<img alt="" data-tunnel2-surface="left" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2' height='2'%3E%3Crect width='2' height='2' fill='blue'/%3E%3C/svg%3E">`,
+  );
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+
+  const surfaces = await page.locator("[data-tunnel2-init]").evaluate((mount) => {
+    const tiles = [];
+    mount.__tunnel2?.scene.children.forEach((segment) => {
+      segment.children.forEach((mesh) => {
+        if (mesh.name === "tile") tiles.push(mesh.userData.surface);
+      });
+    });
+    return [...new Set(tiles)];
+  });
+  expect(surfaces).toEqual(["left"]);
 });
 
 test("gives split masks descender room without changing line spacing", async ({ page }) => {
@@ -92,6 +252,18 @@ test("keeps a parked line outside its padded mask while the page scrolls", async
   expect(worst.intrusion).toBeLessThanOrEqual(0);
 });
 
+test("WebGL previews allocate live render surfaces", async ({ page }) => {
+  const canvases = page.locator("canvas");
+  const surfaces = await canvases.evaluateAll((items) =>
+    items.map((canvas) => {
+      const gl = canvas.getContext("webgl2") || canvas.getContext("webgl");
+      return Boolean(gl && canvas.width > 0 && canvas.height > 0 && !gl.isContextLost());
+    }),
+  );
+
+  expect(surfaces).toEqual([true]);
+});
+
 test("initializes the scroll-linked reveal state", async ({ page }) => {
   const heading = page.locator('.mask-demo__inner .word').first();
   await expect.poll(() => heading.evaluate((element) => getComputedStyle(element).transform)).not.toBe("none");
@@ -136,7 +308,29 @@ test("draws every marked line in each draw-path wrapper", async ({ page }) => {
   ]);
 });
 
+test("tolerates missing image manifests", async ({ page }) => {
+  await page.addInitScript(() => {
+    document.addEventListener("DOMContentLoaded", () => {
+      document.querySelectorAll("[data-tunnel2-images]").forEach((manifest) => {
+        manifest.remove();
+      });
+    });
+  });
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+
+  await expect(page.locator("[data-tunnel2-init] canvas")).toHaveCount(1);
+});
+
+test("keeps one canvas per instance after a resize", async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.waitForTimeout(250);
+  await expect(page.locator("[data-tunnel2-init] canvas")).toHaveCount(1);
+});
+
 test("keeps decorative rendering out of the accessibility tree", async ({ page }) => {
+  await expect(page.locator("canvas[aria-hidden='true']")).toHaveCount(1);
+  await expect(page.locator("[data-tunnel2-images][aria-hidden='true']")).toHaveCount(1);
   expect(await page.locator("[tabindex]").evaluateAll((items) =>
     items.every((item) => Number(item.getAttribute("tabindex")) <= 0),
   )).toBe(true);
@@ -149,6 +343,7 @@ test("remains usable with reduced motion enabled", async ({ page }) => {
 
   await expect(page.locator("body")).toBeVisible();
   await expect(page.locator(".mask-demo__inner")).toBeVisible();
+  await expect(page.locator("canvas")).toHaveCount(1);
 });
 
 test("preview remains usable at a mobile viewport", async ({ page }) => {
@@ -157,5 +352,6 @@ test("preview remains usable at a mobile viewport", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   await expect(page.locator("body")).toBeVisible();
+  await expect(page.locator("[data-tunnel2-init] canvas")).toHaveCount(1);
   expect(await page.locator("body").evaluate((body) => body.scrollWidth)).toBeLessThanOrEqual(390);
 });

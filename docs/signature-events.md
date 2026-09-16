@@ -59,9 +59,9 @@ section.section_signature-events.sig-events_scroller       [data-hscroll-init]
     │ └ div.sig-events_card-inner
     │   ├ div.sig-events_card-media
     │   ├ div.sig-events_card-title-col
-    │   │ ├ div.sig-events_card-pill
+    │   │ ├ div.sig-events_card-pill                     [data-reveal-group] [data-stagger="0"]
     │   │ │ ├ div.sig-events_card-pill-icon
-    │   │ │ └ div.sig-events_card-pill-label.text-size-small     "Hongkong"
+    │   │ │ └ div.sig-events_card-pill-label.text-size-small     "Hong Kong"
     │   │ ├ h3.sig-events_card-heading.heading-style-h3   [data-split="heading"]
     │   │ └ div.sig-events_card-date                     [data-split="heading"]
     │   └ div.sig-events_card-body-col
@@ -77,9 +77,12 @@ container. Backgrounds and wordmark are children of the **stage**, beside the
 viewport rather than inside it. That is load-bearing — see "Why the word sits
 outside the scroller" below.
 
-The reveals are the existing `splitReveal.js`; it is already band-aware and
-swaps its own default start to `clamp(left 80%)` inside a band, so the cards
-need no start authored.
+The text reveals are the existing `splitReveal.js`; it is already band-aware
+and swaps its own default start to `clamp(left 80%)` inside a band, so the cards
+need no start authored. The location pill is a `contentReveal.js` group of its
+own with `data-stagger="0"`, so icon and label rise together as one unit on the
+same band-aware start (added 2026-09-16); the body column is the other
+`[data-reveal-group]`.
 
 ---
 

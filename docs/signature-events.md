@@ -368,6 +368,56 @@ can be deleted from the Style Manager.
 
 ---
 
+## The event modal
+
+Each card's `Button Primary` opens a modal for its event. Attribute contract is
+Osmo Supply's Basic Modal, unchanged: the group carries
+`[data-modal-group-status]`, each card `[data-modal-name]` + `[data-modal-status]`,
+each trigger `[data-modal-target]` + `[data-modal-status]`, and anything with
+`[data-modal-close]` closes. The trigger value is the `Modal target` prop on the
+`Button Primary` instance, bound to `data-modal-target` on the root link
+(`event-1`, `event-2`, `event-3`).
+
+```
+div.modal [data-modal-group-status]            fixed, body level, after .page-wrapper
+├ embed.modal-style                            state + fade CSS (attribute selectors)
+├ div.modal__dark [data-modal-close]           60% navy backdrop
+└ ×3 div.modal__card [data-modal-name] [role=dialog] [aria-modal] [aria-label]
+  ├ div.modal__media > img.modal__image        same asset as the card's .sig-events_card-media
+  └ div.modal__content                         scrolls internally
+    ├ div.modal__header > button.modal__close [data-modal-close]  orange-main, "CLOSE ×"
+    └ div.modal__body
+      ├ h2.modal__title                        Open Sans 700 36/40, navy-main
+      ├ div.modal__meta                        pin + location | calendar + date, teal icons
+      ├ p.modal__desc                          Archivo 16/24, charcoal-main
+      └ ul.modal__list > li > p.modal__list-text
+```
+
+Design is Figma `Events - Pop Up` (node `2283:23139`): 1258×558, 558px square
+photo left, 700px white content right. Here the card is `max-width: 78.625rem`
+with the media at `flex: 0 0 44.36%`, so it keeps the Figma split at full width
+and shrinks with the viewport. Below `991px` the embed switches the active card
+to a column: media becomes a `14rem` banner and the content column scrolls.
+The meta divider hides on phones where location and date wrap.
+
+Behaviour is `initEventModal()` in `src/animations/eventModal.js`: click a
+trigger → `preventDefault` (the link is `href="#"`), matching card and group go
+`active`, scroll locks through `lockScroll()` (Lenis-safe, class `is-modal-open`
+on `<html>`), focus moves to the card's close button. Backdrop, close button, or
+Escape closes and returns focus to the trigger. Opening another trigger while one
+is open swaps cards without releasing the lock. `aria-hidden`, `aria-expanded` and
+`aria-labelledby` are set by the script. Regression spec: `tests/eventModal.spec.js`
+against the mirror markup in `index.html`.
+
+The modal lives outside `.section_signature-events` on purpose: the band is
+pinned and transformed, and a `position: fixed` child of a transformed ancestor
+is positioned against that ancestor, not the viewport.
+
+Content comes from the client's copy doc (delegates / speakers / sessions /
+markets per event). The Figma placeholder numbers were not used.
+
+---
+
 ## Webflow build notes
 
 Built on the Home page, immediately after `section_stories-community`. That

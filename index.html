@@ -591,6 +591,22 @@
         width: 4rem; height: 4rem; border-radius: 50%; background: #ee2a18;
         flex: 0 0 auto;
       }
+      [data-modal-group-status] {
+        position: fixed; inset: 0; z-index: 10000; display: flex;
+        align-items: center; justify-content: center; opacity: 0;
+        visibility: hidden; pointer-events: none;
+      }
+      [data-modal-group-status="active"] {
+        opacity: 1; visibility: visible; pointer-events: auto;
+      }
+      [data-modal-group-status] [data-modal-close]:not(button) {
+        position: absolute; inset: 0; border: 0; background: rgb(0 0 0 / 70%);
+      }
+      [data-modal-group-status] [data-modal-name] { display: none; position: relative; z-index: 1; }
+      [data-modal-group-status] [data-modal-name][data-modal-status="active"] {
+        display: flex; flex-direction: column; gap: 1rem; width: min(32rem, calc(100% - 3rem));
+        padding: 2rem; background: #fff; color: #002944;
+      }
 
       [data-rotary-wheel-stage] { position: relative; overflow: hidden; }
       [data-rotary-wheel-hub] {
@@ -1928,7 +1944,7 @@
               </div>
               <div class="sig-events_card-body-col" data-reveal-group>
                 <p class="sig-events_card-desc" data-split="heading" data-ignore="true">Southeast Asia needs deeper alignment across healthcare, policy, science, and social investment in order to achieve stronger and more resilient health systems that can address persistent gaps in access, equity, financing, and quality of care.</p>
-                <a class="sig-events_card-link is-primary" href="#">Learn more</a>
+                <a class="sig-events_card-link is-primary" href="#" data-modal-target="event-1" data-modal-status="not-active">Learn more</a>
               </div>
             </div>
           </div>
@@ -1946,7 +1962,7 @@
               </div>
               <div class="sig-events_card-body-col" data-reveal-group>
                 <p class="sig-events_card-desc" data-split="heading" data-ignore="true">India has made remarkable strides in healthcare. Yet, ensuring consistent access to timely diagnosis and quality care remains an ongoing priority, calling for collaboration across medicine, science, policy, and social investment.</p>
-                <a class="sig-events_card-link is-primary" href="#">Learn more</a>
+                <a class="sig-events_card-link is-primary" href="#" data-modal-target="event-2" data-modal-status="not-active">Learn more</a>
               </div>
             </div>
           </div>
@@ -1964,7 +1980,7 @@
               </div>
               <div class="sig-events_card-body-col" data-reveal-group>
                 <p class="sig-events_card-desc" data-split="heading" data-ignore="true">The AVPN Southeast Asia Health Impact Leadership Forum 2026 was an exclusive, curated convening designed to catalyse health systems transformation and accelerate impact across Southeast Asia.</p>
-                <a class="sig-events_card-link is-primary" href="#">Learn more</a>
+                <a class="sig-events_card-link is-primary" href="#" data-modal-target="event-3" data-modal-status="not-active">Learn more</a>
               </div>
             </div>
           </div>
@@ -2255,6 +2271,22 @@
         </div>
       </div>
     </section>
+
+    <div class="event-modal-group" data-modal-group-status="not-active">
+      <div class="event-modal-backdrop" data-modal-close></div>
+      <div class="event-modal-card" data-modal-name="event-1" data-modal-status="not-active">
+        <button type="button" data-modal-close>Close</button>
+        <h2>AVPN Global Conference 2025</h2>
+      </div>
+      <div class="event-modal-card" data-modal-name="event-2" data-modal-status="not-active">
+        <button type="button" data-modal-close>Close</button>
+        <h2>AVPN Health Impact Leadership Forum 2026</h2>
+      </div>
+      <div class="event-modal-card" data-modal-name="event-3" data-modal-status="not-active">
+        <button type="button" data-modal-close>Close</button>
+        <h2>AVPN Southeast Asia Health Impact Leadership Forum 2026</h2>
+      </div>
+    </div>
 
     <script type="module" src="/src/index.js"></script>
   </body>

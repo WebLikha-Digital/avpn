@@ -309,50 +309,65 @@ instance only needs its destination set. Built from the Figma component
 
 ```
 a.sig-events_card-link                          [data-button]
-├ div.sig-events_card-link-icon                 left circle
+├ div.sig-events_card-link-bg                   fill circle, absolute, z 0
+├ div.sig-events_card-link-icon                 arrow circle, z 1
 │ └ div.sig-events_card-link-icon-wrapper > svg
-├ div.sig-events_card-link-label
-└ div.sig-events_card-link-icon.is-duplicate    right circle, absolute
-  └ div.sig-events_card-link-icon-wrapper > svg
+└ div.sig-events_card-link-label                z 1
 ```
 
 Colour comes from the same brand variables the rest of the section uses —
-`red-main` on the border and both circles, `navy-main` on the label,
-`neutral-white` on the arrows. The Figma component specifies `#121212` for the
-label; navy was kept instead so the button matches the rest of the card copy.
+`red-main` on the border, the arrow circle and the fill, `navy-main` on the
+label, `neutral-white` on the arrow. The Figma component specifies `#121212` for
+the label; navy was kept instead so the button matches the rest of the card
+copy. On hover the label goes `neutral-white` — the only colour that is not
+in the rest state — because it has to read on the red fill.
 
 ### Where the CSS lives, and why it is split
 
 Geometry and colour are literal properties on the Webflow classes, as with the
 rest of this section. The **hover** lives in its own `.button-style` embed on
-the Home page, keyed on `[data-button]` — the transitions, the rest-state
-transforms, and the hover media query are all things the Designer cannot
-express.
+the Home page, keyed on `[data-button]` — the transitions, the stacking order,
+and the hover media query are all things the Designer cannot express.
 
-The mechanic is adapted from Osmo Supply's Button 040 (CSS only, no JS), with
-two deliberate departures:
+The mechanic is adapted from button #15 of Pixeto's CSS Hover Animation
+Library (`hover-animation-library.webflow.io`): a circle at the left of the
+pill grows to cover the whole pill on hover and shrinks back on hover-out.
+The source drives it with Webflow IX2; here it is CSS only, no JS, with three
+deliberate departures:
 
-- **Mirrored.** Osmo rests with the arrow circle on the *right* and slides it
-  left on hover. The Figma component rests with it on the **left**, so the two
-  states are swapped: at rest the left circle is `scale: 1` and the duplicate
-  `scale: 0`; on hover they trade, and the label slides left by
-  `-(circle + gap)` into the space the left circle vacates. Because `scale`
-  does not affect layout and the duplicate is absolutely positioned, the pill's
-  width never changes.
-- **Confined.** Osmo's pieces travel outside its (border-less) container. Here
-  the pill has a visible border, so it carries `overflow: hidden` and nothing
-  escapes it. That is also why the focus ring is a `box-shadow` on the button
-  rather than Osmo's `::after` — a pseudo-element child would be clipped away
-  by that same `overflow`. An element's own box-shadow is not.
+- **The circle is already solid at rest.** The source's circle is an outline
+  that fills with colour as it grows. Here `.sig-events_card-link-bg` is the
+  same size and colour as the arrow circle and sits directly behind it, so at
+  rest the button looks exactly as it did before this hover existed. Only the
+  hover state changed.
+- **It grows to the border, not to a fixed width.** The source animates
+  `width: 5.4rem → 21rem`. Here the fill rests at `top/left: 1rem` (the pill's
+  padding) at `2.875rem` square and on hover goes to `inset 0` + `100%` on both
+  axes, so it fills the pill at whatever width the label makes it. Ease is
+  `cubic-bezier(0.16, 1, 0.3, 1)` — the CSS equivalent of the source's
+  `outExpo` — 1s in and 0.8s out, matching the source's timings. Because the
+  fill is absolutely positioned, the pill's own width never changes.
+- **Confined.** The pill carries `overflow: hidden` so the fill's corners never
+  escape the border. That is also why the focus ring is a `box-shadow` on the
+  button rather than a `::after` — a pseudo-element child would be clipped
+  away by that same `overflow`. An element's own box-shadow is not.
 
-The duplicate circle's SVG drops the `<g clip-path>` / `<defs><clipPath>`
-wrapper the original icon carries. The clip is a full-box rect, so it changes
-nothing visually, and keeping it would have put a second element with
-`id="clip0_4058_19578"` in the document.
+The arrow circle and the label carry `position: relative; z-index: 1` in the
+embed so they stay above the fill; the fill is `z-index: 0` and
+`pointer-events: none`.
 
 Reduced motion is handled by the source's own gate: the entire hover block sits
 inside `@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion:
-no-preference)`, so the button simply rests with the circle on the left.
+no-preference)`, so on touch or with reduced motion the button simply rests
+with the circle on the left. `:focus-visible` triggers the same fill as hover
+so keyboard users get the state too.
+
+Before 2026-09-16 this button used a different hover — Osmo Supply's Button
+040, where the arrow circle scaled out on the left, a duplicate scaled in on
+the right, and the label slid `-62px` into the gap. The duplicate circle
+(`.sig-events_card-link-icon.is-duplicate`) was removed from the component with
+that change; the `is-duplicate` combo class is unused and can be deleted from
+the Style Manager.
 
 ---
 
@@ -428,8 +443,8 @@ sits outside the scroller" above.
     `small` breakpoint takes over with a stacked layout. That path has not been
     re-checked since the padding and negative margins went in — a negative
     margin left on a stacked column would pull cards into each other.
-  - **The button.** `Button Primary` is fixed at the Figma 210×80 with a
-    `-62px` label slide. Untested where the card columns stack.
+  - **The button.** `Button Primary` is fixed at the Figma 210×80. Untested
+    where the card columns stack.
 
 ## Rebuilding or extending this
 

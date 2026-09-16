@@ -1,4 +1,5 @@
 import { gsap, ScrollTrigger } from "../lib/gsap.js";
+import { bandContext } from "./horizontalScroller.js";
 
 const DEFAULT_DURATION = 0.8;
 const EASE = "power4.inOut";
@@ -95,11 +96,18 @@ export function initContentReveal() {
       return;
     }
 
+    // Inside a horizontal band the group never moves vertically, so the
+    // default has to swap axis with it. An authored start still wins, and is
+    // expected to use the band's axis when there is one.
+    const band = bandContext(group);
     const trigger = ScrollTrigger.create({
       trigger: group,
-      start: group.getAttribute("data-start") || DEFAULT_START,
+      start:
+        group.getAttribute("data-start") ||
+        (band ? "clamp(left 80%)" : DEFAULT_START),
       once: true,
       animation: timeline,
+      ...band,
     });
 
     group._contentRevealInstance = { timeline, trigger };

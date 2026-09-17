@@ -393,6 +393,30 @@
         line-height: 1.1;
       }
       .sticky-picture-demo__content p { margin: 0; max-width: 28rem; }
+      .fade-near-top-demo {
+        position: relative;
+        display: grid;
+        align-content: center;
+        gap: 3rem;
+        min-height: 180vh;
+        margin: 0 0 35vh;
+        padding: 8rem 10%;
+        box-sizing: border-box;
+        background: #d9eef0;
+        color: #002944;
+      }
+      .fade-near-top-demo__text {
+        max-width: 34rem;
+        font-size: clamp(2rem, 5vw, 5rem);
+        line-height: 1;
+      }
+      .fade-near-top-demo__image {
+        display: block;
+        width: min(28rem, 100%);
+        aspect-ratio: 4 / 3;
+        object-fit: cover;
+        background: #f27c38;
+      }
       @media screen and (max-width: 767px) {
         .sticky-picture-demo { grid-template-columns: 1fr; }
         .sticky-picture-demo__wrapper {
@@ -1615,6 +1639,20 @@
         <p>We bring people together so capital can travel further toward impact.</p>
         <p>Scroll through this long-form section to see the portrait stay pinned while its image gently drifts.</p>
       </div>
+    </section>
+
+    <section class="fade-near-top-demo" data-testid="fade-near-top">
+      <div class="fade-near-top-demo__text" data-fade-top>
+        Content fades before it reaches the pinned wordmark.
+      </div>
+      <img
+        class="fade-near-top-demo__image"
+        data-fade-top
+        data-fade-top-start="top 50%"
+        data-fade-top-end="top 30%"
+        alt="Abstract fade near top preview"
+        src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='480'%3E%3Crect width='640' height='480' fill='%23007b69'/%3E%3Ccircle cx='180' cy='190' r='150' fill='%23ffd552'/%3E%3Cpath d='M0 400 Q180 160 360 330 T640 170 V480 H0Z' fill='%23f27c38'/%3E%3C/svg%3E"
+      />
     </section>
 
     <p>Image breaker — a full-width frame stays sticky while

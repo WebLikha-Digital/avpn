@@ -8,6 +8,7 @@ import { initForewordFade } from "./animations/forewordAnim.js";
 import { initClipReveal } from "./animations/clipReveal.js";
 import { initWipeReveal } from "./animations/wipeReveal.js";
 import { initScrollParallax } from "./animations/scrollParallax.js";
+import { initFadeNearTop } from "./animations/fadeNearTop.js";
 import { initHighlightDrum } from "./animations/highlightDrum.js";
 import { initHorizontalParallax } from "./animations/horizontalParallax.js";
 import { initShapeSwap } from "./animations/shapeSwap.js";
@@ -63,6 +64,7 @@ function init() {
   initForewordFade();
   initClipReveal();
   initScrollParallax();
+  initFadeNearTop();
   initHighlightDrum();
   initStoriesStack();
   initArcScrollTransition();

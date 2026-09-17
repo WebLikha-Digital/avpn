@@ -599,13 +599,16 @@
         color: #0b3b4d; text-decoration: none; font-weight: 700;
       }
       .sig-events_line {
-        position: absolute; left: 0; top: calc(25vh + 3.08vw); z-index: 1;
+        position: absolute; left: 0; top: round(calc(25vh + 3.08vw), 1px); z-index: 1;
         width: 368.2vw; height: 5px;
       }
-      .sig-events_line svg { display: block; width: 100%; height: 100%; }
-      .sig-events_line-lead { position: absolute; left: 0; width: 54.75vw; height: 5px; }
-      .sig-events_line-main { position: absolute; left: 54.75vw; right: 76.95vw; height: 5px; }
-      .sig-events_line-tail { position: absolute; right: 0; width: 76.95vw; height: auto; aspect-ratio: 1108 / 631; }
+      /* One svg, one path: viewBox 5257 wide (= the track at 1440), xMinYMin meet
+         with a 100vh box so it scales by width and always spans the track. The path
+         starts at y=0 so half the non-scaling 5px stroke lies outside the svg;
+         Webflow's base sheet has svg:not(:root) { overflow: hidden } (0,1,1), so the
+         descendant selector (0,2,0) is what makes it visible. */
+      .sig-events_line-svg { display: block; position: absolute; top: 0; left: 0; width: 100%; height: 100vh; }
+      .sig-events_line .sig-events_line-svg { overflow: visible; }
       .sig-events_card-media img { display: block; width: 100%; height: 100%; object-fit: cover; }
       .sig-events_pin {
         position: absolute; left: -3.25vw; width: 6.5vw; height: 6.5vw;
@@ -1939,22 +1942,10 @@
 
         <div class="sig-events_viewport sig-events_viewport--sig" data-hscroll-viewport>
         <div class="sig-events_track" data-hscroll-track>
-          <div class="sig-events_line" data-sig-events-line aria-hidden="true">
-            <div class="sig-events_line-lead" data-sig-events-line-segment="lead">
-              <svg class="sig-events_line-svg" viewBox="0 0 1000 5" preserveAspectRatio="none">
-                <path data-sig-events-line-path d="M0 2.5H1000" stroke="currentColor" stroke-width="5" />
-              </svg>
-            </div>
-            <div class="sig-events_line-main" data-sig-events-line-segment="main">
-              <svg class="sig-events_line-svg" viewBox="0 0 1000 5" preserveAspectRatio="none">
-                <path data-sig-events-line-path d="M0 2.5H1000" stroke="currentColor" stroke-width="5" />
-              </svg>
-            </div>
-            <div class="sig-events_line-tail" data-sig-events-line-segment="tail">
-              <svg class="sig-events_line-svg" viewBox="0 0 1108 631" preserveAspectRatio="xMinYMin meet">
-                <path data-sig-events-line-path d="M0 2.5H200C520 2.5 850 90 1112 250" stroke="currentColor" stroke-width="5" vector-effect="non-scaling-stroke" />
-              </svg>
-            </div>
+          <div class="sig-events_line" data-sig-events-line data-sig-events-line-lead="788" data-sig-events-line-curve="4349" aria-hidden="true">
+            <svg class="sig-events_line-svg" viewBox="0 0 5257 631" preserveAspectRatio="xMinYMin meet">
+              <path data-sig-events-line-path d="M0 0H4349C4669 0 4999 87.5 5261 247.5" stroke="currentColor" stroke-width="5" vector-effect="non-scaling-stroke" />
+            </svg>
           </div>
           <div class="sig-events_spacer is-lead"></div>
           <div class="sig-events_card">

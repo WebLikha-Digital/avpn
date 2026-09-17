@@ -27,8 +27,8 @@ const STEP_OFFSETS = {
 
 /**
  * The Signature Events band owns one clock for its line and cards. The line's
- * budget is the revealed lead plus the live horizontal scroll position; the
- * same budget decides when each card's one-shot timeline starts.
+ * single-path budget is the revealed lead plus the live horizontal scroll
+ * position; the same budget decides when each card's one-shot timeline starts.
  */
 export function initSignatureEvents() {
   document.querySelectorAll("[data-sig-events]").forEach((section) => {
@@ -36,26 +36,21 @@ export function initSignatureEvents() {
 
     const viewport = section.querySelector("[data-hscroll-viewport]");
     const line = section.querySelector("[data-sig-events-line]");
-    if (!viewport || !line) return;
+    const path = line?.querySelector("[data-sig-events-line-path]");
+    if (!viewport || !line || !path) return;
     if (!line.closest("[data-hscroll-track]")) {
       console.warn("[signatureEvents] line must be inside [data-hscroll-track]");
       return;
     }
 
     const cards = [...section.querySelectorAll(".sig-events_card")];
-    const segments = [
-      ...line.querySelectorAll("[data-sig-events-line-segment]"),
-    ].map((element) => ({
-      element,
-      path: element.querySelector("[data-sig-events-line-path]"),
-    })).filter(({ path }) => path);
     const reducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     ).matches;
     const instance = {
       viewport,
       line,
-      segments,
+      path,
       cards: [],
       cardTriggers: [],
       active: false,
@@ -64,7 +59,7 @@ export function initSignatureEvents() {
       render: null,
       measure: null,
       trigger: null,
-      measurements: { leadWidth: 0, segments: [] },
+      measurements: { scale: 1, screenPathLength: 0, leadPx: 0, curvePx: 0, maxBudget: 0 },
     };
     section._signatureEvents = instance;
 
@@ -86,9 +81,9 @@ export function initSignatureEvents() {
     instance.cards = cards.map((card) => buildCard(card, small));
     measureLine(instance);
 
-    if (segments.length && !small) {
+    if (!small) {
       gsap.registerPlugin(DrawSVGPlugin);
-      segments.forEach(({ path }) => gsap.set(path, { drawSVG: "0%" }));
+      gsap.set(path, { drawSVG: "0%" });
 
       instance.pin = { value: 0 };
       instance.render = () => render(instance);
@@ -120,8 +115,8 @@ export function initSignatureEvents() {
       }));
     }
 
-    if (segments.length && small) {
-      segments.forEach(({ path }) => gsap.set(path, { drawSVG: "100%" }));
+    if (small) {
+      gsap.set(path, { drawSVG: "100%" });
     }
   });
 }
@@ -227,16 +222,25 @@ function buildCard(card, small) {
 function render(instance) {
   if (!instance.active) return;
 
-  const budget = instance.segments.length
-    ? instance.measurements.leadWidth * instance.pin.value
-      + instance.viewport.scrollLeft
-    : instance.viewport.scrollLeft;
-
-  instance.segments.forEach(({ path }, index) => {
-    const { offset, span } = instance.measurements.segments[index];
-    const progress = span ? clamp((budget - offset) / span, 0, 1) : 0;
-    gsap.set(path, { drawSVG: `${progress * 100}%` });
-  });
+  const { leadPx, curvePx, maxBudget, screenPathLength } = instance.measurements;
+  const budget = leadPx * instance.pin.value + instance.viewport.scrollLeft;
+  // The horizontal run is already measured in screen pixels, so keep its tip
+  // 1:1 with the budget. Only remap the curve's remaining budget onto its
+  // remaining arc length; when the whole path is reachable, no remap is needed.
+  let drawnPx;
+  if (budget <= curvePx) {
+    drawnPx = budget;
+  } else if (maxBudget >= screenPathLength) {
+    drawnPx = Math.min(budget, screenPathLength);
+  } else {
+    drawnPx = curvePx + (budget - curvePx) / Math.max(1, maxBudget - curvePx)
+      * (screenPathLength - curvePx);
+  }
+  drawnPx = clamp(drawnPx, 0, screenPathLength);
+  const progress = screenPathLength
+    ? clamp(drawnPx / screenPathLength, 0, 1)
+    : 0;
+  gsap.set(instance.path, { drawSVG: `${progress * 100}%` });
 
   instance.cards.forEach((card) => {
     if (!card.played && budget >= card.pinCentreX) playCard(card);
@@ -245,22 +249,28 @@ function render(instance) {
 
 function measureLine(instance) {
   const lineRect = instance.line.getBoundingClientRect();
-  const segmentMeasurements = instance.segments.map(({ element }) => {
-    const rect = element.getBoundingClientRect();
-    return { width: rect.width, offset: rect.left - lineRect.left };
-  });
-  const leadWidth = segmentMeasurements[0]?.width || 0;
-  const maxBudget = leadWidth + Math.max(
+  // The non-scaling stroke makes DrawSVG's screen-space length the viewBox
+  // length multiplied by the uniform SVG scale. The lead is authored in the
+  // same viewBox units, so convert it with that scale before sharing one
+  // budget between the path and cards.
+  const scale = Math.abs(instance.path.getScreenCTM()?.a || 1);
+  const screenPathLength = instance.path.getTotalLength() * scale;
+  const lead = Number.parseFloat(instance.line.dataset.sigEventsLineLead) || 0;
+  const curve = Number.parseFloat(instance.line.dataset.sigEventsLineCurve) || 0;
+  const leadPx = lead * scale;
+  const curvePx = curve * scale;
+  // The horizontal scroller can reach only the lead plus its overflow. The
+  // curve remap below uses this endpoint so the one path settles at scroll end.
+  const maxBudget = leadPx + Math.max(
     0,
     instance.viewport.scrollWidth - instance.viewport.clientWidth,
   );
   instance.measurements = {
-    leadWidth,
-    segments: segmentMeasurements.map(({ width, offset }) => ({
-      width,
-      offset,
-      span: Math.max(0, Math.min(offset + width, maxBudget) - offset),
-    })),
+    scale,
+    screenPathLength,
+    leadPx,
+    curvePx,
+    maxBudget,
   };
   instance.cards?.forEach((card) => {
     if (!card.pin) return;
@@ -273,7 +283,7 @@ function measureLine(instance) {
 }
 
 function setReducedMotionState(instance, cards) {
-  instance.segments.forEach(({ path }) => gsap.set(path, { drawSVG: "100%" }));
+  gsap.set(instance.path, { drawSVG: "100%" });
   cards.forEach((card) => {
     const pin = card.querySelector("[data-sig-events-pin]");
     const image = card.querySelector(".signature-events_image");
@@ -308,7 +318,7 @@ function teardown(section) {
     card.splits?.forEach((split) => split.revert());
     gsap.set(card.card, { clearProps: "all" });
   });
-  previous.segments?.forEach(({ path }) => gsap.set(path, { clearProps: "all" }));
+  if (previous.path) gsap.set(previous.path, { clearProps: "all" });
   section._signatureEvents = null;
 }
 

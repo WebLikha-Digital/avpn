@@ -116,21 +116,63 @@ test("writes one continuous, monotonic line during continuous scroll", async ({ 
   expect(distance).toBeGreaterThan(0);
 });
 
+test("keeps the line tip aligned with the budget through the straight run", async ({ page }) => {
+  const { top } = await geometry(page);
+  await scrollTo(page, top + 2);
+  await page.locator(band).evaluate((section) => new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error("Signature Events lead reveal did not complete within 3 seconds"));
+    }, 3000);
+    const check = () => {
+      if (section._signatureEvents.pin.value >= 1) {
+        clearTimeout(timeout);
+        resolve();
+        return;
+      }
+      requestAnimationFrame(check);
+    };
+    check();
+  }));
+  const samples = await page.locator(band).evaluate((section) => {
+    const instance = section._signatureEvents;
+    const { leadPx, scale } = instance.measurements;
+    const curveStart = 4349 * scale;
+    const available = curveStart - leadPx;
+    const positions = [0.2, 0.5, 0.8].map((fraction) => available * fraction);
+    return { positions, leadPx };
+  });
+
+  expect(samples.positions).toHaveLength(3);
+  for (const scrollLeft of samples.positions) {
+    await page.evaluate(({ bandTop, target }) => {
+      window.scrollTo({ top: bandTop + target, behavior: "instant" });
+    }, { bandTop: top, target: scrollLeft });
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+    const measurement = await page.locator(band).evaluate((section) => {
+      const instance = section._signatureEvents;
+      const path = instance.path;
+      const dasharray = path.style.strokeDasharray.trim();
+      const dash = dasharray === "none" ? path.getTotalLength() * Math.abs(path.getScreenCTM().a) : Number.parseFloat(dasharray);
+      const screenPathLength = path.getTotalLength() * Math.abs(path.getScreenCTM().a);
+      return {
+        scrollLeft: instance.viewport.scrollLeft,
+        tipBudget: dash / screenPathLength * instance.measurements.screenPathLength,
+      };
+    });
+    expect(Math.abs(measurement.tipBudget - (samples.leadPx + measurement.scrollLeft))).toBeLessThanOrEqual(2);
+  }
+});
+
 test("draws the reachable tail to its full path length at scroll end", async ({ page }) => {
   const { top, distance } = await geometry(page);
   await scrollTo(page, top + distance);
   await page.waitForTimeout(1000);
-  const progress = await page.locator(`${band} [data-sig-events-line-path]`).evaluateAll((paths) =>
-    paths.slice(1).map((path) => {
-      const dasharray = path.style.strokeDasharray.trim();
-      if (!dasharray || dasharray === "none") return 100;
-      const scale = path.getAttribute("vector-effect") === "non-scaling-stroke"
-        ? Math.abs(path.getScreenCTM().a)
-        : 1;
-      return Number.parseFloat(dasharray) / (path.getTotalLength() * scale) * 100;
-    }));
-  expect(progress[0]).toBeGreaterThanOrEqual(99);
-  expect(progress[1]).toBeGreaterThanOrEqual(99);
+  const progress = await page.locator(`${band} [data-sig-events-line-path]`).evaluate((path) => {
+    const dasharray = path.style.strokeDasharray.trim();
+    if (!dasharray || dasharray === "none") return 100;
+    return Number.parseFloat(dasharray) / (path.getTotalLength() * Math.abs(path.getScreenCTM().a)) * 100;
+  });
+  expect(progress).toBeGreaterThanOrEqual(99);
 });
 
 test("keeps pin coordinates stable when refreshed at non-zero band scroll", async ({ page }) => {

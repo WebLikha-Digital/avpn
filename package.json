@@ -18,6 +18,7 @@
     "test:e2e:live": "playwright test -c playwright.live.config.js"
   },
   "dependencies": {
+    "cobe": "^0.6.5",
     "gsap": "^3.12.5",
     "locomotive-scroll": "^5.0.1",
     "three": "^0.185.1"

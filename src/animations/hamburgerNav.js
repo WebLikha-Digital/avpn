@@ -1,4 +1,5 @@
 import { lockScroll } from "../lib/scrollLock.js";
+import { initAccordion } from "./accordion.js";
 
 const CLOSE_TRANSITION_MS = 700;
 
@@ -17,10 +18,7 @@ export function initHamburgerNav() {
     const closeToggles = [
       ...root.querySelectorAll('[data-navigation-toggle="close"]'),
     ];
-    const accordionToggles = [
-      ...accordion.querySelectorAll("[data-accordion-toggle]"),
-    ];
-    const closeSiblings = accordion.getAttribute("data-accordion-close-siblings") === "true";
+    const accordionInstance = initAccordion(accordion);
     let resetTimer;
     let unlockScroll;
 
@@ -29,13 +27,7 @@ export function initHamburgerNav() {
       const active = isActive();
       menuToggle.setAttribute("aria-expanded", String(active));
       panel.setAttribute("aria-hidden", String(!active));
-      accordionToggles.forEach((toggle) => {
-        const item = toggle.closest("[data-accordion-status]");
-        toggle.setAttribute(
-          "aria-expanded",
-          String(item?.getAttribute("data-accordion-status") === "active"),
-        );
-      });
+      accordionInstance.syncAria();
     };
 
     const setScrollState = (active) => {
@@ -74,22 +66,6 @@ export function initHamburgerNav() {
     const onKeyDown = (event) => {
       if (event.key === "Escape" && isActive()) setNavigationStatus("not-active");
     };
-    const onAccordionClick = (event) => {
-      const toggle = event.target.closest("[data-accordion-toggle]");
-      if (!toggle || !accordion.contains(toggle)) return;
-      event.preventDefault();
-
-      const item = toggle.closest("[data-accordion-status]");
-      if (!item) return;
-      const opening = item.getAttribute("data-accordion-status") !== "active";
-      if (opening && closeSiblings) {
-        accordion.querySelectorAll('[data-accordion-status="active"]').forEach((sibling) => {
-          if (sibling !== item) sibling.setAttribute("data-accordion-status", "not-active");
-        });
-      }
-      item.setAttribute("data-accordion-status", opening ? "active" : "not-active");
-      syncAria();
-    };
     const onAnchorClickCapture = (event) => {
       const link = event.target.closest('a[href^="#"][data-scroll-to]');
       if (!link || !root.contains(link)) return;
@@ -99,7 +75,6 @@ export function initHamburgerNav() {
 
     menuToggle.addEventListener("click", onToggleClick);
     closeToggles.forEach((toggle) => toggle.addEventListener("click", onCloseClick));
-    accordion.addEventListener("click", onAccordionClick);
     root.addEventListener("click", onAnchorClickCapture, true);
     document.addEventListener("keydown", onKeyDown);
     syncAria();
@@ -111,7 +86,7 @@ export function initHamburgerNav() {
         unlockScroll = undefined;
         menuToggle.removeEventListener("click", onToggleClick);
         closeToggles.forEach((toggle) => toggle.removeEventListener("click", onCloseClick));
-        accordion.removeEventListener("click", onAccordionClick);
+        accordionInstance.destroy();
         root.removeEventListener("click", onAnchorClickCapture, true);
         document.removeEventListener("keydown", onKeyDown);
       },

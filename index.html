@@ -92,6 +92,26 @@
         margin-bottom: 2rem;
         background: #fff;
       }
+      /* Minimal layout for the published section mirror in the local fixture. */
+      .padding-global { padding-left: 5%; padding-right: 5%; }
+      .container-large { width: 100%; max-width: 80rem; margin-left: auto; margin-right: auto; }
+      .section_members{background-color:#f7f1ea;height:250vh;position:relative;overflow:clip;display:block;margin-bottom:0;border:0;font-size:inherit}
+      .members_sticky{height:100vh;position:sticky;top:0;overflow:hidden}
+      .members_line{z-index:0;pointer-events:none;width:56.5vw;position:absolute;top:-6vh;left:50%}
+      .members_globe{z-index:0;pointer-events:none;width:66vw;height:66vw;position:absolute;bottom:-26vw;left:-12vw}
+      .members_layout{z-index:1;grid-column-gap:3rem;grid-row-gap:2rem;grid-template-columns:1fr 1fr;height:100vh;padding-top:0;display:grid;position:relative}
+      .members_copy{max-width:34.5rem;padding-top:8rem}
+      .members_heading{color:#002944;margin-top:0;margin-bottom:.75rem;font-family:Open Sans,Arial,sans-serif;font-size:3.5rem;font-weight:700;line-height:1.15}
+      .members_text{color:#002944;margin-top:0;margin-bottom:0;font-family:Archivo,Arial,sans-serif;font-size:1rem;line-height:1.5}
+      .members_list-wrap{height:100vh;position:relative;overflow:visible}
+      .members_list{flex-direction:column;padding-top:8rem;padding-bottom:40vh;display:flex}
+      .members_item{color:#fff;background-color:#00b4ae;border-top-left-radius:10px;border-bottom-left-radius:10px;margin-bottom:1rem;padding:1.5rem 1.875rem;position:relative}
+      .members_item-toggle{grid-column-gap:.625rem;cursor:pointer;width:100%;color:inherit;align-items:center;text-decoration:none;display:flex}
+      .members_item-icon{flex:none;width:1.75rem;height:1.75rem;position:relative}
+      .members_item-title{font-family:Archivo,Arial,sans-serif;font-size:1.5rem;font-weight:500;line-height:1.2}
+      .members_item-bottom{overflow:hidden}
+      .members_item-bottom-wrap{min-height:0}
+      .members_item-text{max-width:44.5rem;margin-top:0;margin-bottom:0;padding-top:.5rem;font-family:Archivo,Arial,sans-serif;font-size:1rem;line-height:1.5}
       /* Stands in for a Webflow section tall enough to give the parallax
          elements room to drift before/after they enter the viewport.
          Positioning here uses flex/gap, not `transform` — Locomotive writes
@@ -1612,6 +1632,7 @@
     </section>
 
 
+
     <p>Signature write-on — the Osmo <em>Draw Path on Scroll</em> resource
       (<code>data-draw-scroll-*</code>). DrawSVG can only animate a
       <strong>stroke</strong>, never a <code>fill</code>, so the drawn path here is
@@ -2281,6 +2302,8 @@
       </div>
     </section>
 
+<section id="our-members" data-draw-scroll-end="bottom bottom" data-draw-scroll-start="top top" data-draw-scroll-trigger="[data-members-init]" data-draw-scroll-wrap="" data-members-init="" class="section_members"><div class="members_sticky"><div class="members_line w-embed"><svg data-draw-scroll-desktop viewBox="0 0 815.1 1308.75" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="display:block;width:100%;height:auto;overflow:visible"><path data-draw-scroll-path d="M815.097 2.5C693.597 2.66666 162.196 100.1 328.596 334.5C536.596 627.5 686.597 719.5 546.597 914C434.597 1069.6 136.264 1240.5 1.09693 1306.5" stroke="#D9D1B4" stroke-width="4.5" stroke-linecap="round" fill="none"/></svg><svg width="0" height="0" aria-hidden="true" style="position:absolute"><filter id="members-globe-tint" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0.0344 0 0 0 0.9656  0 -0.279 0 0 0.973  0 0 -0.444 0 0.962  0 0 0 1 0"/></filter></svg></div><div data-members-globe="" aria-hidden="true" class="members_globe"></div><div class="padding-global"><div class="container-large"><div class="members_layout"><div class="members_copy"><h2 class="members_heading">Our Members</h2><p class="members_text">AVPN is Asia’s largest platform for social impact, where over 700 organisations from across 43 markets collaborate to mobilise capital. Grounded in deep regional expertise and partnerships, AVPN is building a thriving ecosystem that accelerates measurable progress toward inclusive growth, empowering Asia to lead the way in global impact.</p></div><div data-members-list-wrap="" class="members_list-wrap"><div data-members-list="" data-accordion-close-siblings="true" data-accordion-css-init="" class="members_list"><div data-members-color="teal" data-accordion-status="active" class="members_item"><a href="#" aria-expanded="true" data-accordion-toggle="" class="members_item-toggle w-inline-block"><div aria-hidden="true" class="members_item-icon"></div><div class="members_item-title">Corporate/Financial Institution</div></a><div class="members_item-bottom"><div class="members_item-bottom-wrap"><p class="members_item-text">Mainstream companies that invest directly in social impact through Corporate social responsibility (CSR) or through establishing a corporate foundation.</p></div></div></div><div data-members-color="aqua" data-accordion-status="not-active" class="members_item"><a href="#" aria-expanded="false" data-accordion-toggle="" class="members_item-toggle w-inline-block"><div aria-hidden="true" class="members_item-icon"></div><div class="members_item-title">Family Office</div></a><div class="members_item-bottom"><div class="members_item-bottom-wrap"><p class="members_item-text">Wealth management advisories or establishment for high net worth and ultra-high net worth individuals.</p></div></div></div><div data-members-color="orange" data-accordion-status="not-active" class="members_item"><a href="#" aria-expanded="false" data-accordion-toggle="" class="members_item-toggle w-inline-block"><div aria-hidden="true" class="members_item-icon"></div><div class="members_item-title">Foundations/Trust</div></a><div class="members_item-bottom"><div class="members_item-bottom-wrap"><p class="members_item-text">Non-profit organisations that fund social causes. Rather than running their own activities, trusts and foundations achieve their objectives by giving money to Social Purpose Organisations (SPOs) which use the money to run their activities.</p></div></div></div><div data-members-color="yellow" data-accordion-status="not-active" class="members_item"><a href="#" aria-expanded="false" data-accordion-toggle="" class="members_item-toggle w-inline-block"><div aria-hidden="true" class="members_item-icon"></div><div class="members_item-title">Government-related</div></a><div class="members_item-bottom"><div class="members_item-bottom-wrap"><p class="members_item-text">Statutory boards, government organisations and associations, and large international organisations that provide governments a platform to cooperate.</p></div></div></div><div data-members-color="blue" data-accordion-status="not-active" class="members_item"><a href="#" aria-expanded="false" data-accordion-toggle="" class="members_item-toggle w-inline-block"><div aria-hidden="true" class="members_item-icon"></div><div class="members_item-title">Impact Fund</div></a><div class="members_item-bottom"><div class="members_item-bottom-wrap"><p class="members_item-text">Funds that make investments to social enterprises and businesses with a sustainability focus, with the intention to generate social and environmental impact alongside a financial return.</p></div></div></div><div data-members-color="teal" data-accordion-status="not-active" class="members_item"><a href="#" aria-expanded="false" data-accordion-toggle="" class="members_item-toggle w-inline-block"><div aria-hidden="true" class="members_item-icon"></div><div class="members_item-title">Incubator/Accelerator</div></a><div class="members_item-bottom"><div class="members_item-bottom-wrap"><p class="members_item-text">Organisations that provide facilities, expertise and other forms of non-monetary support to nurture young enterprises and entrepreneurs.</p></div></div></div><div data-members-color="orange" data-accordion-status="not-active" class="members_item"><a href="#" aria-expanded="false" data-accordion-toggle="" class="members_item-toggle w-inline-block"><div aria-hidden="true" class="members_item-icon"></div><div class="members_item-title">Intermediary</div></a><div class="members_item-bottom"><div class="members_item-bottom-wrap"><p class="members_item-text">Intermediaries that help bridge between investors and investees to help with deal sourcing, management and measurement, and often provide some capacity building for the investee organisations.</p></div></div></div><div data-members-color="aqua" data-accordion-status="not-active" class="members_item"><a href="#" aria-expanded="false" data-accordion-toggle="" class="members_item-toggle w-inline-block"><div aria-hidden="true" class="members_item-icon"></div><div class="members_item-title">International NGO</div></a><div class="members_item-bottom"><div class="members_item-bottom-wrap"><p class="members_item-text">International Non-Governmental Organisations (NGOs) that provide funding for local NGOs to deepen their impact.</p></div></div></div><div data-members-color="yellow" data-accordion-status="not-active" class="members_item"><a href="#" aria-expanded="false" data-accordion-toggle="" class="members_item-toggle w-inline-block"><div aria-hidden="true" class="members_item-icon"></div><div class="members_item-title">Network</div></a><div class="members_item-bottom"><div class="members_item-bottom-wrap"><p class="members_item-text">Online and offline organisations that bring diverse stakeholders together.</p></div></div></div><div data-members-color="blue" data-accordion-status="not-active" class="members_item"><a href="#" aria-expanded="false" data-accordion-toggle="" class="members_item-toggle w-inline-block"><div aria-hidden="true" class="members_item-icon"></div><div class="members_item-title">Private Equity/Venture Capital</div></a><div class="members_item-bottom"><div class="members_item-bottom-wrap"><p class="members_item-text">Private equity and venture capital firms engage in direct investments with privately held companies ranging from startups to mature companies.</p></div></div></div><div data-members-color="teal" data-accordion-status="not-active" class="members_item"><a href="#" aria-expanded="false" data-accordion-toggle="" class="members_item-toggle w-inline-block"><div aria-hidden="true" class="members_item-icon"></div><div class="members_item-title">Service Provider</div></a><div class="members_item-bottom"><div class="members_item-bottom-wrap"><p class="members_item-text">Businesses and nonprofits that provide support services to the social investment ecosystem such as consulting, legal support and talent management.</p></div></div></div><div data-members-color="orange" data-accordion-status="not-active" class="members_item"><a href="#" aria-expanded="false" data-accordion-toggle="" class="members_item-toggle w-inline-block"><div aria-hidden="true" class="members_item-icon"></div><div class="members_item-title">Universities/Research</div></a><div class="members_item-bottom"><div class="members_item-bottom-wrap"><p class="members_item-text">Universities, academies, research institutes and think tanks that are engaged in the social economy.</p></div></div></div></div></div></div></div></div></div></section>
+
     <div class="event-modal-group" data-modal-group-status="not-active">
       <div class="event-modal-backdrop" data-modal-close></div>
       <div class="event-modal-card" data-modal-name="event-1" data-modal-status="not-active">
@@ -2295,6 +2318,123 @@
         <button type="button" data-modal-close>Close</button>
         <h2>AVPN Southeast Asia Health Impact Leadership Forum 2026</h2>
       </div>
+    </div>
+
+    <div class="style-embeds">
+  <div class="members-css w-embed"><style>
+  /* Our Members — state and motion only. Layout and skin (sticky, grid, type,
+     padding, radius, base colours) live on the members_* classes in the
+     Designer. This block holds what the style panel cannot express: attribute
+     states, nth-child stagger, pseudo-element icon, custom properties, media
+     queries. Never put the same declaration in both places.
+
+     Figma 1897:29692. Mechanics: Osmo "Accordion CSS" (state in
+     data-accordion-status, animation in CSS); src/animations/accordion.js flips
+     the attributes, src/animations/membersScroll.js scrubs [data-members-list]
+     and src/canvas/globe.js mounts the cobe canvas in [data-members-globe]. */
+
+  .section_members {
+    --members-step: 30px;                          /* staircase indent per row */
+    --members-ease: cubic-bezier(0.625, 0.05, 0, 1);
+  }
+
+  /* Row colours, in Figma order. Text colour follows the card. */
+  .members_item[data-members-color="teal"]   { background-color: #00b4ae; color: #ffffff; }
+  .members_item[data-members-color="aqua"]   { background-color: #91c7d6; color: #131313; }
+  .members_item[data-members-color="orange"] { background-color: #f27c38; color: #ffffff; }
+  .members_item[data-members-color="yellow"] { background-color: #ffd552; color: #2c2c2c; }
+  .members_item[data-members-color="blue"]   { background-color: #39627a; color: #ffffff; }
+
+  /* Staircase: each row steps right by one --members-step. */
+  .members_item:nth-child(2)  { margin-left: calc(var(--members-step) * 1); }
+  .members_item:nth-child(3)  { margin-left: calc(var(--members-step) * 2); }
+  .members_item:nth-child(4)  { margin-left: calc(var(--members-step) * 3); }
+  .members_item:nth-child(5)  { margin-left: calc(var(--members-step) * 4); }
+  .members_item:nth-child(6)  { margin-left: calc(var(--members-step) * 5); }
+  .members_item:nth-child(7)  { margin-left: calc(var(--members-step) * 6); }
+  .members_item:nth-child(8)  { margin-left: calc(var(--members-step) * 7); }
+  .members_item:nth-child(9)  { margin-left: calc(var(--members-step) * 8); }
+  .members_item:nth-child(10) { margin-left: calc(var(--members-step) * 9); }
+  .members_item:nth-child(11) { margin-left: calc(var(--members-step) * 10); }
+  .members_item:nth-child(12) { margin-left: calc(var(--members-step) * 11); }
+
+  /* Bleed the list to the viewport's right edge (Figma: cards run off screen).
+     Column right edge sits at the container edge: (100vw - container) / 2 from
+     the viewport, container = min(90vw, 80rem) (padding-global 5% each side,
+     container-large 80rem). Rows are wider than the wrap so the clip cuts the
+     square right corners, never the rounded left ones. */
+  .members_list-wrap {
+  margin-right: calc((min(90vw, 80rem) - 100vw) / 2 - 1rem); /* -1rem covers a classic scrollbar */
+  clip-path: inset(0 0 0 -100vw); /* clip top/right/bottom only: rows scrub left past the wrap edge */
+}
+  .members_item { width: calc(135% + 6rem); } /* +35%: rows scrub up to 35% left (membersScroll.js) and must stay flush right */
+
+  /* Open row: shadow lifts it, body grows from 0fr to 1fr. */
+  .members_item { transition: box-shadow 0.5s var(--members-ease); }
+  .members_item[data-accordion-status="active"] {
+    box-shadow: 0 10px 8px rgba(4, 97, 94, 0.3);
+    z-index: 1;
+  }
+  .members_item-bottom {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.6s var(--members-ease);
+  }
+  [data-accordion-status="active"] .members_item-bottom { grid-template-rows: 1fr; }
+
+  /* Plus → minus: two bars, the vertical one rotates flat when open. */
+  .members_item-icon::before,
+  .members_item-icon::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 1rem;
+    height: 2px;
+    border-radius: 2px;
+    background-color: currentColor;
+    transform: translate(-50%, -50%);
+    transition: transform 0.4s var(--members-ease);
+  }
+  .members_item-icon::after { transform: translate(-50%, -50%) rotate(90deg); }
+  [data-accordion-status="active"] .members_item-icon::after { transform: translate(-50%, -50%) rotate(0deg); }
+
+  /* Globe canvas is appended by globe.js; it fades in once cobe has drawn.
+     cobe always paints an opaque lit sphere, so globe.js renders it as white
+     dots on a near-black ocean and the #members-globe-tint filter (in the
+     members_line embed, next to the dashed path) remaps that: black -> cream #f7f1ea, white -> orange #ffb184.
+     The ocean and the outer halo (glowColor 0.1) both land on cream. */
+  .members_globe canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    filter: url(#members-globe-tint);
+    transition: opacity 1.2s ease;
+  }
+  .members_globe canvas.is-ready { opacity: 1; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .members_item,
+    .members_item-bottom,
+    .members_item-icon::before,
+    .members_item-icon::after,
+    .members_globe canvas { transition: none; }
+  }
+
+  /* Tablet and below: no sticky, no scrub (JS reads the same breakpoint), one
+     column, plain accordion; globe sits behind the list bottom-left. */
+  @media (max-width: 991px) {
+    .section_members { height: auto; --members-step: 8px; }
+    .members_sticky { position: relative; height: auto; overflow: clip; }
+    .members_layout { grid-template-columns: 1fr; height: auto; padding-bottom: 4rem; }
+    .members_list-wrap { height: auto; overflow: visible; }
+    .members_list { padding-bottom: 0; }
+    .members_item { width: 100%; }               /* no bleed: keeps body.scrollWidth = viewport */
+    .members_globe { top: auto; bottom: -20vw; left: -25vw; width: 85vw; height: 85vw; opacity: 0.6; }
+    .members_line { top: 0; left: 40%; width: 90vw; }
+  }
+  </style></div>
     </div>
 
     <script type="module" src="/src/index.js"></script>

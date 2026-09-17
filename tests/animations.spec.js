@@ -261,7 +261,7 @@ test("WebGL previews allocate live render surfaces", async ({ page }) => {
     }),
   );
 
-  expect(surfaces).toEqual([true]);
+  expect(surfaces).toEqual([true, true]);
 });
 
 test("initializes the scroll-linked reveal state", async ({ page }) => {
@@ -284,7 +284,7 @@ test("initializes the scroll-direction marquee", async ({ page }) => {
 
 test("draws every marked line in each draw-path wrapper", async ({ page }) => {
   const paths = page.locator("[data-draw-scroll-wrap] [data-draw-scroll-path]");
-  await expect(paths).toHaveCount(6);
+  await expect(paths).toHaveCount(7);
 
   expect(await page.locator("[data-draw-scroll-wrap]").evaluateAll((wrappers) =>
     wrappers.map((wrapper) => {
@@ -300,6 +300,8 @@ test("draws every marked line in each draw-path wrapper", async ({ page }) => {
     { hasTrigger: true, targetCount: 1 },
     { hasTrigger: true, targetCount: 3 },
     { hasTrigger: true, targetCount: 1 },
+    { hasTrigger: true, targetCount: 1 },
+    // Our Members: the solid path drawn over the pinned runway.
     { hasTrigger: true, targetCount: 1 },
   ]);
 });
@@ -325,7 +327,7 @@ test("keeps one canvas per instance after a resize", async ({ page }) => {
 });
 
 test("keeps decorative rendering out of the accessibility tree", async ({ page }) => {
-  await expect(page.locator("canvas[aria-hidden='true']")).toHaveCount(1);
+  await expect(page.locator("canvas[aria-hidden='true']")).toHaveCount(2);
   await expect(page.locator("[data-tunnel2-images][aria-hidden='true']")).toHaveCount(1);
   expect(await page.locator("[tabindex]").evaluateAll((items) =>
     items.every((item) => Number(item.getAttribute("tabindex")) <= 0),
@@ -339,7 +341,7 @@ test("remains usable with reduced motion enabled", async ({ page }) => {
 
   await expect(page.locator("body")).toBeVisible();
   await expect(page.locator(".mask-demo__inner")).toBeVisible();
-  await expect(page.locator("canvas")).toHaveCount(1);
+  await expect(page.locator("canvas")).toHaveCount(2);
 });
 
 test("preview remains usable at a mobile viewport", async ({ page }) => {

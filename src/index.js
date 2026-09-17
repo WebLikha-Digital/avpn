@@ -28,6 +28,9 @@ import { initEcosystemTabs } from "./animations/ecosystemTabs.js";
 import { initEcosystemSlider } from "./animations/ecosystemSlider.js";
 import { initEcosystemFolders } from "./animations/ecosystemFolders.js";
 import { initHamburgerNav } from "./animations/hamburgerNav.js";
+import { initAccordion } from "./animations/accordion.js";
+import { initMembersScroll } from "./animations/membersScroll.js";
+import { initMembersGlobe } from "./canvas/globe.js";
 import { initHeroVideoGate } from "./animations/heroVideoGate.js";
 import { initHeroEntrance } from "./animations/heroEntrance.js";
 import { initEventModal } from "./animations/eventModal.js";
@@ -49,6 +52,7 @@ function initBandAware() {
 
 function init() {
   initLocomotiveScroll();
+  initAccordion();
   initHamburgerNav();
   initHeroVideoGate();
   initHorizontalScroller();
@@ -67,6 +71,8 @@ function init() {
   initListHoverReveal();
   initListPreviewFollower();
   initTunnel2();
+  initMembersScroll();
+  initMembersGlobe();
   watchImagesForRefresh();
   watchDocumentHeight();
   initHeroEntrance();

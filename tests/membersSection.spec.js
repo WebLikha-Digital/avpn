@@ -22,6 +22,11 @@ test("mounts the globe and scrubs both globe rotation and list position", async 
   );
   expect(rowX[0]).toBeLessThan(0);
   expect(Math.abs(rowX[0])).toBeGreaterThan(Math.abs(rowX.at(-1)));
+  const mount = page.locator("[data-members-globe]");
+  await page.waitForTimeout(600);
+  const idlePhi = await mount.getAttribute("data-members-globe-phi");
+  await page.waitForTimeout(300);
+  await expect(mount).toHaveAttribute("data-members-globe-phi", idlePhi);
 });
 
 test("members accordion opens one row and closes its active sibling", async ({ page }) => {

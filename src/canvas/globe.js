@@ -4,11 +4,13 @@ import { ScrollTrigger } from "../lib/gsap.js";
 const PHI_START = 0;
 const PHI_TURNS = Math.PI * 1.5;
 const THETA = 0.2;
+const MAX_DPR = 1.5;
+const RENDER_TAIL_MS = 200;
 // cobe renders white dots on a near-black sphere; CSS tints the canvas via
 // #members-globe-tint so the ocean becomes cream and the dots become orange.
 const DARK = 1;
 const DIFFUSE = 1.2;
-const MAP_SAMPLES = 24000;
+const MAP_SAMPLES = 16000;
 const MAP_BRIGHTNESS = 6;
 const BASE_COLOR = [1, 1, 1];
 const MARKER_COLOR = [1, 1, 1];
@@ -33,6 +35,21 @@ export function initMembersGlobe() {
     let size = 0;
     let dpr = 1;
     let phi = PHI_START;
+    let renderUntil = 0;
+    let rendering = false;
+
+    const pause = () => {
+      if (!globe || !rendering) return;
+      rendering = false;
+      globe.toggle(false);
+    };
+    const requestFrame = () => {
+      if (destroyed || reduced) return;
+      renderUntil = performance.now() + RENDER_TAIL_MS;
+      if (!globe || rendering) return;
+      rendering = true;
+      globe.toggle(true);
+    };
 
     const cleanup = (killTrigger = true) => {
       if (destroyed) return;
@@ -50,7 +67,7 @@ export function initMembersGlobe() {
       if (destroyed) return;
       const width = mount.getBoundingClientRect().width;
       if (width <= 0) return;
-      const nextDpr = Math.min(window.devicePixelRatio || 1, 2);
+      const nextDpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
       const nextSize = Math.round(width);
       if (globe && nextSize === size && nextDpr === dpr) return;
       dpr = nextDpr;
@@ -59,6 +76,7 @@ export function initMembersGlobe() {
       canvas.height = Math.round(size * dpr);
       if (globe) {
         globe.resize();
+        requestFrame();
         return;
       }
       globe = createGlobe(canvas, {
@@ -80,12 +98,15 @@ export function initMembersGlobe() {
           state.phi = phi;
           state.width = size * dpr;
           state.height = size * dpr;
-          if (ready) return;
-          ready = true;
-          canvas.classList.add("is-ready");
-          if (reduced) globe.toggle(false);
+          if (!ready) {
+            ready = true;
+            canvas.classList.add("is-ready");
+          }
+          if (performance.now() > renderUntil) pause();
         },
       });
+      rendering = true;
+      if (ready && performance.now() > renderUntil) pause();
     };
 
     observer = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(render);
@@ -99,8 +120,16 @@ export function initMembersGlobe() {
         end: "bottom bottom",
         scrub: true,
         onUpdate: (self) => {
-          phi = PHI_START + self.progress * PHI_TURNS;
+          const nextPhi = PHI_START + self.progress * PHI_TURNS;
+          if (nextPhi === phi) return;
+          phi = nextPhi;
           mount.setAttribute("data-members-globe-phi", phi.toFixed(3));
+          requestFrame();
+        },
+        onEnter: requestFrame,
+        onEnterBack: requestFrame,
+        onToggle: (self) => {
+          if (!self.isActive) pause();
         },
         onKill: () => cleanup(false),
       });

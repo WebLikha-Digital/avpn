@@ -28,6 +28,8 @@ const DEFAULT_START = "top 80%";
  *                                on a group, item, or nested group
  *   [data-duration]              milliseconds per item (default 800),
  *                                configurable on a group, item, or nested group
+ *   [data-delay]                 optional delay in seconds before the group
+ *                                timeline starts (default 0)
  *   [data-start]                 ScrollTrigger start (default "top 80%")
  *   [data-ignore="true"]         exclude a direct or nested child
  *   [data-ignore="false"]        on a nested group or its direct-child parent,
@@ -48,9 +50,10 @@ export function initContentReveal() {
     const groupDistance = readDistance(group, DEFAULT_DISTANCE);
     const groupDuration = readDuration(group, DEFAULT_DURATION);
     const groupStagger = readStagger(group);
+    const groupDelay = readDelay(group);
     const items = group.children.length ? [...group.children] : [group];
     const sequence = items.filter((item) => item.getAttribute("data-ignore") !== "true");
-    const timeline = gsap.timeline({ paused: true });
+    const timeline = gsap.timeline({ paused: true, delay: groupDelay });
 
     sequence.forEach((item, index) => {
       const position = index * groupStagger;
@@ -137,6 +140,11 @@ function readStagger(element) {
   const value = Number.parseFloat(element.getAttribute("data-stagger"));
   const milliseconds = Number.isFinite(value) ? Math.max(0, value) : DEFAULT_STAGGER;
   return milliseconds / 1000;
+}
+
+function readDelay(element) {
+  const value = Number.parseFloat(element.getAttribute("data-delay"));
+  return Number.isFinite(value) ? Math.max(0, value) : 0;
 }
 
 function readDistance(element, fallback) {

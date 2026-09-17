@@ -121,6 +121,52 @@ test("data-duration resolves nested, item, and invalid values by precedence", as
   expect(durations).toEqual([0.4, 0.3, 1, 2, 2]);
 });
 
+test("data-delay keeps a group hidden until the delay elapses", async ({ page }) => {
+  const group = page.getByTestId("reveal-flat");
+  const items = group.locator(":scope > *");
+
+  await group.evaluate((element) => {
+    element.setAttribute("data-delay", "0.9");
+    element.setAttribute("data-start", "top 80%");
+  });
+  await page.evaluate(async () => {
+    const { initContentReveal } = await import("/src/animations/contentReveal.js");
+    initContentReveal();
+  });
+
+  await scrollToGroup(page, "reveal-flat");
+  await page.waitForTimeout(200);
+  await expect(items).toHaveCount(4);
+  await expect.poll(() => items.evaluateAll((nodes) =>
+    nodes.map((node) => getComputedStyle(node).visibility),
+  )).toEqual(["hidden", "hidden", "hidden", "hidden"]);
+
+  await page.waitForTimeout(1_600);
+  await expect.poll(() => items.evaluateAll((nodes) =>
+    nodes.every((node) => getComputedStyle(node).visibility === "visible"),
+  )).toBe(true);
+});
+
+test("missing, empty, invalid, and negative data-delay values do not delay", async ({ page }) => {
+  const delays = await page.evaluate(async () => {
+    const { initContentReveal } = await import("/src/animations/contentReveal.js");
+    const group = document.querySelector('[data-testid="reveal-flat"]');
+    const values = [null, "", "not-a-number", "-0.9"];
+
+    return values.map((value) => {
+      if (value === null) {
+        group.removeAttribute("data-delay");
+      } else {
+        group.setAttribute("data-delay", value);
+      }
+      initContentReveal();
+      return group._contentRevealInstance.timeline.delay();
+    });
+  });
+
+  expect(delays).toEqual([0, 0, 0, 0]);
+});
+
 test("nested children reveal in their own sequence at the parent slot", async ({ page }) => {
   const group = page.getByTestId("reveal-nested");
   const nestedParent = group.locator(":scope > *").nth(1);

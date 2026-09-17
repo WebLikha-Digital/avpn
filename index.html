@@ -2394,11 +2394,14 @@
      cobe always paints an opaque lit sphere, so globe.js renders it as white
      dots on a near-black ocean and the #members-globe-tint filter (in the
      members_line embed, next to the dashed path) remaps that: black -> cream #f7f1ea, white -> orange #ffb184.
-     The ocean and the outer halo (glowColor 0.1) both land on cream. */
+     The ocean lands on cream. cobe's sphere spans 80% of the canvas; the outer
+     20% is its atmosphere glow, whose partial-alpha pixels band into pale rings
+     over the cream background, so the canvas is clipped to the sphere. */
   .members_globe canvas {
     display: block;
     width: 100%;
     height: 100%;
+    clip-path: circle(40% at 50% 50%);
     opacity: 0;
     filter: url(#members-globe-tint);
     transition: opacity 1.2s ease;

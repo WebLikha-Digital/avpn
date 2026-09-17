@@ -25,6 +25,8 @@ export function initMembersGlobe() {
     const canvas = document.createElement("canvas");
     canvas.setAttribute("aria-hidden", "true");
     mount.append(canvas);
+    const ctx2d = canvas.getContext("2d");
+    const webglCanvas = document.createElement("canvas");
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const section = mount.closest("[data-members-init]");
     let globe;
@@ -37,6 +39,25 @@ export function initMembersGlobe() {
     let phi = PHI_START;
     let renderUntil = 0;
     let rendering = false;
+    // Safari drops the SVG tint filter on a WebGL canvas, so cobe draws into a
+    // detached canvas and each frame is copied into the visible 2D one, where
+    // the filter applies. Phenomenon sizes its canvas from clientWidth/Height,
+    // which are 0 off-DOM, so report the mount size instead.
+    Object.defineProperties(webglCanvas, {
+      clientWidth: { configurable: true, get: () => size },
+      clientHeight: { configurable: true, get: () => size },
+    });
+
+    const copyFrame = () => {
+      queueMicrotask(() => {
+        if (destroyed) return;
+        ctx2d.drawImage(webglCanvas, 0, 0);
+        if (!ready) {
+          ready = true;
+          canvas.classList.add("is-ready");
+        }
+      });
+    };
 
     const pause = () => {
       if (!globe || !rendering) return;
@@ -74,12 +95,14 @@ export function initMembersGlobe() {
       size = nextSize;
       canvas.width = Math.round(size * dpr);
       canvas.height = Math.round(size * dpr);
+      webglCanvas.width = canvas.width;
+      webglCanvas.height = canvas.height;
       if (globe) {
         globe.resize();
         requestFrame();
         return;
       }
-      globe = createGlobe(canvas, {
+      globe = createGlobe(webglCanvas, {
         phi: PHI_START,
         theta: THETA,
         dark: DARK,
@@ -98,10 +121,7 @@ export function initMembersGlobe() {
           state.phi = phi;
           state.width = size * dpr;
           state.height = size * dpr;
-          if (!ready) {
-            ready = true;
-            canvas.classList.add("is-ready");
-          }
+          copyFrame();
           if (performance.now() > renderUntil) pause();
         },
       });

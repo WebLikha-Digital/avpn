@@ -9,6 +9,15 @@ test.beforeEach(async ({ page }) => {
   await page.waitForLoadState("networkidle");
   await page.waitForFunction(() => !document.documentElement.classList.contains("is-preloading"));
   await page.locator(".section_signature-events").scrollIntoViewIfNeeded();
+  await page.evaluate(() => {
+    // Mark each card played before jumping to the end, otherwise the band's
+    // own trigger can fire afterwards and restart the timeline from 0.
+    document.querySelector("[data-sig-events]")._signatureEvents.cards
+      .forEach((card) => {
+        card.played = true;
+        card.timeline?.progress(1);
+      });
+  });
 });
 
 async function openModal(page, name) {

@@ -7,8 +7,9 @@ components do.
 
 Read `docs/horizontal-scroller.md` first — the band itself is
 `horizontalScroller.js`, unchanged. This section adds two components on top of
-it: `horizontalParallax.js` (the drifting wordmark) and `shapeSwap.js` (the
-brand shape that changes per card).
+it: `signatureEvents.js` (the continuous line and card sequence),
+`horizontalParallax.js` (the drifting wordmark), and `shapeSwap.js` (the brand
+shape that changes per card).
 
 Content is static — three hand-built cards, no Collection List.
 
@@ -42,6 +43,10 @@ state as a combo (`is-*`).
 ```
 section.section_signature-events.sig-events_scroller       [data-hscroll-init]
 └ div.sig-events_stage                                     sticky, 100vh, clipped
+  ├ div.sig-events_line                                  [data-sig-events-line]
+  │ ├ div.sig-events_line-lead                           [data-sig-events-line-segment="lead"]
+  │ ├ div.sig-events_line-main                           [data-sig-events-line-segment="main"]
+  │ └ div.sig-events_line-tail                           [data-sig-events-line-segment="tail"]
   ├ div.sig-events_bg.is-top                               cream band
   ├ div.sig-events_bg.is-bottom                            blue gradient
   ├ div.sig-events_word                                    [data-hparallax]
@@ -57,7 +62,8 @@ section.section_signature-events.sig-events_scroller       [data-hscroll-init]
     ├ div.sig-events_spacer.is-lead
     ├ div.sig-events_card                                  ×3
     │ └ div.sig-events_card-inner
-    │   ├ div.sig-events_card-media
+    │   ├ div.sig-events_pin                               [data-sig-events-pin]
+    │   ├ div.sig-events_card-media > img.signature-events_image
     │   ├ div.sig-events_card-title-col
     │   │ ├ div.sig-events_card-pill                     [data-reveal-group] [data-stagger="0"]
     │   │ │ ├ div.sig-events_card-pill-icon
@@ -77,12 +83,39 @@ container. Backgrounds and wordmark are children of the **stage**, beside the
 viewport rather than inside it. That is load-bearing — see "Why the word sits
 outside the scroller" below.
 
-The text reveals are the existing `splitReveal.js`; it is already band-aware
-and swaps its own default start to `clamp(left 80%)` inside a band, so the cards
-need no start authored. The location pill is a `contentReveal.js` group of its
-own with `data-stagger="0"`, so icon and label rise together as one unit on the
-same band-aware start (added 2026-09-16); the body column is the other
-`[data-reveal-group]`.
+The line and all card reveals are owned by `signatureEvents.js`. The wordmark
+and shape swap remain independent modules. The button hover remains the generic
+button module.
+
+## Signature Events reveal contract
+
+The three line segments are one ordered chain. On the window ScrollTrigger
+`top top` entry, the lead reveals for `0.8s` with `power2.out`. Every ticker
+frame writes all three DrawSVG values from one budget:
+
+```text
+budget = leadRenderedWidth × leadReveal + viewport.scrollLeft
+segmentProgress = clamp((budget - segmentLeft) / segmentWidth, 0, 1)
+```
+
+This keeps the lead/main and main/tail joins continuous. The card pin centre is
+measured relative to the line block; once the budget reaches it, that card's
+timeline plays once and never replays when scrolling back.
+
+| Target | Start | Motion | Duration / easing |
+| --- | ---: | --- | --- |
+| pin | 0.00s | scale `.4 → 1`, autoAlpha `0 → 1`, origin `50% 100%` | 0.6s `back.out(1.4)` |
+| image | 0.15s | clip `inset(100% 0 0 0) → inset(0)` | 0.8s `expo.out` |
+| pill | 0.50s | y `1.5em → 0`, autoAlpha `0 → 1` | 0.6s `power3.out` |
+| heading | 0.60s | SplitText lines, yPercent `100 → 0`, stagger `.08` | 0.8s `power3.out` |
+| date | 0.70s | SplitText lines, yPercent `100 → 0` | 0.8s `power3.out` |
+| description | 0.80s | y `1.5em → 0`, autoAlpha `0 → 1` | 0.6s `power3.out` |
+| button | 0.90s | y `1.5em → 0`, autoAlpha `0 → 1` | 0.6s `power3.out` |
+
+The `small` breakpoint hides the line and pins but keeps the card sequence.
+Reduced motion sets the line and every card to its final state without creating
+tweens. `hscroll:rebuilt` tears down the ticker, section trigger, timelines,
+and SplitText instances before rebuilding them.
 
 ---
 

@@ -44,7 +44,7 @@ export function initMembersGlobe() {
       globe.toggle(false);
     };
     const requestFrame = () => {
-      if (destroyed || reduced) return;
+      if (destroyed) return;
       renderUntil = performance.now() + RENDER_TAIL_MS;
       if (!globe || rendering) return;
       rendering = true;

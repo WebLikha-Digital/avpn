@@ -73,7 +73,6 @@ function init() {
   initTunnel2();
   initMembersScroll();
   initMembersGlobe();
-  watchImagesForRefresh();
   watchDocumentHeight();
   initHeroEntrance();
   initEventModal();
@@ -81,29 +80,11 @@ function init() {
 
 window.addEventListener(HSCROLL_REBUILT, initBandAware);
 
-function watchImagesForRefresh() {
-  let refreshTimer;
-  document.querySelectorAll("img").forEach((img) => {
-    if (img.complete) return;
-    img.addEventListener(
-      "load",
-      () => {
-        clearTimeout(refreshTimer);
-        refreshTimer = setTimeout(() => ScrollTrigger.refresh(), 100);
-      },
-      { once: true }
-    );
-  });
-}
-
 /**
  * Re-measure every trigger while the page is still growing.
  *
- * watchImagesForRefresh only binds to the <img> elements that exist at DOM
- * ready, and window.load fires once. Neither covers the real behaviour of this
- * page: for the first few seconds after a reload the document keeps getting
- * taller — lazy images, fonts, the Webflow embeds — while Locomotive is
- * restoring the previous scroll position.
+ * The document keeps getting taller for the first few seconds after a reload,
+ * while Locomotive is restoring the previous scroll position.
  *
  * A trigger measured during that window holds a start offset from a shorter
  * page. Everything below the growth then sits somewhere the triggers do not

@@ -4,13 +4,16 @@ import { bandContext } from "./horizontalScroller.js";
 const LINE_REVEAL_DURATION = 0.8;
 const PIN_DURATION = 0.6;
 const IMAGE_DURATION = 0.8;
-const PILL_DURATION = 0.6;
+const PILL_DURATION = 0.8;
 const TEXT_DURATION = 0.8;
-const CONTENT_DURATION = 0.6;
+const CONTENT_DURATION = 0.8;
 const LINE_EASE = "power2.out";
-const PIN_EASE = "back.out(1.4)";
+const PIN_EASE = "expo.out";
 const IMAGE_EASE = "expo.out";
-const CONTENT_EASE = "power3.out";
+// Same feel as the rest of the site: contentReveal rises on power4.inOut,
+// splitReveal lines on the "smooth" CustomEase from src/lib/gsap.js.
+const CONTENT_EASE = "power4.inOut";
+const TEXT_EASE = "smooth";
 
 const STEP_OFFSETS = {
   pin: 0,
@@ -163,7 +166,7 @@ function buildCard(card, small) {
     });
   }
   if (image) gsap.set(image, { clipPath: "inset(100% 0% 0% 0%)" });
-  gsap.set([pill, desc, button].filter(Boolean), { y: "1.5em", autoAlpha: 0 });
+  gsap.set([pill, desc, button].filter(Boolean), { y: "2em", autoAlpha: 0 });
   gsap.set([heading, date].filter(Boolean), { autoAlpha: 1 });
 
   const timeline = gsap.timeline({ paused: true });
@@ -194,7 +197,7 @@ function buildCard(card, small) {
     entry.lineTweens.push(gsap.to(split.lines, {
       yPercent: 0,
       duration: TEXT_DURATION,
-      ease: CONTENT_EASE,
+      ease: TEXT_EASE,
       stagger: 0.08,
     }));
   };

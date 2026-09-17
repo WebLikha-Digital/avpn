@@ -254,29 +254,34 @@ function setupGatedScrub(wrap, paths, scrollTrigger, stagger) {
     const tl = createScrubTimeline(wrap, paths, scrollTrigger, stagger);
     // The trigger measures on the next refresh, not on creation. Refresh it
     // now so the timeline sits at its mapped progress before it is read.
-    tl.scrollTrigger?.refresh();
-    const mapped = [...paths].map((path) => {
-      const tween = gsap.getTweensOf(path).find((item) => item.timeline === tl);
-      const progress = tween?.progress() ?? tl.progress();
-      return { progress, drawSVG: `0 ${progress * 100}%` };
-    });
-    if (!mapped.some(({ progress }) => progress > 0)) return;
+    const st = tl.scrollTrigger;
+    st?.refresh();
+    const mapScrollProgress = () => st.end === st.start
+      ? 0
+      : gsap.utils.clamp(0, 1, (st.scroll() - st.start) / (st.end - st.start));
+    const mapped = mapScrollProgress();
+    if (!mapped) return;
 
-    const catchup = gsap.fromTo(
-      paths,
-      { drawSVG: "0" },
-      {
-        drawSVG: (index) => mapped[index].drawSVG,
-        duration: 0.5,
-        ease: "power2.out",
-        overwrite: false,
-        onComplete: () => {
-          if (wrap._drawScrollCatchup === catchup) {
-            wrap._drawScrollCatchup = null;
-          }
-        },
+    // ScrollTrigger and a paths-level tween cannot both write drawSVG during
+    // the catch-up. Keep the timeline as the sole writer and pause the
+    // trigger until the proxy reaches the live scroll position.
+    st.disable(false);
+    const proxy = { p: 0 };
+    const catchup = gsap.to(proxy, {
+      p: 1,
+      duration: 0.5,
+      ease: "power2.out",
+      onUpdate: () => {
+        tl.progress(mapScrollProgress() * proxy.p);
       },
-    );
+      onComplete: () => {
+        st.enable(false);
+        st.update();
+        if (wrap._drawScrollCatchup === catchup) {
+          wrap._drawScrollCatchup = null;
+        }
+      },
+    });
     wrap._drawScrollCatchup = catchup;
   });
 }

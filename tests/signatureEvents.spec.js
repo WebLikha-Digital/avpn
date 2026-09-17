@@ -235,15 +235,115 @@ test("holds a scrubbed line at zero until its reveal gate completes", async ({ p
 
   await expect.poll(() => main.evaluate(async (wrap) => {
     const { ScrollTrigger } = await import("/src/lib/gsap.js");
+    const st = wrap._drawTl?.scrollTrigger;
     return {
       triggerCount: [...ScrollTrigger.getAll()].filter(
         (trigger) => trigger.vars.trigger === wrap.querySelector("[data-draw-scroll-desktop]"),
       ).length,
-      scrub: wrap._drawTl?.scrollTrigger?.vars.scrub,
+      scrub: st?.vars.scrub,
+      enabled: st?.enabled,
+      hasCatchup: Boolean(wrap._drawScrollCatchup),
+      progressMatches: Math.abs(wrap._drawTl.progress() - st?.progress) <= 0.001,
     };
-  })).toEqual({ triggerCount: 1, scrub: true });
+  })).toEqual({
+    triggerCount: 1,
+    scrub: true,
+    enabled: true,
+    hasCatchup: false,
+    progressMatches: true,
+  });
   await expect.poll(() => main.evaluate((wrap) => wrap.querySelector("[data-draw-scroll-path]").style.strokeDasharray))
     .not.toBe("0");
+});
+
+test("keeps the scrub trigger from rendering during the gated catch-up", async ({ page }) => {
+  const lead = page.locator(`${band} .sig-events_line-lead`);
+  const main = page.locator(`${band} .sig-events_line-main`);
+
+  await lead.evaluate((wrap) => { wrap._drawTl.timeScale(0.1); });
+  const triggerY = await page.locator(band).evaluate((section) =>
+    section.getBoundingClientRect().top + window.scrollY - window.innerHeight * 0.6,
+  );
+  const targetY = await page.locator(band).evaluate((section) => {
+    const viewport = section.querySelector("[data-hscroll-viewport]");
+    const mainLine = section.querySelector(".sig-events_line-main");
+    const viewportRect = viewport.getBoundingClientRect();
+    const mainRect = mainLine.getBoundingClientRect();
+    const startScroll = mainRect.left - viewportRect.left + viewport.scrollLeft - viewport.clientWidth * 0.3935;
+    return section.getBoundingClientRect().top + window.scrollY + startScroll + 100;
+  });
+
+  await scrollTo(page, Math.max(triggerY + 100, targetY));
+  await expect.poll(() => lead.evaluate((wrap) => wrap._drawTl.progress())).toBeGreaterThan(0);
+  expect(await lead.evaluate((wrap) => wrap._drawTl.progress())).toBeLessThan(1);
+
+  const probe = await main.evaluate(async (wrap) => {
+    const { ScrollTrigger } = await import("/src/lib/gsap.js");
+    const leadTimeline = wrap.closest("[data-hscroll-init]")
+      .querySelector(".sig-events_line-lead")._drawTl;
+    const path = wrap.querySelector("[data-draw-scroll-path]");
+    leadTimeline.timeScale(1);
+    return new Promise((resolve) => {
+      const tick = () => {
+        const catchup = wrap._drawScrollCatchup;
+        if (!catchup || catchup.progress() >= 0.3) {
+          requestAnimationFrame(tick);
+          return;
+        }
+
+        const st = wrap._drawTl.scrollTrigger;
+        window.scrollTo({ top: window.scrollY + 40, behavior: "instant" });
+        ScrollTrigger.update();
+        const mapped = st.end === st.start
+          ? 0
+          : Math.min(1, Math.max(0, (st.scroll() - st.start) / (st.end - st.start)));
+        resolve({
+          drawn: Number.parseFloat(path.style.strokeDasharray),
+          mapped: path.getTotalLength() * mapped,
+          catchupProgress: catchup.progress(),
+          enabled: st.enabled,
+        });
+      };
+      tick();
+    });
+  });
+
+  expect(probe.catchupProgress).toBeLessThan(0.3);
+  expect(probe.enabled).toBe(false);
+  expect(probe.drawn).toBeLessThan(probe.mapped * 0.8);
+
+  await expect.poll(() => main.evaluate(async (wrap) => {
+    const { ScrollTrigger } = await import("/src/lib/gsap.js");
+    const path = wrap.querySelector("[data-draw-scroll-path]");
+    const st = wrap._drawTl?.scrollTrigger;
+    return {
+      drawn: Number.parseFloat(path.style.strokeDasharray),
+      mapped: path.getTotalLength() * (st?.progress ?? 0),
+      catchup: Boolean(wrap._drawScrollCatchup),
+      triggerCount: [...ScrollTrigger.getAll()].filter(
+        (trigger) => trigger.vars.trigger === wrap.querySelector("[data-draw-scroll-desktop]"),
+      ).length,
+      scrub: st?.vars.scrub,
+      enabled: st?.enabled,
+      progressMatches: Math.abs(wrap._drawTl.progress() - st?.progress) <= 0.001,
+    };
+  }), { timeout: 1_000 }).toMatchObject({
+    catchup: false,
+    triggerCount: 1,
+    scrub: true,
+    enabled: true,
+    progressMatches: true,
+  });
+
+  const final = await main.evaluate((wrap) => {
+    const path = wrap.querySelector("[data-draw-scroll-path]");
+    const st = wrap._drawTl.scrollTrigger;
+    return {
+      drawn: Number.parseFloat(path.style.strokeDasharray),
+      mapped: path.getTotalLength() * st.progress,
+    };
+  });
+  expect(Math.abs(final.drawn - final.mapped)).toBeLessThanOrEqual(1);
 });
 
 test("falls back to an ungated scrub when data-draw-scroll-after matches nothing", async ({ page }) => {

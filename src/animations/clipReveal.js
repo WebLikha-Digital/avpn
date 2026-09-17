@@ -4,6 +4,7 @@ const DEFAULT_SCRUB = 0.25;
 const DEFAULT_INSET_PERCENT = 25;
 const RESIZE_DEBOUNCE = 150;
 const FULL_REVEAL = "inset(0px 0px 0px 0px round 0px)";
+const CIRCLE_SHAPE = "circle";
 
 /**
  * Reveals a sticky image frame by animating only its clip path.
@@ -12,6 +13,7 @@ const FULL_REVEAL = "inset(0px 0px 0px 0px round 0px)";
  *   [data-clip-reveal-init]   scope root; every root initializes independently
  *   [data-clip-reveal-target] element whose clip path is animated
  *   [data-clip-reveal-from]   optional box used to measure the starting inset
+ *   [data-clip-reveal-shape]  optional shape mode; only "circle" changes it
  *   [data-clip-reveal-scrub]  optional scrub smoothing; defaults to 0.25
  */
 export function initClipReveal() {
@@ -22,12 +24,16 @@ export function initClipReveal() {
     if (!target) return;
 
     const from = root.querySelector("[data-clip-reveal-from]");
-    const startClip = from
-      ? measureStartClip(target, from)
-      : defaultStartClip(target);
+    const isCircle = root.getAttribute("data-clip-reveal-shape") === CIRCLE_SHAPE;
+    const startClip = isCircle
+      ? measureStartCircle(target, from)
+      : from
+        ? measureStartClip(target, from)
+        : defaultStartClip(target);
+    const endClip = isCircle ? fullRevealCircle(target) : FULL_REVEAL;
 
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      root._clipRevealTimeline = gsap.set(target, { clipPath: FULL_REVEAL });
+      root._clipRevealTimeline = gsap.set(target, { clipPath: endClip });
       return;
     }
 
@@ -46,7 +52,7 @@ export function initClipReveal() {
       target,
       { clipPath: startClip },
       {
-        clipPath: FULL_REVEAL,
+        clipPath: endClip,
         duration: 1,
         ease: "none",
         immediateRender: true,
@@ -73,6 +79,22 @@ function measureStartClip(target, from) {
   return insetClip(top, right, bottom, left, radius);
 }
 
+function measureStartCircle(target, from) {
+  const rect = from
+    ? from.getBoundingClientRect()
+    : target.getBoundingClientRect();
+  const radius = from
+    ? Math.min(rect.width, rect.height) / 2
+    : Math.min(rect.width, rect.height) * (DEFAULT_INSET_PERCENT / 100);
+
+  return circleClip(radius);
+}
+
+function fullRevealCircle(target) {
+  const rect = target.getBoundingClientRect();
+  return circleClip(Math.hypot(rect.width, rect.height) / 2);
+}
+
 function defaultStartClip(target) {
   const rect = target.getBoundingClientRect();
   const fraction = DEFAULT_INSET_PERCENT / 100;
@@ -87,6 +109,10 @@ function defaultStartClip(target) {
 
 function insetClip(top, right, bottom, left, radius) {
   return `inset(${top}px ${right}px ${bottom}px ${left}px round ${radius}px)`;
+}
+
+function circleClip(radius) {
+  return `circle(${radius}px at 50% 50%)`;
 }
 
 function teardown(root) {

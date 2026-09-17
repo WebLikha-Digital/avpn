@@ -2,7 +2,8 @@
 
 The image that closes the CEO's Foreword. A full-width frame stays fixed in a
 sticky, viewport-height wrapper while its clipped opening expands from a small,
-rounded box to the complete square-cornered image.
+rounded box to the complete image. The optional circle shape expands from a
+centered circle to one large enough to include the frame's corners.
 
 ## How it works
 
@@ -24,6 +25,25 @@ to:
 ```css
 inset(0px 0px 0px 0px round 0px)
 ```
+
+When the root has `data-clip-reveal-shape="circle"`, the same explicit tween
+uses circle clips instead:
+
+```css
+circle(<r0>px at 50% 50%)
+```
+
+to:
+
+```css
+circle(<r1>px at 50% 50%)
+```
+
+With a sizing box, `r0` is half of its shorter side. Without one, `r0` is 25%
+of the target frame's shorter side, matching the inset fallback's 25% rule.
+`r1` is half of the target frame's diagonal (`Math.hypot(width, height) / 2`),
+so the circle covers the frame's corners at the end. The circle is centered in
+the frame; the sizing box is expected to share the sticky wrapper's center.
 
 The script never reads `clip-path` back from the browser. Browsers canonicalize
 inset values, which can make GSAP associate a rounded-corner value with the
@@ -48,6 +68,7 @@ the frame is set directly to the fully revealed state.
 | `data-clip-reveal-target` | The frame whose `clip-path` animates. One per root. |
 | `data-clip-reveal-from` | Optional invisible sizing box. Its rect and computed top-left radius define the starting clip. |
 | `data-clip-reveal-scrub` | Optional ScrollTrigger `scrub` value; defaults to `0.25`. |
+| `data-clip-reveal-shape="circle"` | Optional shape mode. Uses the centered circle radius rules above; any other value keeps the inset reveal. |
 
 A root with no target is skipped silently. If the sizing box is absent, the
 component falls back to the pixel equivalent of `inset(25% 25% 25% 25% round
@@ -62,6 +83,12 @@ section.section_image-breaker           [data-clip-reveal-init]
       img.image-breaker_image
     .image-breaker_start                [data-clip-reveal-from]
 ```
+
+On the Home page, a second instance with
+`data-clip-reveal-shape="circle"` is placed immediately before Key Highlights.
+It uses the same child structure and image-breaker sizing rules as the first
+instance. The first (Foreword) breaker has no shape attribute and remains an
+inset reveal.
 
 The sizing box is a sibling of the target and both are centred by the same
 sticky wrapper. That shared coordinate space makes its bounding rect directly

@@ -149,6 +149,9 @@ test("scales each card down per step away from the slot", async ({ page }) => {
 });
 
 test("keeps the track mapped to the page after a width change", async ({ page }) => {
+  // Pin height so earlier vh-sized sections keep the parked band position stable.
+  await page.setViewportSize({ width: 1280, height: 800 });
+
   // Park inside the wheel's pinned range, where a stale measurement is most
   // visible: the stage is pinned and the hub's rotation is being scrubbed.
   const { top, panelLeft } = await page.locator("[data-rotary-wheel-init]").evaluate((el) => {

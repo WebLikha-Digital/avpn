@@ -23,9 +23,10 @@ pushes, creates branches, or opens PRs.
 - There is no JavaScript linter and no type checker configured (only a markdown
   lint for docs). Do not invent one, and do not
   claim a lint or type-check step ran. The real checks are listed in step 7.
-- Some bugs live in Webflow (markup, classes, custom attributes), not in this repo.
-  If the root cause is in the Designer, say so and stop — an unrelated JS patch that
-  papers over a Webflow structure problem is not a fix.
+- Some bugs live in Webflow (markup, classes, custom attributes), not in this repo,
+  and many live in both. If the root cause is in the Designer, say so and fix it
+  there (step 7 **Mixed fixes**) — an unrelated JS patch that papers over a Webflow
+  structure problem is not a fix.
 
 ## Procedure
 
@@ -202,6 +203,21 @@ Then check the result against the step 1 acceptance criteria, one by one. If any
 criterion fails, go back to step 5. Do not report the task as complete, and do not
 skip, delete, or `test.skip` a failing test to make the suite green.
 
+#### Mixed fixes
+
+When the root cause is partly in Webflow, Claude makes that change first, publishes
+to the `webflow.io` staging subdomain, mirrors the same markup, attribute, or style
+change in `index.html` so the local preview and the committed specs see the same
+structure, and only then hands the repo half to Codex with the Webflow state
+described in **Relevant context**.
+
+A criterion that lives on the published page — rendered stroke width, a position
+after a Webflow style change, a DrawSVG warning that only fires against the real
+markup — is checked with a throwaway Playwright script that fulfils
+`**/animations.min.js` from this branch's `dist/`, drives real scroll, and reads
+the values back at each reported viewport. The script is not committed; its command,
+viewports, and numbers go in the PR body, which is what gate 6 accepts.
+
 ### 8. Review the full working tree, then commit — Codex, then Claude
 
 ```bash
@@ -264,16 +280,19 @@ because the fix "looks obviously right".
 | --- | --- | --- |
 | 1 | CI is green on the PR | `gh pr checks <pr>` — GitHub's status, not your own test run. `main` has no branch protection, so nothing enforces this gate for you: check it, and never merge past a red or pending run. |
 | 2 | A regression spec fails on `main` and passes on the branch | Both results recorded in the PR, from step 7. |
-| 3 | The diff touches only `src/`, `tests/`, and `dist/animations.min.js` | `git diff --name-only main...HEAD`. `dist/` is allowed *only* as the rebuilt output of the source change in the same diff — never hand-edited. Any change to `package.json`, `vite.config.js`, either Playwright config, `.github/`, `skills/`, or `docs/` disqualifies. |
+| 3 | The diff touches only `src/`, `tests/`, `dist/animations.min.js`, and the `index.html` mirror of a Webflow change | `git diff --name-only main...HEAD`. `dist/` is allowed *only* as the rebuilt output of the source change in the same diff — never hand-edited. `index.html` is allowed *only* when every changed line there reproduces a Webflow markup, attribute, or style change made for this fix (step 7 **Mixed fixes**); any other `index.html` edit disqualifies. Any change to `package.json`, `vite.config.js`, either Playwright config, `.github/`, `skills/`, or `docs/` disqualifies. |
 | 4 | The diff is at most 50 changed lines, excluding `dist/` | `git diff --shortstat main...HEAD -- src tests`. The bundle is one minified line and would swamp the count. |
 | 5 | The acceptance criteria came from the user | Criteria you inferred yourself do not count — ask the user to confirm them, or hand off. |
-| 6 | Every acceptance criterion is met by an automated check | If any criterion can only be confirmed by eye, hand off. |
-| 7 | The root cause is in this repo | Anything rooted in Webflow markup, styling, or hosting always hands off. |
+| 6 | Every acceptance criterion is met by a measured check | A committed spec, or — for a criterion no committed spec can reach, such as the published page's rendered geometry — a live measurement recorded in the PR body with the command, viewport, and the numbers read back (step 7 **Mixed fixes**). A criterion that can only be confirmed by eye, with no number behind it, means hand off. |
+| 7 | Every part of the root cause is fixed and verified | A repo root cause is fixed by the diff. A Webflow root cause is fixed by Claude in the Designer or via MCP, published to the `webflow.io` staging subdomain, mirrored in `index.html`, and verified on the published page with this branch's bundle — all recorded in the PR body. A root cause in hosting, or a Webflow change the task did not ask Claude to make, always hands off. |
 
 Rationale, so these are not treated as red tape: gates 1 and 2 are the only checks in
 this workflow that are not self-attested. Gate 6 exists because most bugs in this repo
-are visual, and "I looked at it and it seemed fixed" is not evidence. Gates 3, 4 and 5
-keep the blast radius small and stop a mis-framed problem statement from auto-shipping.
+are visual, and "I looked at it and it seemed fixed" is not evidence — a number read
+back from the published page is. Gates 3, 4 and 5 keep the blast radius small and stop
+a mis-framed problem statement from auto-shipping. Gate 7 exists because a bug on this
+site is usually half Webflow; a repo patch that papers over a Webflow defect is not a
+fix, and a Webflow change nobody verified on the published page is not one either.
 
 **If all gates pass:**
 

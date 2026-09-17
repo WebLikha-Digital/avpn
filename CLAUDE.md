@@ -239,6 +239,9 @@ Bug fixes use `fix/` branches and follow `skills/fix-bug/SKILL.md`. The short fo
   continuous motion. Reading a settled position passes on a broken pin.
 - A bug fix merges only when it passes every gate in the skill on top of the
   general `PASS` + green CI rule — a regression spec that fails on `main` and
-  passes on the branch, a small diff confined to `src/`, `tests/`, and the rebuilt
-  bundle, and acceptance criteria that came from the user. Any gate failing means
-  hand the PR to the user.
+  passes on the branch, a small diff confined to `src/`, `tests/`, the rebuilt
+  bundle, and the `index.html` mirror of any Webflow change, acceptance criteria
+  that came from the user, every criterion backed by a spec or a recorded live
+  measurement, and any Webflow half of the root cause fixed by Claude, published to
+  staging, and verified on the published page. Any gate failing means hand the PR
+  to the user.

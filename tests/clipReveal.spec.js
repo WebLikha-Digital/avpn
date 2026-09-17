@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-const ROOT = "[data-clip-reveal-init]";
+const ROOT = '[data-clip-reveal-init]:not([data-clip-reveal-shape])';
 const EDGE_TOLERANCE = 1;
 const POSITION_TOLERANCE = 1;
 const MONOTONIC_TOLERANCE = 0.05;
@@ -29,6 +29,12 @@ function clipPathMetrics(clipPath) {
     left: values.length < 4 ? second : fourth,
     radius: radiusPart ? parseFloat(radiusPart) : 0,
   };
+}
+
+function circlePathMetrics(clipPath) {
+  const match = clipPath.match(/^circle\(([-\d.]+)px at 50% 50%\)$/);
+  if (!match) throw new Error(`Expected a centered circle clip, got: ${clipPath}`);
+  return { radius: parseFloat(match[1]) };
 }
 
 function expectMonotonicDecrease(frames, property) {
@@ -228,6 +234,112 @@ test("re-initializes and rebuilds once on width changes without stacking trigger
   expect(rebuilt).toEqual({ rebuiltAgain: false, triggerCount: 1 });
 });
 
+test("circle mode grows from the sizing-box radius through an intermediate scrub to the diagonal", async ({ page }) => {
+  await loadFixture(page);
+
+  const circleRoot = page.locator('[data-clip-reveal-shape="circle"]');
+  await expect(circleRoot).toHaveCount(1);
+
+  const setup = await circleRoot.evaluate((root) => {
+    const target = root.querySelector("[data-clip-reveal-target]");
+    const from = root.querySelector("[data-clip-reveal-from]");
+    const timeline = root._clipRevealTimeline;
+    timeline.progress(0);
+    const targetRect = target.getBoundingClientRect();
+    const fromRect = from.getBoundingClientRect();
+
+    return {
+      bounds: { start: timeline.scrollTrigger.start, end: timeline.scrollTrigger.end },
+      startClip: target.style.clipPath,
+      target: { width: targetRect.width, height: targetRect.height },
+      from: { width: fromRect.width, height: fromRect.height },
+    };
+  });
+
+  const expectedStartRadius = Math.min(setup.from.width, setup.from.height) / 2;
+  const expectedEndRadius = Math.hypot(setup.target.width, setup.target.height) / 2;
+  expect(circlePathMetrics(setup.startClip).radius).toBeCloseTo(expectedStartRadius, 4);
+
+  await page.evaluate((y) => window.scrollTo({ top: y, behavior: "instant" }), setup.bounds.start - 150);
+  await page.waitForTimeout(500);
+  await circleRoot.evaluate((root) => {
+    window.__clipRevealCircleFrames = [];
+    const target = root.querySelector("[data-clip-reveal-target]");
+    const timeline = root._clipRevealTimeline;
+    const sample = () => {
+      window.__clipRevealCircleFrames.push({
+        scrollY: window.scrollY,
+        progress: timeline.progress(),
+        clipPath: target.style.clipPath,
+      });
+      if (window.__clipRevealCircleFrames.length < 1500) requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  });
+
+  await page.mouse.move(600, 400);
+  const steps = Math.ceil((setup.bounds.end - setup.bounds.start + 350) / 70);
+  for (let index = 0; index < steps; index += 1) {
+    await page.mouse.wheel(0, 70);
+    await page.waitForTimeout(40);
+  }
+
+  const frames = await page.evaluate(({ start, end }) =>
+    window.__clipRevealCircleFrames.filter(
+      (frame) => frame.scrollY > start + 2 && frame.scrollY < end - 2,
+    ), setup.bounds);
+  expect(frames.length).toBeGreaterThan(10);
+  expect(frames.at(-1).progress - frames[0].progress).toBeGreaterThan(0.8);
+
+  const radii = frames.map(({ clipPath }) => circlePathMetrics(clipPath).radius);
+  expect(radii.some((radius) => radius > expectedStartRadius && radius < expectedEndRadius)).toBe(true);
+  expect(radii.at(-1)).toBeGreaterThan(radii[0]);
+
+  const endClipPath = await circleRoot.evaluate((root) => {
+    root._clipRevealTimeline.progress(1);
+    return root.querySelector("[data-clip-reveal-target]").style.clipPath;
+  });
+  const endRadius = circlePathMetrics(endClipPath).radius;
+  expect(endRadius).toBeCloseTo(expectedEndRadius, 4);
+});
+
+test("circle mode tears down and rebuilds its single trigger after a width change", async ({ page }) => {
+  await loadFixture(page);
+
+  const circleRoot = page.locator('[data-clip-reveal-shape="circle"]');
+  const beforeResize = await circleRoot.evaluate(async (root) => {
+    const { initClipReveal } = await import("/src/animations/clipReveal.js");
+    const { ScrollTrigger } = await import("/src/lib/gsap.js");
+    const previous = root._clipRevealTimeline;
+    initClipReveal();
+    return {
+      replaced: root._clipRevealTimeline !== previous,
+      triggerCount: ScrollTrigger.getAll().filter((trigger) => trigger.vars.trigger === root).length,
+    };
+  });
+  expect(beforeResize).toEqual({ replaced: true, triggerCount: 1 });
+
+  await circleRoot.evaluate((root) => {
+    window.__clipRevealCircleTimeline = root._clipRevealTimeline;
+  });
+  await page.setViewportSize({ width: 700, height: 800 });
+  await expect
+    .poll(() => circleRoot.evaluate(
+      (root) => root._clipRevealTimeline !== window.__clipRevealCircleTimeline,
+    ))
+    .toBe(true);
+
+  const afterResize = await circleRoot.evaluate(async (root) => {
+    const { ScrollTrigger } = await import("/src/lib/gsap.js");
+    return {
+      clipPath: root.querySelector("[data-clip-reveal-target]").style.clipPath,
+      triggerCount: ScrollTrigger.getAll().filter((trigger) => trigger.vars.trigger === root).length,
+    };
+  });
+  expect(afterResize.clipPath).toMatch(/^circle\([-\d.]+px at 50% 50%\)$/);
+  expect(afterResize.triggerCount).toBe(1);
+});
+
 test("reduced motion creates no ScrollTrigger and fully reveals the target", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.setViewportSize({ width: 1200, height: 800 });
@@ -254,6 +366,27 @@ test("reduced motion creates no ScrollTrigger and fully reveals the target", asy
     left: 0,
     radius: 0,
   });
+});
+
+test("circle mode reduced motion sets the final diagonal circle without a ScrollTrigger", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.setViewportSize({ width: 1200, height: 800 });
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+
+  const result = await page.locator('[data-clip-reveal-shape="circle"]').evaluate(async (root) => {
+    const { ScrollTrigger } = await import("/src/lib/gsap.js");
+    const target = root.querySelector("[data-clip-reveal-target]");
+    const rect = target.getBoundingClientRect();
+    return {
+      clipPath: target.style.clipPath,
+      expectedRadius: Math.hypot(rect.width, rect.height) / 2,
+      triggerCount: ScrollTrigger.getAll().filter((trigger) => trigger.vars.trigger === root).length,
+    };
+  });
+
+  expect(circlePathMetrics(result.clipPath).radius).toBeCloseTo(result.expectedRadius, 4);
+  expect(result.triggerCount).toBe(0);
 });
 
 test("uses the default clip without a from-box and skips roots without a target", async ({ page }) => {

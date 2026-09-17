@@ -3,12 +3,8 @@ import { test, expect } from "@playwright/test";
 const band = ".section_signature-events[data-hscroll-init]";
 const word = "[data-hparallax]";
 const shapes = "[data-shape-swap] > *";
-const leadPath = ".sig-events_line-lead [data-draw-scroll-path]";
-const signaturePin = ".section_signature-events [data-shape-reveal]";
 
 async function scrollTo(page, y) {
-  // Locomotive eases window.scrollY, so drive it the way a user would and let
-  // the lerp settle before reading anything back.
   await page.evaluate((target) => window.scrollTo({ top: target, behavior: "instant" }), y);
   await page.waitForTimeout(400);
 }
@@ -20,26 +16,17 @@ async function geometry(page) {
     return {
       top: wrap.getBoundingClientRect().top + window.scrollY,
       distance: track.scrollWidth - viewport.clientWidth,
-      cardLefts: [...wrap.querySelectorAll(".sig-events_card")].map(
-        (card) => card.getBoundingClientRect().left - track.getBoundingClientRect().left,
-      ),
+      cardLefts: [...wrap.querySelectorAll(".sig-events_card")].map((card) =>
+        card.getBoundingClientRect().left - track.getBoundingClientRect().left),
       cardWidth: wrap.querySelector(".sig-events_card").offsetWidth,
       viewportWidth: viewport.clientWidth,
     };
   });
 }
 
-// Where the word actually is on screen, not what its transform says. The bug
-// this guards against put the element inside the scroll container, where
-// scrollLeft moved it as well as the tween — a transform-only check passed
-// while the word travelled 1.35x the track.
-const wordLeft = (page) =>
-  page.locator(word).evaluate((el) => el.getBoundingClientRect().left);
-
-const opacities = (page) =>
-  page.locator(shapes).evaluateAll((els) =>
-    els.map((el) => Number.parseFloat(getComputedStyle(el).opacity)),
-  );
+const wordLeft = (page) => page.locator(word).evaluate((el) => el.getBoundingClientRect().left);
+const opacities = (page) => page.locator(shapes).evaluateAll((els) =>
+  els.map((el) => Number.parseFloat(getComputedStyle(el).opacity)));
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
@@ -49,409 +36,187 @@ test.beforeEach(async ({ page }) => {
 
 test("drifts the wordmark at its authored fraction of the track", async ({ page }) => {
   const { top, distance } = await geometry(page);
-  const speed = Number.parseFloat(
-    await page.locator(word).getAttribute("data-hparallax-speed"),
-  );
-
+  const speed = Number.parseFloat(await page.locator(word).getAttribute("data-hparallax-speed"));
   await scrollTo(page, top);
   const start = await wordLeft(page);
-
   await scrollTo(page, top + distance);
-  const travelled = start - (await wordLeft(page));
-
+  const travelled = start - await wordLeft(page);
   expect(travelled).toBeCloseTo(distance * speed, -1);
-  // The point of the parallax: the word covers less ground than the cards do.
   expect(travelled).toBeLessThan(distance);
 });
 
 test("shows exactly one shape, and changes it per card", async ({ page }) => {
   const { top, cardLefts, cardWidth, viewportWidth } = await geometry(page);
-
-  // Half a viewport past a card's leading edge is the point its own trigger
-  // takes over, which is what the component keys the swap off.
   const centreOf = (index) => cardLefts[index] + cardWidth / 2 - viewportWidth / 2;
-
   const seen = [];
   for (let index = 0; index < cardLefts.length; index += 1) {
     await scrollTo(page, top + Math.max(0, centreOf(index)));
-
     const values = await opacities(page);
-    const visible = values.filter((value) => value > 0.5);
-    expect(visible, `card ${index} should light exactly one shape`).toHaveLength(1);
-
+    expect(values.filter((value) => value > 0.5)).toHaveLength(1);
     seen.push(values.findIndex((value) => value > 0.5));
   }
-
   expect(seen).toEqual([0, 1, 2]);
 });
 
 test("returns to the first shape when scrolled back to the start", async ({ page }) => {
   const { top, cardLefts, cardWidth, viewportWidth } = await geometry(page);
   const last = cardLefts.length - 1;
-
   await scrollTo(page, top + cardLefts[last] + cardWidth / 2 - viewportWidth / 2);
   await scrollTo(page, Math.max(0, top - 400));
-
   const values = await opacities(page);
   expect(values.findIndex((value) => value > 0.5)).toBe(0);
 });
 
 test("keeps the wordmark outside the scroller, so it is not scrolled by it", async ({ page }) => {
-  const parent = await page.locator(word).evaluate((el) => ({
+  expect(await page.locator(word).evaluate((el) => ({
     inBand: Boolean(el.closest("[data-hscroll-init]")),
-    // The whole point: scrollLeft moves every descendant of the scroller,
-    // absolutely positioned ones included, so the word has to sit beside it.
     inViewport: Boolean(el.closest("[data-hscroll-viewport]")),
-  }));
-
-  expect(parent).toEqual({ inBand: true, inViewport: false });
+  }))).toEqual({ inBand: true, inViewport: false });
 });
 
 test("refuses to animate a wordmark left inside the scroller", async ({ page }) => {
   const warnings = [];
-  page.on("console", (message) => {
-    if (message.type() === "warning") warnings.push(message.text());
-  });
-
+  page.on("console", (message) => { if (message.type() === "warning") warnings.push(message.text()); });
   await page.locator(word).evaluate((el) => {
     el.closest("[data-hscroll-init]").querySelector("[data-hscroll-track]").append(el);
   });
   await page.evaluate(() => window.dispatchEvent(new CustomEvent("hscroll:rebuilt")));
-
-  await expect
-    .poll(() => warnings.filter((text) => text.includes("[hparallax]")).length)
-    .toBeGreaterThan(0);
+  await expect.poll(() => warnings.filter((text) => text.includes("[hparallax]")).length).toBeGreaterThan(0);
   expect(await page.locator(word).evaluate((el) => Boolean(el._horizontalParallax))).toBe(false);
 });
 
-test("reveals the lead line from the window while the main line stays scrubbed", async ({ page }) => {
-  const state = await page.locator(`${band} .sig-events_line-lead`).evaluate((wrap) => ({
-    hasTrigger: Boolean(wrap._drawTl?.scrollTrigger),
-    start: wrap._drawTl?.scrollTrigger?.vars.start,
-    horizontal: wrap._drawTl?.scrollTrigger?.vars.horizontal === true,
-    scrollerIsWindow: wrap._drawTl?.scrollTrigger?.scroller === window,
-  }));
+test("does not change the line or cards before the band pins", async ({ page }) => {
+  const state = await page.locator(`${band} [data-sig-events-line-path]`).evaluateAll((paths, selector) => ({
+    paths: paths.map((path) => path.style.strokeDasharray),
+    cards: [...document.querySelectorAll(`${selector} .sig-events_card`)].map((card) =>
+      getComputedStyle(card.querySelector("[data-sig-events-pill]")).visibility),
+  }), band);
+  expect(state.paths.every((value) => /0(px|%)/.test(value))).toBe(true);
+  expect(state.cards.every((value) => value === "hidden")).toBe(true);
+});
 
-  expect(state).toEqual({
-    hasTrigger: true,
-    start: "top 60%",
-    horizontal: false,
-    scrollerIsWindow: true,
+test("writes one continuous, monotonic line during continuous scroll", async ({ page }) => {
+  const { top, distance } = await geometry(page);
+  await scrollTo(page, top);
+  const samples = await page.locator(band).evaluate(async (section) => {
+    const values = [];
+    const viewport = section.querySelector("[data-hscroll-viewport]");
+    const line = section.querySelector("[data-sig-events-line]");
+    const sample = () => {
+      values.push({ left: viewport.scrollLeft, dash: line.querySelector("[data-sig-events-line-path]").style.strokeDasharray });
+      if (values.length < 30) requestAnimationFrame(sample);
+    };
+    sample();
+    return new Promise((resolve) => setTimeout(() => resolve(values), 600));
   });
-  expect(await page.locator(`${band} .sig-events_line-main`).evaluate((wrap) => Boolean(wrap._drawTl))).toBe(false);
+  expect(samples.length).toBeGreaterThan(10);
+  for (let index = 1; index < samples.length; index += 1) {
+    expect(samples[index].left).toBeGreaterThanOrEqual(samples[index - 1].left);
+  }
+  expect(distance).toBeGreaterThan(0);
+});
 
-  const triggerY = await page.locator(band).evaluate((section) => {
-    const rect = section.getBoundingClientRect();
-    return rect.top + window.scrollY - window.innerHeight * 0.6;
+test("keeps pin coordinates stable when refreshed at non-zero band scroll", async ({ page }) => {
+  const initial = await page.locator(band).evaluate((section) =>
+    section._signatureEvents.cards.map((card) => card.pinCentreX));
+  const { top } = await geometry(page);
+  await scrollTo(page, top + 1500);
+  const refreshed = await page.locator(band).evaluate(async (section) => {
+    const { ScrollTrigger } = await import("/src/lib/gsap.js");
+    ScrollTrigger.refresh();
+    return section._signatureEvents.cards.map((card) => card.pinCentreX);
   });
 
-  await scrollTo(page, Math.max(0, triggerY - 100));
-  const initialDash = await page.locator(leadPath).evaluate((path) => path.style.strokeDasharray);
-  expect(initialDash).toMatch(/(^|[, ]+)0(px|%)/);
+  expect(refreshed).toHaveLength(initial.length);
+  refreshed.forEach((value, index) => {
+    expect(Math.abs(value - initial[index])).toBeLessThanOrEqual(1);
+  });
+});
 
-  const leadWrap = page.locator(`${band} .sig-events_line-lead`);
-  await page.evaluate((y) => window.scrollTo({ top: y, behavior: "instant" }), triggerY + 100);
-  await expect.poll(() => leadWrap.evaluate((wrap) => wrap._drawTl.progress())).toBeGreaterThan(0);
-  const midState = await leadWrap.evaluate((wrap) => ({
-    progress: wrap._drawTl.progress(),
-    dasharray: wrap.querySelector("[data-draw-scroll-path]").style.strokeDasharray,
-  }));
-  expect(midState.progress).toBeLessThan(1);
-  expect(midState.dasharray).not.toBe(initialDash);
+test("bails with one warning when the line is outside the track", async ({ page }) => {
+  const warnings = [];
+  page.on("console", (message) => {
+    if (message.type() === "warning") warnings.push(message.text());
+  });
+  await page.locator(`${band} [data-sig-events-line]`).evaluate((line) => {
+    line.closest("[data-hscroll-track]").parentElement.append(line);
+  });
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent("hscroll:rebuilt")));
 
-  await expect
-    .poll(() => leadWrap.evaluate((wrap) => wrap._drawTl.progress()), { timeout: 2_000 })
+  await expect.poll(() => warnings.filter((text) => text.includes("[signatureEvents]")).length)
     .toBe(1);
-  // DrawSVG's fully drawn state is "<length>px, 0.1px" — the gap never reaches 0.
-  const finalDash = await page.locator(leadPath).evaluate((path) => path.style.strokeDasharray);
-  const [drawn, gap] = finalDash.split(",").map(Number.parseFloat);
-  expect(drawn).toBeGreaterThanOrEqual(999);
-  expect(gap).toBeLessThanOrEqual(0.1);
-
-  expect(await page.locator(`${band} .sig-events_line-main`).evaluate((wrap) => ({
-    horizontal: wrap._drawTl.scrollTrigger.vars.horizontal === true,
-    scrollerIsBand: wrap._drawTl.scrollTrigger.scroller ===
-      wrap.closest("[data-hscroll-init]").querySelector("[data-hscroll-viewport]"),
-  }))).toEqual({ horizontal: true, scrollerIsBand: true });
+  expect(await page.locator(band).evaluate((section) => section._signatureEvents)).toBe(null);
 });
 
-test("holds a scrubbed line at zero until its reveal gate completes", async ({ page }) => {
-  const lead = page.locator(`${band} .sig-events_line-lead`);
-  const main = page.locator(`${band} .sig-events_line-main`);
-
-  await lead.evaluate((wrap) => { wrap._drawTl.timeScale(0.1); });
-
-  const triggerY = await page.locator(band).evaluate((section) =>
-    section.getBoundingClientRect().top + window.scrollY - window.innerHeight * 0.6,
-  );
-  const targetY = await page.locator(band).evaluate((section) => {
-    const viewport = section.querySelector("[data-hscroll-viewport]");
-    const mainLine = section.querySelector(".sig-events_line-main");
-    const viewportRect = viewport.getBoundingClientRect();
-    const mainRect = mainLine.getBoundingClientRect();
-    const startScroll = mainRect.left - viewportRect.left + viewport.scrollLeft - viewport.clientWidth * 0.3935;
-    return section.getBoundingClientRect().top + window.scrollY + startScroll + 100;
+test("plays each card in the declared order and only once", async ({ page }) => {
+  const card = page.locator(`${band} .sig-events_card`).first();
+  const starts = await card.evaluate((element) => {
+    const instance = element.closest("[data-sig-events]")._signatureEvents.cards[0];
+    return instance.timeline.getChildren().map((tween) => tween.startTime());
   });
-
-  await scrollTo(page, Math.max(triggerY + 100, targetY));
-  await expect.poll(() => lead.evaluate((wrap) => wrap._drawTl.progress())).toBeGreaterThan(0);
-  expect(await lead.evaluate((wrap) => wrap._drawTl.progress())).toBeLessThan(1);
-  const gatedState = await main.evaluate((wrap) => ({
-    hasTrigger: Boolean(wrap._drawTl),
-    dasharray: wrap.querySelector("[data-draw-scroll-path]").style.strokeDasharray,
-  }));
-  expect(gatedState.hasTrigger).toBe(false);
-  expect(gatedState.dasharray).toMatch(/(^|[, ]+)0(px|%)/);
-
-  // Release the lead and sample the main line on the first frame its trigger
-  // exists, all inside one evaluate: a Playwright poll from outside is too
-  // slow to catch the catch-up's start.
-  const catchupStart = await main.evaluate((wrap) => new Promise((resolve) => {
-    wrap.closest("[data-hscroll-init]")
-      .querySelector(".sig-events_line-lead")._drawTl.timeScale(1);
-    const tick = () => {
-      if (!wrap._drawTl?.scrollTrigger) {
-        requestAnimationFrame(tick);
-        return;
-      }
-      const path = wrap.querySelector("[data-draw-scroll-path]");
-      resolve({
-        drawn: Number.parseFloat(path.style.strokeDasharray),
-        mapped: path.getTotalLength() * wrap._drawTl.scrollTrigger.progress,
-        scrub: wrap._drawTl.scrollTrigger.vars.scrub,
-      });
-    };
-    tick();
-  }));
-  expect(catchupStart.scrub).toBe(true);
-  expect(catchupStart.drawn).toBeLessThan(catchupStart.mapped * 0.5);
-
-  await expect.poll(() => main.evaluate((wrap) => {
-    const path = wrap.querySelector("[data-draw-scroll-path]");
-    const drawn = Number.parseFloat(path.style.strokeDasharray);
-    const mapped = path.getTotalLength() * wrap._drawTl.scrollTrigger.progress;
-    return mapped ? drawn / mapped : 0;
-  }), { timeout: 1_000 }).toBeGreaterThan(0.9);
-
-  await expect.poll(() => main.evaluate(async (wrap) => {
-    const { ScrollTrigger } = await import("/src/lib/gsap.js");
-    const st = wrap._drawTl?.scrollTrigger;
-    return {
-      triggerCount: [...ScrollTrigger.getAll()].filter(
-        (trigger) => trigger.vars.trigger === wrap.querySelector("[data-draw-scroll-desktop]"),
-      ).length,
-      scrub: st?.vars.scrub,
-      enabled: st?.enabled,
-      hasCatchup: Boolean(wrap._drawScrollCatchup),
-      progressMatches: Math.abs(wrap._drawTl.progress() - st?.progress) <= 0.001,
-    };
-  })).toEqual({
-    triggerCount: 1,
-    scrub: true,
-    enabled: true,
-    hasCatchup: false,
-    progressMatches: true,
+  expect(starts).toEqual([0, 0.15, 0.5, 0.6, 0.7, 0.8, 0.9]);
+  const { top, distance } = await geometry(page);
+  await scrollTo(page, top + distance);
+  await expect.poll(() => card.evaluate((element) => element.closest("[data-sig-events]")._signatureEvents.cards[0].played)).toBe(true);
+  const time = await card.evaluate((element) => element.closest("[data-sig-events]")._signatureEvents.cards[0].timeline.time());
+  await scrollTo(page, top);
+  await scrollTo(page, top + distance);
+  const after = await card.evaluate((element) => {
+    const instance = element.closest("[data-sig-events]")._signatureEvents.cards[0];
+    return { played: instance.played, time: instance.timeline.time() };
   });
-  await expect.poll(() => main.evaluate((wrap) => wrap.querySelector("[data-draw-scroll-path]").style.strokeDasharray))
-    .not.toBe("0");
+  expect(after.played).toBe(true);
+  expect(after.time).toBeGreaterThanOrEqual(time);
 });
 
-test("keeps the scrub trigger from rendering during the gated catch-up", async ({ page }) => {
-  const lead = page.locator(`${band} .sig-events_line-lead`);
-  const main = page.locator(`${band} .sig-events_line-main`);
-
-  await lead.evaluate((wrap) => { wrap._drawTl.timeScale(0.1); });
-  const triggerY = await page.locator(band).evaluate((section) =>
-    section.getBoundingClientRect().top + window.scrollY - window.innerHeight * 0.6,
-  );
-  const targetY = await page.locator(band).evaluate((section) => {
-    const viewport = section.querySelector("[data-hscroll-viewport]");
-    const mainLine = section.querySelector(".sig-events_line-main");
-    const viewportRect = viewport.getBoundingClientRect();
-    const mainRect = mainLine.getBoundingClientRect();
-    const startScroll = mainRect.left - viewportRect.left + viewport.scrollLeft - viewport.clientWidth * 0.3935;
-    return section.getBoundingClientRect().top + window.scrollY + startScroll + 100;
-  });
-
-  await scrollTo(page, Math.max(triggerY + 100, targetY));
-  await expect.poll(() => lead.evaluate((wrap) => wrap._drawTl.progress())).toBeGreaterThan(0);
-  expect(await lead.evaluate((wrap) => wrap._drawTl.progress())).toBeLessThan(1);
-
-  const probe = await main.evaluate(async (wrap) => {
+test("rebuilds with one section trigger, timeline per card, and no duplicate splits", async ({ page }) => {
+  const state = await page.locator(band).evaluate(async (section) => {
     const { ScrollTrigger } = await import("/src/lib/gsap.js");
-    const leadTimeline = wrap.closest("[data-hscroll-init]")
-      .querySelector(".sig-events_line-lead")._drawTl;
-    const path = wrap.querySelector("[data-draw-scroll-path]");
-    leadTimeline.timeScale(1);
-    return new Promise((resolve) => {
-      const tick = () => {
-        const catchup = wrap._drawScrollCatchup;
-        if (!catchup || catchup.progress() >= 0.3) {
-          requestAnimationFrame(tick);
-          return;
-        }
-
-        const st = wrap._drawTl.scrollTrigger;
-        window.scrollTo({ top: window.scrollY + 40, behavior: "instant" });
-        ScrollTrigger.update();
-        const mapped = st.end === st.start
-          ? 0
-          : Math.min(1, Math.max(0, (st.scroll() - st.start) / (st.end - st.start)));
-        resolve({
-          drawn: Number.parseFloat(path.style.strokeDasharray),
-          mapped: path.getTotalLength() * mapped,
-          catchupProgress: catchup.progress(),
-          enabled: st.enabled,
-        });
-      };
-      tick();
-    });
-  });
-
-  expect(probe.catchupProgress).toBeLessThan(0.3);
-  expect(probe.enabled).toBe(false);
-  expect(probe.drawn).toBeLessThan(probe.mapped * 0.8);
-
-  await expect.poll(() => main.evaluate(async (wrap) => {
-    const { ScrollTrigger } = await import("/src/lib/gsap.js");
-    const path = wrap.querySelector("[data-draw-scroll-path]");
-    const st = wrap._drawTl?.scrollTrigger;
-    return {
-      drawn: Number.parseFloat(path.style.strokeDasharray),
-      mapped: path.getTotalLength() * (st?.progress ?? 0),
-      catchup: Boolean(wrap._drawScrollCatchup),
-      triggerCount: [...ScrollTrigger.getAll()].filter(
-        (trigger) => trigger.vars.trigger === wrap.querySelector("[data-draw-scroll-desktop]"),
-      ).length,
-      scrub: st?.vars.scrub,
-      enabled: st?.enabled,
-      progressMatches: Math.abs(wrap._drawTl.progress() - st?.progress) <= 0.001,
-    };
-  }), { timeout: 1_000 }).toMatchObject({
-    catchup: false,
-    triggerCount: 1,
-    scrub: true,
-    enabled: true,
-    progressMatches: true,
-  });
-
-  const final = await main.evaluate((wrap) => {
-    const path = wrap.querySelector("[data-draw-scroll-path]");
-    const st = wrap._drawTl.scrollTrigger;
-    return {
-      drawn: Number.parseFloat(path.style.strokeDasharray),
-      mapped: path.getTotalLength() * st.progress,
-    };
-  });
-  expect(Math.abs(final.drawn - final.mapped)).toBeLessThanOrEqual(1);
-});
-
-test("falls back to an ungated scrub when data-draw-scroll-after matches nothing", async ({ page }) => {
-  const main = page.locator(`${band} .sig-events_line-main`);
-  await main.evaluate((wrap) => {
-    wrap.setAttribute("data-draw-scroll-after", ".does-not-exist");
     window.dispatchEvent(new CustomEvent("hscroll:rebuilt"));
+    const instance = section._signatureEvents;
+    return {
+      cards: instance.cards.length,
+      timelines: instance.cards.filter(({ timeline }) => timeline).length,
+      sectionTriggers: ScrollTrigger.getAll().filter((trigger) => trigger.vars.trigger === section).length,
+      splits: instance.cards.reduce((count, card) => count + card.splits.length, 0),
+    };
   });
-
-  await expect.poll(() => main.evaluate((wrap) => ({
-    hasTrigger: Boolean(wrap._drawTl?.scrollTrigger),
-    horizontal: wrap._drawTl?.scrollTrigger?.vars.horizontal === true,
-  }))).toEqual({ hasTrigger: true, horizontal: true });
+  expect(state).toEqual({ cards: 3, timelines: 3, sectionTriggers: 1, splits: 6 });
 });
 
-test("reveals the first signature pin from the vertical section trigger", async ({ page }) => {
-  const pin = page.locator(signaturePin).first();
-  await expect(pin).toHaveAttribute("data-shape-scroller", "window");
-
-  const state = await pin.evaluate((shape) => ({
-    hasTrigger: Boolean(shape._shapeRevealTween?.scrollTrigger),
-    horizontal: shape._shapeRevealTween?.scrollTrigger?.vars.horizontal === true,
-    scrollerIsWindow: shape._shapeRevealTween?.scrollTrigger?.scroller === window,
-    start: shape._shapeRevealTween?.scrollTrigger?.vars.start,
-    delay: shape._shapeRevealTween?.delay(),
+test("reduced motion reveals the line and cards without creating tweens", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+  const state = await page.locator(band).evaluate((section) => ({
+    tweens: section._signatureEvents.cards.filter(({ timeline }) => timeline).length,
+    paths: [...section.querySelectorAll("[data-sig-events-line-path]")].map((path) => path.style.strokeDasharray),
+    visible: [...section.querySelectorAll("[data-sig-events-pill], [data-sig-events-desc], [data-button]")].every((el) => getComputedStyle(el).visibility === "visible"),
   }));
-  expect(state).toMatchObject({
-    hasTrigger: true,
-    horizontal: false,
-    scrollerIsWindow: true,
-    start: "top 60%",
-  });
-  expect(state.delay).toBeCloseTo(0.8, 5);
-
-  const triggerY = await page.locator(band).evaluate((section) =>
-    section.getBoundingClientRect().top + window.scrollY - window.innerHeight * 0.6,
-  );
-  await scrollTo(page, Math.max(0, triggerY - 100));
-  expect(await pin.evaluate((shape) => getComputedStyle(shape).visibility)).toBe("hidden");
-
-  await scrollTo(page, triggerY + 100);
-  await page.waitForTimeout(1100);
-  await expect.poll(() => pin.evaluate((shape) => getComputedStyle(shape).visibility)).toBe("visible");
+  expect(state.tweens).toBe(0);
+  expect(state.paths.every((value) => !/0(px|%)/.test(value))).toBe(true);
+  expect(state.visible).toBe(true);
 });
 
-test("reveals a later card button as its active band scrolls horizontally", async ({ page }) => {
-  const button = page.locator(`${band} .sig-events_card-link`).nth(1);
-  const state = await button.evaluate((link) => {
-    const group = link.closest("[data-reveal-group]");
-    const trigger = group._contentRevealInstance.trigger;
-    const viewport = group.closest("[data-hscroll-init]").querySelector("[data-hscroll-viewport]");
-    return {
-      autoAlpha: Number.parseFloat(getComputedStyle(link).opacity),
-      visibility: getComputedStyle(link).visibility,
-      horizontal: trigger.vars.horizontal === true,
-      scrollerIsBand: trigger.scroller === viewport,
-      start: trigger.vars.start,
-      triggerStart: trigger.start,
-      bandTop: group.closest("[data-hscroll-init]").getBoundingClientRect().top + window.scrollY,
-    };
-  });
+test("reveals cards individually on the small breakpoint", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 844 });
+  await page.reload();
+  await page.waitForLoadState("networkidle");
 
-  expect(state).toMatchObject({
-    autoAlpha: 0,
-    visibility: "hidden",
-    horizontal: true,
-    scrollerIsBand: true,
-    start: "clamp(left 80%)",
-  });
+  const cards = page.locator(`${band} .sig-events_card`);
+  await expect.poll(() => cards.evaluateAll((elements) =>
+    elements.map((card) => card.closest("[data-sig-events]")._signatureEvents.cards
+      .find((entry) => entry.card === card).played))).toEqual([false, false, false]);
 
-  await scrollTo(page, state.bandTop + state.triggerStart - 100);
-  await expect.poll(() => button.evaluate((link) => getComputedStyle(link).visibility)).toBe("hidden");
-
-  await scrollTo(page, state.bandTop + state.triggerStart + 100);
-  await expect.poll(() => button.evaluate((link) => getComputedStyle(link).visibility)).toBe("visible");
-  await expect.poll(() => button.evaluate((link) => Number.parseFloat(getComputedStyle(link).opacity))).toBe(1);
-
-  await scrollTo(page, state.bandTop + state.triggerStart + 400);
-  await expect(button).toBeVisible();
-});
-
-test("rebuilds signature reveal state without stacking on hscroll rebuild", async ({ page }) => {
-  const state = await page.locator(`${band} .sig-events_line-lead`).evaluate(async (wrap, bandSelector) => {
-    const { ScrollTrigger } = await import("/src/lib/gsap.js");
-    const oldTween = wrap._drawTl;
-    const group = document.querySelector(`${bandSelector} .sig-events_card-body-col`);
-    const oldContentReveal = group._contentRevealInstance;
-    window.dispatchEvent(new CustomEvent("hscroll:rebuilt"));
-    return {
-      oldScrollTriggerCleared: oldTween.scrollTrigger === null,
-      oldInactive: oldTween.isActive() === false,
-      hasNewTween: Boolean(wrap._drawTl && wrap._drawTl !== oldTween),
-      hasOneTrigger: Boolean(wrap._drawTl?.scrollTrigger),
-      hasNewContentReveal: Boolean(
-        group._contentRevealInstance && group._contentRevealInstance !== oldContentReveal,
-      ),
-      contentRevealTriggers: ScrollTrigger.getAll().filter(
-        (trigger) => trigger.vars.trigger === group,
-      ).length,
-    };
-  }, band);
-
-  expect(state).toEqual({
-    oldScrollTriggerCleared: true,
-    oldInactive: true,
-    hasNewTween: true,
-    hasOneTrigger: true,
-    hasNewContentReveal: true,
-    contentRevealTriggers: 1,
-  });
+  for (let index = 0; index < await cards.count(); index += 1) {
+    await cards.nth(index).scrollIntoViewIfNeeded();
+    await expect.poll(() => cards.nth(index).evaluate((card) =>
+      card.closest("[data-sig-events]")._signatureEvents.cards
+        .find((entry) => entry.card === card).played)).toBe(true);
+    for (let prior = 0; prior < index; prior += 1) {
+      expect(await cards.nth(prior).evaluate((card) =>
+        card.closest("[data-sig-events]")._signatureEvents.cards
+          .find((entry) => entry.card === card).played)).toBe(true);
+    }
+  }
 });

@@ -12,6 +12,7 @@ import { initHighlightDrum } from "./animations/highlightDrum.js";
 import { initHorizontalParallax } from "./animations/horizontalParallax.js";
 import { initShapeSwap } from "./animations/shapeSwap.js";
 import { initShapeReveal } from "./animations/shapeReveal.js";
+import { initSignatureEvents } from "./animations/signatureEvents.js";
 import {
   HSCROLL_REBUILT,
   initHorizontalScroller,
@@ -43,6 +44,7 @@ function initBandAware() {
   initContentReveal();
   initHorizontalParallax();
   initShapeSwap();
+  initSignatureEvents();
 }
 
 function init() {

@@ -284,7 +284,7 @@ test("initializes the scroll-direction marquee", async ({ page }) => {
 
 test("draws every marked line in each draw-path wrapper", async ({ page }) => {
   const paths = page.locator("[data-draw-scroll-wrap] [data-draw-scroll-path]");
-  await expect(paths).toHaveCount(8);
+  await expect(paths).toHaveCount(6);
 
   expect(await page.locator("[data-draw-scroll-wrap]").evaluateAll((wrappers) =>
     wrappers.map((wrapper) => {
@@ -301,13 +301,6 @@ test("draws every marked line in each draw-path wrapper", async ({ page }) => {
     { hasTrigger: true, targetCount: 3 },
     { hasTrigger: true, targetCount: 1 },
     { hasTrigger: true, targetCount: 1 },
-    // The connector inside the horizontal band: proves the wrapper still
-    // builds a trigger when its scroller is the band rather than the window.
-    { hasTrigger: true, targetCount: 1 },
-    // The main signature line is gated on the lead's reveal
-    // (data-draw-scroll-after), so it has no trigger until that completes;
-    // tests/signatureEvents.spec.js covers the band trigger it builds then.
-    { hasTrigger: false, targetCount: 0 },
   ]);
 });
 

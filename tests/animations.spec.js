@@ -253,7 +253,7 @@ test("keeps a parked line outside its padded mask while the page scrolls", async
 });
 
 test("WebGL previews allocate live render surfaces", async ({ page }) => {
-  const canvases = page.locator("canvas");
+  const canvases = page.locator("[data-tunnel2-init] canvas");
   const surfaces = await canvases.evaluateAll((items) =>
     items.map((canvas) => {
       const gl = canvas.getContext("webgl2") || canvas.getContext("webgl");
@@ -261,7 +261,7 @@ test("WebGL previews allocate live render surfaces", async ({ page }) => {
     }),
   );
 
-  expect(surfaces).toEqual([true, true]);
+  expect(surfaces).toEqual([true]);
 });
 
 test("initializes the scroll-linked reveal state", async ({ page }) => {

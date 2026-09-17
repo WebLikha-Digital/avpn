@@ -28,6 +28,8 @@ import { bandContext } from "./horizontalScroller.js";
  *                              nearest matching ancestor, then first page match,
  *                              then the active SVG
  *   data-draw-scroll-once      set to "false" to replay a reveal on re-entry
+ *   data-draw-scroll-after     selector for a reveal wrapper that must complete
+ *                              before a scrub wrapper starts drawing
  *
  * Despite the attribute name, [data-draw-scroll-path] works on anything
  * DrawSVGPlugin accepts: path, line, polyline, polygon, rect, ellipse, circle.
@@ -79,16 +81,10 @@ export function initDrawPathScroll() {
     },
     (context) => {
       const { isMobile } = context.conditions;
+      const gatedScrubs = [];
 
       wrappers.forEach((wrap) => {
-        // Kill any previous timeline for this wrapper
-        if (wrap._drawTl) {
-          if (wrap._drawTl.scrollTrigger) {
-            wrap._drawTl.scrollTrigger.kill();
-          }
-          wrap._drawTl.kill();
-          wrap._drawTl = null;
-        }
+        teardownDrawWrapper(wrap);
 
         const desktopSVG = wrap.querySelector("[data-draw-scroll-desktop]");
         const mobileSVG = wrap.querySelector("[data-draw-scroll-mobile]"); // optional
@@ -179,23 +175,22 @@ export function initDrawPathScroll() {
           return;
         }
 
-        const tl = gsap.timeline({
-          defaults: {
-            ease: "linear", // scroll speed controls easing
-          },
-          scrollTrigger: {
-            ...scrollTrigger,
-          },
-        });
+        const afterSelector = wrap.getAttribute("data-draw-scroll-after");
+        if (afterSelector !== null) {
+          gatedScrubs.push({
+            wrap,
+            paths,
+            scrollTrigger,
+            stagger,
+          });
+          return;
+        }
 
-        // One tween over every shape. With stagger 0 they draw together and the
-        // timeline is 1 unit long; with a stagger it grows to
-        // 1 + (count - 1) * stagger, and scrub maps whatever that is across the
-        // full scroll range, so the drawing still finishes exactly at `end`.
-        tl.to(paths, { drawSVG: "100%", duration: 1, stagger }, 0);
+        createScrubTimeline(wrap, paths, scrollTrigger, stagger);
+      });
 
-        // Keep a reference so we can kill it on breakpoint change
-        wrap._drawTl = tl;
+      gatedScrubs.forEach(({ wrap, paths, scrollTrigger, stagger }) => {
+        setupGatedScrub(wrap, paths, scrollTrigger, stagger);
       });
 
       // Refresh after the matchMedia callback returns so this context cannot
@@ -205,17 +200,105 @@ export function initDrawPathScroll() {
       // Cleanup when breakpoint changes
       return () => {
         wrappers.forEach((wrap) => {
-          if (wrap._drawTl) {
-            if (wrap._drawTl.scrollTrigger) {
-              wrap._drawTl.scrollTrigger.kill();
-            }
-            wrap._drawTl.kill();
-            wrap._drawTl = null;
-          }
+          teardownDrawWrapper(wrap);
         });
       };
     }
   );
+}
+
+function createScrubTimeline(wrap, paths, scrollTrigger, stagger) {
+  const tl = gsap.timeline({
+    defaults: {
+      ease: "linear", // scroll speed controls easing
+    },
+    scrollTrigger: {
+      ...scrollTrigger,
+    },
+  });
+
+  // One tween over every shape. With stagger 0 they draw together and the
+  // timeline is 1 unit long; with a stagger it grows to
+  // 1 + (count - 1) * stagger, and scrub maps whatever that is across the
+  // full scroll range, so the drawing still finishes exactly at `end`.
+  tl.to(paths, { drawSVG: "100%", duration: 1, stagger }, 0);
+
+  // Keep a reference so we can kill it on breakpoint change
+  wrap._drawTl = tl;
+  return tl;
+}
+
+function setupGatedScrub(wrap, paths, scrollTrigger, stagger) {
+  const selector = wrap.getAttribute("data-draw-scroll-after");
+  const target = resolveDrawTrigger(wrap, selector, null);
+  const targetTween = target?._drawTl;
+
+  // A missing selector, a non-reveal target, or a reveal that opted out of a
+  // tween (reduced motion) all retain the original ungated behaviour.
+  if (!target?.hasAttribute("data-draw-scroll-reveal")) {
+    createScrubTimeline(wrap, paths, scrollTrigger, stagger);
+    return;
+  }
+
+  if (!targetTween || targetTween.progress() >= 1) {
+    createScrubTimeline(wrap, paths, scrollTrigger, stagger);
+    return;
+  }
+
+  const gate = { cancelled: false };
+  wrap._drawScrollGate = gate;
+  targetTween.then(() => {
+    if (gate.cancelled || wrap._drawScrollGate !== gate) return;
+    wrap._drawScrollGate = null;
+
+    const tl = createScrubTimeline(wrap, paths, scrollTrigger, stagger);
+    // The trigger measures on the next refresh, not on creation. Refresh it
+    // now so the timeline sits at its mapped progress before it is read.
+    tl.scrollTrigger?.refresh();
+    const mapped = [...paths].map((path) => {
+      const tween = gsap.getTweensOf(path).find((item) => item.timeline === tl);
+      const progress = tween?.progress() ?? tl.progress();
+      return { progress, drawSVG: `0 ${progress * 100}%` };
+    });
+    if (!mapped.some(({ progress }) => progress > 0)) return;
+
+    const catchup = gsap.fromTo(
+      paths,
+      { drawSVG: "0" },
+      {
+        drawSVG: (index) => mapped[index].drawSVG,
+        duration: 0.5,
+        ease: "power2.out",
+        overwrite: false,
+        onComplete: () => {
+          if (wrap._drawScrollCatchup === catchup) {
+            wrap._drawScrollCatchup = null;
+          }
+        },
+      },
+    );
+    wrap._drawScrollCatchup = catchup;
+  });
+}
+
+function teardownDrawWrapper(wrap) {
+  if (wrap._drawScrollGate) {
+    wrap._drawScrollGate.cancelled = true;
+    wrap._drawScrollGate = null;
+  }
+
+  if (wrap._drawScrollCatchup) {
+    wrap._drawScrollCatchup.kill();
+    wrap._drawScrollCatchup = null;
+  }
+
+  if (!wrap._drawTl) return;
+
+  if (wrap._drawTl.scrollTrigger) {
+    wrap._drawTl.scrollTrigger.kill();
+  }
+  wrap._drawTl.kill();
+  wrap._drawTl = null;
 }
 
 function resolveDrawTrigger(wrap, selector, fallback) {

@@ -304,7 +304,10 @@ test("draws every marked line in each draw-path wrapper", async ({ page }) => {
     // The connector inside the horizontal band: proves the wrapper still
     // builds a trigger when its scroller is the band rather than the window.
     { hasTrigger: true, targetCount: 1 },
-    { hasTrigger: true, targetCount: 1 },
+    // The main signature line is gated on the lead's reveal
+    // (data-draw-scroll-after), so it has no trigger until that completes;
+    // tests/signatureEvents.spec.js covers the band trigger it builds then.
+    { hasTrigger: false, targetCount: 0 },
   ]);
 });
 

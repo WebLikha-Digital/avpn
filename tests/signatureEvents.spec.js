@@ -138,11 +138,7 @@ test("reveals the lead line from the window while the main line stays scrubbed",
     horizontal: false,
     scrollerIsWindow: true,
   });
-  expect(await page.locator(`${band} .sig-events_line-main`).evaluate((wrap) => ({
-    horizontal: wrap._drawTl.scrollTrigger.vars.horizontal === true,
-    scrollerIsBand: wrap._drawTl.scrollTrigger.scroller ===
-      wrap.closest("[data-hscroll-init]").querySelector("[data-hscroll-viewport]"),
-  }))).toEqual({ horizontal: true, scrollerIsBand: true });
+  expect(await page.locator(`${band} .sig-events_line-main`).evaluate((wrap) => Boolean(wrap._drawTl))).toBe(false);
 
   const triggerY = await page.locator(band).evaluate((section) => {
     const rect = section.getBoundingClientRect();
@@ -171,6 +167,96 @@ test("reveals the lead line from the window while the main line stays scrubbed",
   const [drawn, gap] = finalDash.split(",").map(Number.parseFloat);
   expect(drawn).toBeGreaterThanOrEqual(999);
   expect(gap).toBeLessThanOrEqual(0.1);
+
+  expect(await page.locator(`${band} .sig-events_line-main`).evaluate((wrap) => ({
+    horizontal: wrap._drawTl.scrollTrigger.vars.horizontal === true,
+    scrollerIsBand: wrap._drawTl.scrollTrigger.scroller ===
+      wrap.closest("[data-hscroll-init]").querySelector("[data-hscroll-viewport]"),
+  }))).toEqual({ horizontal: true, scrollerIsBand: true });
+});
+
+test("holds a scrubbed line at zero until its reveal gate completes", async ({ page }) => {
+  const lead = page.locator(`${band} .sig-events_line-lead`);
+  const main = page.locator(`${band} .sig-events_line-main`);
+
+  await lead.evaluate((wrap) => { wrap._drawTl.timeScale(0.1); });
+
+  const triggerY = await page.locator(band).evaluate((section) =>
+    section.getBoundingClientRect().top + window.scrollY - window.innerHeight * 0.6,
+  );
+  const targetY = await page.locator(band).evaluate((section) => {
+    const viewport = section.querySelector("[data-hscroll-viewport]");
+    const mainLine = section.querySelector(".sig-events_line-main");
+    const viewportRect = viewport.getBoundingClientRect();
+    const mainRect = mainLine.getBoundingClientRect();
+    const startScroll = mainRect.left - viewportRect.left + viewport.scrollLeft - viewport.clientWidth * 0.3935;
+    return section.getBoundingClientRect().top + window.scrollY + startScroll + 100;
+  });
+
+  await scrollTo(page, Math.max(triggerY + 100, targetY));
+  await expect.poll(() => lead.evaluate((wrap) => wrap._drawTl.progress())).toBeGreaterThan(0);
+  expect(await lead.evaluate((wrap) => wrap._drawTl.progress())).toBeLessThan(1);
+  const gatedState = await main.evaluate((wrap) => ({
+    hasTrigger: Boolean(wrap._drawTl),
+    dasharray: wrap.querySelector("[data-draw-scroll-path]").style.strokeDasharray,
+  }));
+  expect(gatedState.hasTrigger).toBe(false);
+  expect(gatedState.dasharray).toMatch(/(^|[, ]+)0(px|%)/);
+
+  // Release the lead and sample the main line on the first frame its trigger
+  // exists, all inside one evaluate: a Playwright poll from outside is too
+  // slow to catch the catch-up's start.
+  const catchupStart = await main.evaluate((wrap) => new Promise((resolve) => {
+    wrap.closest("[data-hscroll-init]")
+      .querySelector(".sig-events_line-lead")._drawTl.timeScale(1);
+    const tick = () => {
+      if (!wrap._drawTl?.scrollTrigger) {
+        requestAnimationFrame(tick);
+        return;
+      }
+      const path = wrap.querySelector("[data-draw-scroll-path]");
+      resolve({
+        drawn: Number.parseFloat(path.style.strokeDasharray),
+        mapped: path.getTotalLength() * wrap._drawTl.scrollTrigger.progress,
+        scrub: wrap._drawTl.scrollTrigger.vars.scrub,
+      });
+    };
+    tick();
+  }));
+  expect(catchupStart.scrub).toBe(true);
+  expect(catchupStart.drawn).toBeLessThan(catchupStart.mapped * 0.5);
+
+  await expect.poll(() => main.evaluate((wrap) => {
+    const path = wrap.querySelector("[data-draw-scroll-path]");
+    const drawn = Number.parseFloat(path.style.strokeDasharray);
+    const mapped = path.getTotalLength() * wrap._drawTl.scrollTrigger.progress;
+    return mapped ? drawn / mapped : 0;
+  }), { timeout: 1_000 }).toBeGreaterThan(0.9);
+
+  await expect.poll(() => main.evaluate(async (wrap) => {
+    const { ScrollTrigger } = await import("/src/lib/gsap.js");
+    return {
+      triggerCount: [...ScrollTrigger.getAll()].filter(
+        (trigger) => trigger.vars.trigger === wrap.querySelector("[data-draw-scroll-desktop]"),
+      ).length,
+      scrub: wrap._drawTl?.scrollTrigger?.vars.scrub,
+    };
+  })).toEqual({ triggerCount: 1, scrub: true });
+  await expect.poll(() => main.evaluate((wrap) => wrap.querySelector("[data-draw-scroll-path]").style.strokeDasharray))
+    .not.toBe("0");
+});
+
+test("falls back to an ungated scrub when data-draw-scroll-after matches nothing", async ({ page }) => {
+  const main = page.locator(`${band} .sig-events_line-main`);
+  await main.evaluate((wrap) => {
+    wrap.setAttribute("data-draw-scroll-after", ".does-not-exist");
+    window.dispatchEvent(new CustomEvent("hscroll:rebuilt"));
+  });
+
+  await expect.poll(() => main.evaluate((wrap) => ({
+    hasTrigger: Boolean(wrap._drawTl?.scrollTrigger),
+    horizontal: wrap._drawTl?.scrollTrigger?.vars.horizontal === true,
+  }))).toEqual({ hasTrigger: true, horizontal: true });
 });
 
 test("reveals the first signature pin from the vertical section trigger", async ({ page }) => {

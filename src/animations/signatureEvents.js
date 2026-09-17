@@ -233,8 +233,8 @@ function render(instance) {
     : instance.viewport.scrollLeft;
 
   instance.segments.forEach(({ path }, index) => {
-    const { width, offset } = instance.measurements.segments[index];
-    const progress = width ? clamp((budget - offset) / width, 0, 1) : 0;
+    const { offset, span } = instance.measurements.segments[index];
+    const progress = span ? clamp((budget - offset) / span, 0, 1) : 0;
     gsap.set(path, { drawSVG: `${progress * 100}%` });
   });
 
@@ -249,9 +249,18 @@ function measureLine(instance) {
     const rect = element.getBoundingClientRect();
     return { width: rect.width, offset: rect.left - lineRect.left };
   });
+  const leadWidth = segmentMeasurements[0]?.width || 0;
+  const maxBudget = leadWidth + Math.max(
+    0,
+    instance.viewport.scrollWidth - instance.viewport.clientWidth,
+  );
   instance.measurements = {
-    leadWidth: segmentMeasurements[0]?.width || 0,
-    segments: segmentMeasurements,
+    leadWidth,
+    segments: segmentMeasurements.map(({ width, offset }) => ({
+      width,
+      offset,
+      span: Math.max(0, Math.min(offset + width, maxBudget) - offset),
+    })),
   };
   instance.cards?.forEach((card) => {
     if (!card.pin) return;

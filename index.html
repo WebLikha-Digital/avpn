@@ -605,7 +605,7 @@
       .sig-events_line svg { display: block; width: 100%; height: 100%; }
       .sig-events_line-lead { position: absolute; left: 0; width: 54.75vw; height: 5px; }
       .sig-events_line-main { position: absolute; left: 54.75vw; right: 76.95vw; height: 5px; }
-      .sig-events_line-tail { position: absolute; right: 0; width: 76.95vw; height: calc(75vh - 3.08vw); }
+      .sig-events_line-tail { position: absolute; right: 0; width: 76.95vw; height: auto; aspect-ratio: 1108 / 631; }
       .sig-events_card-media img { display: block; width: 100%; height: 100%; object-fit: cover; }
       .sig-events_pin {
         position: absolute; left: -3.25vw; width: 6.5vw; height: 6.5vw;
@@ -1951,8 +1951,8 @@
               </svg>
             </div>
             <div class="sig-events_line-tail" data-sig-events-line-segment="tail">
-              <svg class="sig-events_line-svg" viewBox="0 0 1108 631" preserveAspectRatio="none">
-                <path data-sig-events-line-path d="M0 2.5H200C520 2.5 850 90 1112 250" stroke="currentColor" stroke-width="5" />
+              <svg class="sig-events_line-svg" viewBox="0 0 1108 631" preserveAspectRatio="xMinYMin meet">
+                <path data-sig-events-line-path d="M0 2.5H200C520 2.5 850 90 1112 250" stroke="currentColor" stroke-width="5" vector-effect="non-scaling-stroke" />
               </svg>
             </div>
           </div>

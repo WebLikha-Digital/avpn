@@ -116,6 +116,23 @@ test("writes one continuous, monotonic line during continuous scroll", async ({ 
   expect(distance).toBeGreaterThan(0);
 });
 
+test("draws the reachable tail to its full path length at scroll end", async ({ page }) => {
+  const { top, distance } = await geometry(page);
+  await scrollTo(page, top + distance);
+  await page.waitForTimeout(1000);
+  const progress = await page.locator(`${band} [data-sig-events-line-path]`).evaluateAll((paths) =>
+    paths.slice(1).map((path) => {
+      const dasharray = path.style.strokeDasharray.trim();
+      if (!dasharray || dasharray === "none") return 100;
+      const scale = path.getAttribute("vector-effect") === "non-scaling-stroke"
+        ? Math.abs(path.getScreenCTM().a)
+        : 1;
+      return Number.parseFloat(dasharray) / (path.getTotalLength() * scale) * 100;
+    }));
+  expect(progress[0]).toBeGreaterThanOrEqual(99);
+  expect(progress[1]).toBeGreaterThanOrEqual(99);
+});
+
 test("keeps pin coordinates stable when refreshed at non-zero band scroll", async ({ page }) => {
   const initial = await page.locator(band).evaluate((section) =>
     section._signatureEvents.cards.map((card) => card.pinCentreX));

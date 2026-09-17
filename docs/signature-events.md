@@ -104,13 +104,13 @@ timeline plays once and never replays when scrolling back.
 
 | Target | Start | Motion | Duration / easing |
 | --- | ---: | --- | --- |
-| pin | 0.00s | scale `.4 → 1`, autoAlpha `0 → 1`, origin `50% 100%` | 0.6s `back.out(1.4)` |
+| pin | 0.00s | scale `.4 → 1`, autoAlpha `0 → 1`, origin `50% 100%` | 0.6s `expo.out` |
 | image | 0.15s | clip `inset(100% 0 0 0) → inset(0)` | 0.8s `expo.out` |
-| pill | 0.50s | y `1.5em → 0`, autoAlpha `0 → 1` | 0.6s `power3.out` |
-| heading | 0.60s | SplitText lines, yPercent `100 → 0`, stagger `.08` | 0.8s `power3.out` |
-| date | 0.70s | SplitText lines, yPercent `100 → 0` | 0.8s `power3.out` |
-| description | 0.80s | y `1.5em → 0`, autoAlpha `0 → 1` | 0.6s `power3.out` |
-| button | 0.90s | y `1.5em → 0`, autoAlpha `0 → 1` | 0.6s `power3.out` |
+| pill | 0.50s | y `2em → 0`, autoAlpha `0 → 1` | 0.8s `power4.inOut` |
+| heading | 0.60s | SplitText lines, yPercent `120 → 0`, stagger `.08` | 0.8s `smooth` |
+| date | 0.70s | SplitText lines, yPercent `120 → 0` | 0.8s `smooth` |
+| description | 0.80s | y `2em → 0`, autoAlpha `0 → 1` | 0.8s `power4.inOut` |
+| button | 0.90s | y `2em → 0`, autoAlpha `0 → 1` | 0.8s `power4.inOut` |
 
 The `small` breakpoint hides the line and pins but keeps the card sequence.
 Reduced motion sets the line and every card to its final state without creating

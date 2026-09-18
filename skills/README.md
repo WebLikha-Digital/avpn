@@ -28,6 +28,9 @@ Skill tool or pulled in by Codex via AGENTS.md.
 
 ## Current skills
 
+- `webflow-build/` — how Claude builds a section in Webflow: spacing, colour and
+  type come from the site's variable collections and Text Style modes, not from
+  Figma values; what an embed may hold; how to bind variables through the MCP.
 - `webflow-animation-embed/` — how to build the animation bundle and wire it into
   Webflow's custom code embeds; also the canonical `init<Component>()` code
   convention (GSAP-based DOM/scroll animation).

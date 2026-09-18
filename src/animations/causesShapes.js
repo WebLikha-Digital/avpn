@@ -2,9 +2,10 @@ import { gsap, ScrollTrigger } from "../lib/gsap.js";
 
 /**
  * Morph one square Social Causes tile at a time by tweening its four
- * border-radius values. Border-radius preserves the tile's layout and text
- * position while expressing all eight authored shapes without SVG morphing or
- * a crossfade. The repeating timeline follows the Osmo Logo Wall Cycle:
+ * border-radius values and padding. Border-radius preserves the tile's layout
+ * while padding shifts the text toward the square corner of quarter-round
+ * shapes, expressing all eight authored shapes without SVG morphing or a
+ * crossfade. The repeating timeline follows the Osmo Logo Wall Cycle:
  * repeatDelay spaces swaps by four seconds and a shuffled tile pattern makes
  * every tile morph once per round. The shared "smooth" ease comes from
  * lib/gsap.js; ScrollTrigger and visibilitychange keep the cycle active only
@@ -17,14 +18,38 @@ import { gsap, ScrollTrigger } from "../lib/gsap.js";
  * the CSS and JavaScript state remain aligned.
  */
 const SHAPES = Object.freeze({
-  square: "15% 15% 15% 15%",
-  circle: "50% 50% 50% 50%",
-  "leaf-a": "25% 0% 25% 0%",
-  "leaf-b": "0% 25% 0% 25%",
-  "quarter-tl": "100% 0% 0% 0%",
-  "quarter-tr": "0% 100% 0% 0%",
-  "quarter-br": "0% 0% 100% 0%",
-  "quarter-bl": "0% 0% 0% 100%",
+  square: Object.freeze({
+    borderRadius: "15% 15% 15% 15%",
+    padding: "10% 10% 10% 10%",
+  }),
+  circle: Object.freeze({
+    borderRadius: "50% 50% 50% 50%",
+    padding: "10% 10% 10% 10%",
+  }),
+  "leaf-a": Object.freeze({
+    borderRadius: "25% 0% 25% 0%",
+    padding: "10% 10% 10% 10%",
+  }),
+  "leaf-b": Object.freeze({
+    borderRadius: "0% 25% 0% 25%",
+    padding: "10% 10% 10% 10%",
+  }),
+  "quarter-tl": Object.freeze({
+    borderRadius: "100% 0% 0% 0%",
+    padding: "28% 8% 8% 28%",
+  }),
+  "quarter-tr": Object.freeze({
+    borderRadius: "0% 100% 0% 0%",
+    padding: "28% 28% 8% 8%",
+  }),
+  "quarter-br": Object.freeze({
+    borderRadius: "0% 0% 100% 0%",
+    padding: "8% 28% 28% 8%",
+  }),
+  "quarter-bl": Object.freeze({
+    borderRadius: "0% 0% 0% 100%",
+    padding: "8% 8% 28% 28%",
+  }),
 });
 
 const SHAPE_NAMES = Object.keys(SHAPES);
@@ -52,13 +77,17 @@ export function initCausesShapes() {
       trigger: null,
       visibilityHandler: null,
       swapNext: null,
+      morphTo: null,
     };
 
     tiles.forEach((tile) => {
       const shape = tile.dataset.causesShape;
-      gsap.set(tile, { borderRadius: SHAPES[shape] || SHAPES.square });
+      const values = SHAPES[shape] || SHAPES.square;
+      gsap.set(tile, { ...values });
     });
 
+    instance.morphTo = (tileIndex, targetShape) =>
+      morphTo(instance, tileIndex, targetShape);
     instance.swapNext = () => swapNext(instance);
     instance.timeline = gsap.timeline({
       repeat: -1,
@@ -95,14 +124,27 @@ function swapNext(instance) {
     instance.patternIndex = 0;
   }
 
-  const tile = instance.tiles[instance.pattern[instance.patternIndex]];
+  const tileIndex = instance.pattern[instance.patternIndex];
+  const tile = instance.tiles[tileIndex];
   instance.patternIndex += 1;
   const currentShape = tile.dataset.causesShape;
   const choices = SHAPE_NAMES.filter((shape) => shape !== currentShape);
   const targetShape = choices[Math.floor(Math.random() * choices.length)];
 
-  instance.currentTween = gsap.to(tile, {
-    borderRadius: SHAPES[targetShape],
+  instance.currentTween = instance.morphTo(
+    tileIndex,
+    targetShape,
+  );
+}
+
+function morphTo(instance, tileIndex, targetShape) {
+  const tile = instance.tiles[tileIndex];
+  const currentShape = tile?.dataset.causesShape;
+  const values = SHAPES[targetShape];
+  if (!tile || !currentShape || !values) return null;
+
+  return gsap.to(tile, {
+    ...values,
     duration: 0.9,
     ease: "smooth",
     overwrite: "auto",
@@ -132,6 +174,6 @@ function teardown(section) {
   if (previous.visibilityHandler) {
     document.removeEventListener("visibilitychange", previous.visibilityHandler);
   }
-  gsap.set(previous.tiles, { clearProps: "borderRadius" });
+  gsap.set(previous.tiles, { clearProps: "borderRadius,padding" });
   section._causesShapes = null;
 }

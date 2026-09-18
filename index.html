@@ -2702,19 +2702,23 @@
   <div class="causes-css w-embed"><style>
   /* Social Causes tiles. Each tile is one square whose four corner radii make
      the shape; causesShapes.js morphs a random tile to another shape every 4s
-     by tweening border-radius. data-causes-shape only paints the start shape;
-     the class sets the rounded square (15%) as the default. */
+     by tweening border-radius and padding together. data-causes-shape only
+     paints the start shape; the class sets the rounded square (15%) as the
+     default. Padding is in % of the tile side on every edge (the tile is
+     square) and shifts the text toward the square corner of a quarter-round
+     shape so it stays inside the arc. */
   .causes_tile{aspect-ratio:1}
   .causes_grid{grid-auto-flow:column;grid-template-rows:repeat(2,auto)}
   @media (max-width:991px){.causes_grid{grid-template-rows:repeat(4,auto)}}
   @media (max-width:479px){.causes_grid{grid-template-rows:repeat(8,auto)}}
+  [data-causes-shape]{padding:10%}
   [data-causes-shape="circle"]{border-radius:50%}
   [data-causes-shape="leaf-a"]{border-radius:25% 0 25% 0}
   [data-causes-shape="leaf-b"]{border-radius:0 25% 0 25%}
-  [data-causes-shape="quarter-tl"]{border-radius:100% 0 0 0}
-  [data-causes-shape="quarter-tr"]{border-radius:0 100% 0 0}
-  [data-causes-shape="quarter-br"]{border-radius:0 0 100% 0}
-  [data-causes-shape="quarter-bl"]{border-radius:0 0 0 100%}
+  [data-causes-shape="quarter-tl"]{border-radius:100% 0 0 0;padding:28% 8% 8% 28%}
+  [data-causes-shape="quarter-tr"]{border-radius:0 100% 0 0;padding:28% 28% 8% 8%}
+  [data-causes-shape="quarter-br"]{border-radius:0 0 100% 0;padding:8% 28% 28% 8%}
+  [data-causes-shape="quarter-bl"]{border-radius:0 0 0 100%;padding:8% 8% 28% 28%}
   </style></div>
     </div>
 

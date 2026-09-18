@@ -32,6 +32,7 @@ import { initHamburgerNav } from "./animations/hamburgerNav.js";
 import { initAccordion } from "./animations/accordion.js";
 import { initMembersScroll } from "./animations/membersScroll.js";
 import { initMembersGlobe } from "./canvas/globe.js";
+import { initMembersTestimonials } from "./animations/membersTestimonials.js";
 import { initHeroVideoGate } from "./animations/heroVideoGate.js";
 import { initHeroEntrance } from "./animations/heroEntrance.js";
 import { initEventModal } from "./animations/eventModal.js";
@@ -75,6 +76,7 @@ function init() {
   initTunnel2();
   initMembersScroll();
   initMembersGlobe();
+  initMembersTestimonials();
   watchDocumentHeight();
   initHeroEntrance();
   initEventModal();

@@ -112,6 +112,28 @@
       .members_item-bottom{overflow:hidden}
       .members_item-bottom-wrap{min-height:0}
       .members_item-text{max-width:44.5rem;margin-top:0;margin-bottom:0;padding-top:.5rem;font-family:Archivo,Arial,sans-serif;font-size:1rem;line-height:1.5}
+      .section_testimonials{background-color:#f7f1ea;position:relative;overflow:clip;display:block;height:auto;margin-bottom:0;border:0;font-size:inherit} /* height/margin/border/font-size: undo the sandbox `section` rule, as .section_members does */
+      .testimonials_wordmark{pointer-events:none;user-select:none;white-space:nowrap;color:rgba(0,41,68,.02);font-family:Open Sans,Arial,sans-serif;font-weight:700;line-height:1.36;position:absolute;top:0;left:0}
+      .testimonials_wheel-wrap{width:50%;position:absolute;top:0;bottom:0;left:0}
+      .testimonials_orbit{border:2px dashed #d9d1b4;border-radius:50%;position:absolute;top:50%}
+      .testimonials_wheel{width:0;height:0;position:absolute;top:50%}
+      .testimonials_item{will-change:transform;position:absolute;top:0;left:0}
+      .testimonials_media{background-color:#002944;border-radius:50%;position:absolute;inset:0;overflow:hidden}
+      .testimonials_img,.testimonials_video{object-fit:cover;width:100%;height:100%;display:block;position:absolute;inset:0}
+      .testimonials_video-embed{position:absolute;inset:0}
+      .testimonials_play{z-index:2;cursor:pointer;background-color:transparent;border:2px dashed #fff;border-radius:48px;padding:10px;display:flex;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)}
+      .testimonials_play-icon{color:#fff;background-color:#002944;border-radius:50%;justify-content:center;align-items:center;width:50px;height:50px;display:flex}
+      .testimonials_layout{grid-template-columns:1fr 1fr;display:grid;position:relative}
+      .testimonials_content{z-index:1;grid-column:2;flex-direction:column;justify-content:center;max-width:31.875rem;margin-left:13%;display:flex;position:relative}
+      .testimonials_heading{color:#002944;margin-top:0;margin-bottom:6rem;font-family:Open Sans,Arial,sans-serif;font-size:3rem;font-weight:700;line-height:1.1667}
+      .testimonials_list{width:100%;display:grid}
+      .testimonials_slide{grid-area:1/1;flex-direction:column;gap:3.75rem;display:flex}
+      .testimonials_quote{color:#292929;margin-top:0;margin-bottom:0;font-family:Open Sans,Arial,sans-serif;font-size:1.5rem;font-weight:400;line-height:1.3333}
+      .testimonials_person{flex-direction:column;gap:.5rem;display:flex}
+      .testimonials_name{color:#002944;margin-top:0;margin-bottom:0;font-family:Archivo,Arial,sans-serif;font-size:1.25rem;font-weight:500;line-height:1.4}
+      .testimonials_role{color:#416073;margin-top:0;margin-bottom:0;font-family:Archivo,Arial,sans-serif;font-size:1rem;font-weight:400;line-height:1.5}
+      .testimonials_controls{gap:.5rem;margin-top:4.625rem;display:flex}
+      .testimonials_arrow{color:#252828;cursor:pointer;background-color:transparent;border:1px solid #e42919;border-radius:50%;justify-content:center;align-items:center;width:3.5rem;height:3.5rem;padding:0;display:flex}
       /* Stands in for a Webflow section tall enough to give the parallax
          elements room to drift before/after they enter the viewport.
          Positioning here uses flex/gap, not `transform` — Locomotive writes
@@ -2340,6 +2362,7 @@
     </section>
 
 <section id="our-members" data-draw-scroll-end="bottom bottom" data-draw-scroll-start="top top" data-draw-scroll-trigger="[data-members-init]" data-draw-scroll-wrap="" data-members-init="" class="section_members"><div class="members_sticky"><div class="members_line w-embed"><svg data-draw-scroll-desktop viewBox="0 0 815.1 1308.75" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="display:block;width:100%;height:auto;overflow:visible"><path data-draw-scroll-path d="M815.097 2.5C693.597 2.66666 162.196 100.1 328.596 334.5C536.596 627.5 686.597 719.5 546.597 914C434.597 1069.6 136.264 1240.5 1.09693 1306.5" stroke="#D9D1B4" stroke-width="4.5" stroke-linecap="round" fill="none"/></svg><svg width="0" height="0" aria-hidden="true" style="position:absolute"><filter id="members-globe-tint" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0.0344 0 0 0 0.9656  0 -0.279 0 0 0.973  0 0 -0.444 0 0.962  0 0 0 1 0"/></filter></svg></div><div data-members-globe="" aria-hidden="true" class="members_globe"></div><div class="padding-global"><div class="container-large"><div class="members_layout"><div class="members_copy"><h2 class="members_heading">Our Members</h2><p class="members_text">AVPN is Asia’s largest platform for social impact, where over 700 organisations from across 43 markets collaborate to mobilise capital. Grounded in deep regional expertise and partnerships, AVPN is building a thriving ecosystem that accelerates measurable progress toward inclusive growth, empowering Asia to lead the way in global impact.</p></div><div data-members-list-wrap="" class="members_list-wrap"><div data-members-list="" data-accordion-close-siblings="true" data-accordion-css-init="" class="members_list"><div data-members-color="teal" data-accordion-status="active" class="members_item"><a href="#" aria-expanded="true" data-accordion-toggle="" class="members_item-toggle w-inline-block"><div aria-hidden="true" class="members_item-icon"></div><div class="members_item-title">Corporate/Financial Institution</div></a><div class="members_item-bottom"><div class="members_item-bottom-wrap"><p class="members_item-text">Mainstream companies that invest directly in social impact through Corporate social responsibility (CSR) or through establishing a corporate foundation.</p></div></div></div><div data-members-color="aqua" data-accordion-status="not-active" class="members_item"><a href="#" aria-expanded="false" data-accordion-toggle="" class="members_item-toggle w-inline-block"><div aria-hidden="true" class="members_item-icon"></div><div class="members_item-title">Family Office</div></a><div class="members_item-bottom"><div class="members_item-bottom-wrap"><p class="members_item-text">Wealth management advisories or establishment for high net worth and ultra-high net worth individuals.</p></div></div></div><div data-members-color="orange" data-accordion-status="not-active" class="members_item"><a href="#" aria-expanded="false" data-accordion-toggle="" class="members_item-toggle w-inline-block"><div aria-hidden="true" class="members_item-icon"></div><div class="members_item-title">Foundations/Trust</div></a><div class="members_item-bottom"><div class="members_item-bottom-wrap"><p class="members_item-text">Non-profit organisations that fund social causes. Rather than running their own activities, trusts and foundations achieve their objectives by giving money to Social Purpose Organisations (SPOs) which use the money to run their activities.</p></div></div></div><div data-members-color="yellow" data-accordion-status="not-active" class="members_item"><a href="#" aria-expanded="false" data-accordion-toggle="" class="members_item-toggle w-inline-block"><div aria-hidden="true" class="members_item-icon"></div><div class="members_item-title">Government-related</div></a><div class="members_item-bottom"><div class="members_item-bottom-wrap"><p class="members_item-text">Statutory boards, government organisations and associations, and large international organisations that provide governments a platform to cooperate.</p></div></div></div><div data-members-color="blue" data-accordion-status="not-active" class="members_item"><a href="#" aria-expanded="false" data-accordion-toggle="" class="members_item-toggle w-inline-block"><div aria-hidden="true" class="members_item-icon"></div><div class="members_item-title">Impact Fund</div></a><div class="members_item-bottom"><div class="members_item-bottom-wrap"><p class="members_item-text">Funds that make investments to social enterprises and businesses with a sustainability focus, with the intention to generate social and environmental impact alongside a financial return.</p></div></div></div><div data-members-color="teal" data-accordion-status="not-active" class="members_item"><a href="#" aria-expanded="false" data-accordion-toggle="" class="members_item-toggle w-inline-block"><div aria-hidden="true" class="members_item-icon"></div><div class="members_item-title">Incubator/Accelerator</div></a><div class="members_item-bottom"><div class="members_item-bottom-wrap"><p class="members_item-text">Organisations that provide facilities, expertise and other forms of non-monetary support to nurture young enterprises and entrepreneurs.</p></div></div></div><div data-members-color="orange" data-accordion-status="not-active" class="members_item"><a href="#" aria-expanded="false" data-accordion-toggle="" class="members_item-toggle w-inline-block"><div aria-hidden="true" class="members_item-icon"></div><div class="members_item-title">Intermediary</div></a><div class="members_item-bottom"><div class="members_item-bottom-wrap"><p class="members_item-text">Intermediaries that help bridge between investors and investees to help with deal sourcing, management and measurement, and often provide some capacity building for the investee organisations.</p></div></div></div><div data-members-color="aqua" data-accordion-status="not-active" class="members_item"><a href="#" aria-expanded="false" data-accordion-toggle="" class="members_item-toggle w-inline-block"><div aria-hidden="true" class="members_item-icon"></div><div class="members_item-title">International NGO</div></a><div class="members_item-bottom"><div class="members_item-bottom-wrap"><p class="members_item-text">International Non-Governmental Organisations (NGOs) that provide funding for local NGOs to deepen their impact.</p></div></div></div><div data-members-color="yellow" data-accordion-status="not-active" class="members_item"><a href="#" aria-expanded="false" data-accordion-toggle="" class="members_item-toggle w-inline-block"><div aria-hidden="true" class="members_item-icon"></div><div class="members_item-title">Network</div></a><div class="members_item-bottom"><div class="members_item-bottom-wrap"><p class="members_item-text">Online and offline organisations that bring diverse stakeholders together.</p></div></div></div><div data-members-color="blue" data-accordion-status="not-active" class="members_item"><a href="#" aria-expanded="false" data-accordion-toggle="" class="members_item-toggle w-inline-block"><div aria-hidden="true" class="members_item-icon"></div><div class="members_item-title">Private Equity/Venture Capital</div></a><div class="members_item-bottom"><div class="members_item-bottom-wrap"><p class="members_item-text">Private equity and venture capital firms engage in direct investments with privately held companies ranging from startups to mature companies.</p></div></div></div><div data-members-color="teal" data-accordion-status="not-active" class="members_item"><a href="#" aria-expanded="false" data-accordion-toggle="" class="members_item-toggle w-inline-block"><div aria-hidden="true" class="members_item-icon"></div><div class="members_item-title">Service Provider</div></a><div class="members_item-bottom"><div class="members_item-bottom-wrap"><p class="members_item-text">Businesses and nonprofits that provide support services to the social investment ecosystem such as consulting, legal support and talent management.</p></div></div></div><div data-members-color="orange" data-accordion-status="not-active" class="members_item"><a href="#" aria-expanded="false" data-accordion-toggle="" class="members_item-toggle w-inline-block"><div aria-hidden="true" class="members_item-icon"></div><div class="members_item-title">Universities/Research</div></a><div class="members_item-bottom"><div class="members_item-bottom-wrap"><p class="members_item-text">Universities, academies, research institutes and think tanks that are engaged in the social economy.</p></div></div></div></div></div></div></div></div></div></section>
+<section id="hear-from-members" data-testimonials-init="" data-testimonials-autoplay="false" data-testimonials-autoplay-duration="6000" class="section_testimonials"><div aria-hidden="true" class="testimonials_wordmark">AVPN</div><div class="testimonials_wheel-wrap"><div aria-hidden="true" class="testimonials_orbit"></div><div data-testimonials-wheel="" class="testimonials_wheel"><div data-testimonials-item="" data-testimonials-item-status="active" class="testimonials_item"><div class="testimonials_media"><img src="https://cdn.prod.website-files.com/6a962b118007b0241d50a7a2/6a9762ebcda4f86bce128529_sticky-picture_photo-2.webp" loading="lazy" alt="" class="testimonials_img"></div></div><div data-testimonials-item="" data-testimonials-item-status="next" class="testimonials_item"><div class="testimonials_media"><div class="testimonials_video-embed w-embed"><video data-testimonials-video class="testimonials_video" src="https://cdn.prod.website-files.com/6a962b118007b0241d50a7a2/6aa89fbed74e784b8ef1beae_Slow_Landscape.mp4" poster="https://cdn.prod.website-files.com/6a962b118007b0241d50a7a2/6a9762ec9aad9ee4bb2ffd9f_sticky-picture_photo-3.webp" preload="metadata" playsinline></video><button type="button" data-testimonials-play class="testimonials_play" aria-label="Play video"><span class="testimonials_play-icon"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M5 3.5v11l9-5.5-9-5.5Z" fill="currentColor"/></svg></span></button></div></div></div><div data-testimonials-item="" data-testimonials-item-status="prev" class="testimonials_item"><div class="testimonials_media"><img src="https://cdn.prod.website-files.com/6a962b118007b0241d50a7a2/6a9765757d7bb53357bfe1f6_7a012934ba5d568411f0f93db821e5cd_naina.webp" loading="lazy" alt="" class="testimonials_img"></div></div></div></div><div class="padding-global"><div class="container-large"><div class="testimonials_layout"><div class="testimonials_content"><h2 class="testimonials_heading">Hear from Our Members</h2><div data-testimonials-list="" class="testimonials_list"><div data-testimonials-slide="" data-testimonials-slide-status="active" class="testimonials_slide"><p data-testimonials-text="" class="testimonials_quote">AVPN has been an incredible platform for collaboration and learning. It brings together people and organizations who are genuinely committed to creating meaningful change across Asia, turning shared ideas into opportunities for real impact.</p><div class="testimonials_person"><p data-testimonials-split="" class="testimonials_name">Michael Tan</p><p data-testimonials-split="" class="testimonials_role">Chief Executive Officer, Impact Partners</p></div></div><div data-testimonials-slide="" data-testimonials-slide-status="not-active" class="testimonials_slide"><p data-testimonials-text="" class="testimonials_quote">Through AVPN we found partners who share our conviction that capital can be patient, catalytic and accountable. The network opened doors across markets we could not have reached on our own.</p><div class="testimonials_person"><p data-testimonials-split="" class="testimonials_name">Priya Menon</p><p data-testimonials-split="" class="testimonials_role">Managing Director, Harborview Foundation</p></div></div><div data-testimonials-slide="" data-testimonials-slide-status="not-active" class="testimonials_slide"><p data-testimonials-text="" class="testimonials_quote">What sets AVPN apart is the depth of its community. Every conversation leads to a practical next step, and every next step is grounded in evidence from practitioners across the region.</p><div class="testimonials_person"><p data-testimonials-split="" class="testimonials_name">Devon Reyes</p><p data-testimonials-split="" class="testimonials_role">Head of Impact, Kestrel Family Office</p></div></div></div><div class="testimonials_controls"><button type="button" data-testimonials-prev="" aria-label="Previous testimonial" class="testimonials_arrow"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M17 10H3m0 0 6-6m-6 6 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button type="button" data-testimonials-next="" aria-label="Next testimonial" class="testimonials_arrow"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M3 10h14m0 0-6-6m6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div></div></div></div></section>
 
     <div class="event-modal-group" data-modal-group-status="not-active">
       <div class="event-modal-backdrop" data-modal-close></div>
@@ -2484,6 +2507,137 @@
     .members_globe { top: auto; bottom: -20vw; left: -25vw; width: 85vw; height: 85vw; opacity: 0.6; }
     .members_line { top: 0; left: 40%; width: 90vw; }
   }
+  </style></div>
+  <div class="testimonials-css w-embed"><style>
+  /* Hear from Our Members — state, geometry and motion only. Layout and skin
+     (type, colours, radii, flex/grid) live on the testimonials_* classes in the
+     Designer. This block holds what the style panel cannot express: custom
+     properties, calc()/min() sizing, attribute states, media queries, and the
+     Designer-canvas fallback. Never put the same declaration in both places.
+
+     Figma 2535:58938. Mechanics: three visuals orbit a wheel whose centre sits
+     just off the left edge; the active one is the big circle at 3 o'clock, the
+     other two sit ~70deg above and below as small squares with one rounded
+     corner (Osmo "Radial Cards Slider" geometry, three slots, no clones). The
+     quote panel swaps with SplitText line reveals (Osmo "Line Reveal
+     Testimonials"). src/animations/membersTestimonials.js reads the vars
+     below, positions the items along the orbit and flips the status attributes. */
+
+  .section_testimonials {
+    --testi-radius: min(34vw, 490px);          /* orbit radius; 490 at 1440 */
+    --testi-center-x: max(-4.86vw, -70px);     /* wheel centre, left of the viewport edge */
+    --testi-active: min(38.2vw, 550px);        /* active circle diameter */
+    --testi-thumb: min(18.2vw, 262px);         /* prev/next square size */
+    --testi-thumb-scale: 0.476;                /* thumb / active — JS reads this */
+    --testi-step: 70;                          /* degrees between slots — JS reads this */
+    --testi-base: 0;                           /* angle of the active slot: 0 = 3 o'clock — JS reads this */
+    --testi-corner: min(4.17vw, 60px);         /* rounded corner on the thumbs */
+    --testi-ease: cubic-bezier(0.25, 0.1, 0, 1);
+    /* thumbs are the active box scaled down, so the corner is authored unscaled */
+    --testi-corner-u: calc(var(--testi-corner) / var(--testi-thumb-scale));
+  }
+
+  .testimonials_layout { min-height: min(80vw, 1151px); }   /* 1151 at 1440 */
+  /* The copy grid sits on top of the absolutely positioned wheel; let clicks
+     fall through its empty left half to the play button, but keep the copy
+     column itself interactive. */
+  .testimonials_layout { pointer-events: none; }
+  .testimonials_content { pointer-events: auto; }
+
+  .testimonials_wordmark { top: 14.9vw; left: 1.67vw; font-size: min(34.7vw, 500px); }
+
+  .testimonials_orbit {
+    left: var(--testi-center-x);
+    width: calc(var(--testi-radius) * 2);
+    height: calc(var(--testi-radius) * 2);
+    transform: translate(-50%, -50%);
+  }
+  .testimonials_wheel { left: var(--testi-center-x); }
+
+  /* Every item is the active-size box centred on the wheel origin; JS moves it
+     along the orbit with x/y and shrinks the inactive ones with scale. */
+  .testimonials_item {
+    width: var(--testi-active);
+    height: var(--testi-active);
+    margin: calc(var(--testi-active) / -2) 0 0 calc(var(--testi-active) / -2);
+  }
+
+  /* Shape per slot: circle when active, one rounded corner as a thumb.
+     Figma: top thumb rounds top-right, bottom thumb rounds top-right + bottom-left. */
+  .testimonials_media { transition: border-radius 0.8s var(--testi-ease); }
+  .testimonials_item[data-testimonials-item-status="prev"] .testimonials_media { border-radius: 0 var(--testi-corner-u) 0 0; }
+  .testimonials_item[data-testimonials-item-status="next"] .testimonials_media { border-radius: 0 var(--testi-corner-u) 0 var(--testi-corner-u); }
+
+  /* 40% black wash over every visual (Figma); lifts while a video plays. */
+  .testimonials_media::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: rgba(0, 0, 0, 0.4);
+    transition: opacity 0.4s var(--testi-ease);
+  }
+  .testimonials_item[data-testimonials-playing="true"] .testimonials_media::after { opacity: 0; }
+
+  /* Play pill: only on the active video item, hidden while playing. */
+  .testimonials_play { opacity: 0; visibility: hidden; transition: opacity 0.4s var(--testi-ease), visibility 0s 0.4s; }
+  .testimonials_item[data-testimonials-item-status="active"] .testimonials_play { opacity: 1; visibility: visible; transition: opacity 0.4s var(--testi-ease); }
+  .testimonials_item[data-testimonials-playing="true"] .testimonials_play { opacity: 0; visibility: hidden; transition: opacity 0.4s var(--testi-ease), visibility 0s 0.4s; }
+
+  /* Quote panels stack in one grid cell; only the active one is visible. */
+  .testimonials_slide { opacity: 0; visibility: hidden; }
+  .testimonials_slide[data-testimonials-slide-status="active"] { opacity: 1; visibility: visible; }
+  .text-line-mask { padding-bottom: 0.2em; margin-bottom: -0.2em; }  /* SplitText line masks: room for descenders */
+
+  .testimonials_arrow { transition: background-color 0.3s var(--testi-ease), color 0.3s var(--testi-ease); }
+  .testimonials_arrow:hover { background-color: #e42919; color: #fff; }
+  .testimonials_arrow:focus-visible { outline: 2px solid #002944; outline-offset: 2px; }
+
+  /* Tablet and below (Figma 4036:38581 for mobile): the wheel turns a quarter
+     turn. Its centre sits above the section (--testi-center-y), the active
+     circle hangs at 6 o'clock, horizontally centred, and the two thumbs sit
+     ±step around it, mostly off screen left and right; only the dashed orbit
+     peeks in at the sides. Wrap height = centre-y + R + active/2 + gap. */
+  @media screen and (max-width: 991px) {
+    .section_testimonials {
+      --testi-base: 90;
+      --testi-radius: 60vw; --testi-center-x: 50%; --testi-center-y: -12vw;
+      --testi-active: 48vw; --testi-thumb: 28vw; --testi-thumb-scale: 0.583;
+      --testi-corner: 5vw;
+    }
+    .testimonials_layout { grid-template-columns: 1fr; min-height: 0; padding: 0 0 4rem; }
+    .testimonials_wheel-wrap { position: relative; width: 100%; height: 75vw; }
+    .testimonials_orbit, .testimonials_wheel { top: var(--testi-center-y); }
+    .testimonials_wordmark { display: none; }
+    .testimonials_content { grid-column: 1; max-width: none; margin-left: 0; }
+    .testimonials_heading { font-size: 2.5rem; margin-bottom: 2rem; }
+    .testimonials_quote { font-size: 1.25rem; }
+    .testimonials_controls { margin-top: 3rem; }
+  }
+  /* Mobile, Figma at 375: circle 310 from y 135 to 445, copy 24px wide-set, arrow pills. */
+  @media screen and (max-width: 767px) {
+    .section_testimonials {
+      --testi-radius: 95vw; --testi-center-y: -17.6vw;
+      --testi-active: 82.7vw; --testi-thumb: 48.5vw; --testi-thumb-scale: 0.587;
+      --testi-corner: 8vw;
+    }
+    .testimonials_wheel-wrap { height: 128.5vw; }             /* 445 + 37 gap at 375 */
+    .testimonials_wordmark { display: block; top: 118vw; left: 0.8vw; font-size: 35vw; }
+    .testimonials_heading { font-size: 2rem; line-height: 1.25; margin-bottom: 0.5rem; }
+    .testimonials_quote { font-size: 1.5rem; }
+    .testimonials_slide { gap: 3.6875rem; }
+    .testimonials_controls { width: 100%; gap: 1.25rem; margin-top: 4rem; }
+    .testimonials_arrow { flex: 1 1 0; width: auto; height: 3.75rem; border-radius: 1.875rem; }
+    .testimonials_play-icon { width: 50px; height: 50px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .testimonials_media, .testimonials_media::after, .testimonials_play, .testimonials_arrow { transition: none; }
+  }
+
+  /* Designer canvas (no JS): lay the visuals out in a row so they can be edited. */
+  :is(.wf-design-mode, .wf-editor) .testimonials_wheel-wrap { position: relative; width: 100%; height: auto; padding: 2rem; }
+  :is(.wf-design-mode, .wf-editor) .testimonials_wheel { position: static; width: auto; height: auto; display: flex; gap: 1rem; }
+  :is(.wf-design-mode, .wf-editor) .testimonials_item { position: relative; width: 10rem; height: 10rem; margin: 0; }
+  :is(.wf-design-mode, .wf-editor) .testimonials_orbit { display: none; }
+  :is(.wf-design-mode, .wf-editor) .testimonials_slide { position: relative; opacity: 1; visibility: visible; }
   </style></div>
     </div>
 

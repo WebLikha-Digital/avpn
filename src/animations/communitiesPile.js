@@ -77,7 +77,7 @@ export function initCommunitiesPile() {
     const bodies = balls.map((element) => {
       const diameter = element.offsetWidth;
       const body = Bodies.circle(0, 0, diameter / 2, {
-        restitution: 0.5,
+        restitution: 0.3,
         friction: 0.3,
         frictionAir: 0.001,
         density: 0.005,
@@ -100,9 +100,13 @@ export function initCommunitiesPile() {
       trigger: null,
       mouse: null,
       mouseConstraint: null,
+      mouseDownHandler: null,
+      mouseUpHandler: null,
       obstacle,
       obstacleBody: null,
+      ceiling: null,
       desktop,
+      thickness,
       timers: new Set(),
       render: null,
       tickerActive: false,
@@ -114,18 +118,30 @@ export function initCommunitiesPile() {
     instance.render = (time, deltaTime) => {
       if (!instance.tickerActive) return;
       Engine.update(engine, Math.min(33, Math.max(0, deltaTime * 1000)));
+      if (instance.dropped && !instance.ceiling && instance.timers.size === 0
+        && bodies.every((body) => body.position.y - body.plugin.communitiesRadius >= 0)) {
+        instance.ceiling = Bodies.rectangle(
+          dimensions.width / 2,
+          -instance.thickness / 2,
+          dimensions.width + instance.thickness * 2,
+          instance.thickness,
+          { isStatic: true },
+        );
+        instance.staticBodies.push(instance.ceiling);
+        World.add(engine.world, instance.ceiling);
+      }
       bodies.forEach((body) => {
         const radius = body.plugin.communitiesRadius;
         const x = clamp(body.position.x, radius, dimensions.width - radius);
-        // No ceiling: balls enter from above, so only the floor bounds y.
         const y = Math.min(body.position.y, dimensions.height - radius);
         if (x !== body.position.x || y !== body.position.y) Body.setPosition(body, { x, y });
         const tilt = Math.sin(body.angle) * 0.3;
         body.plugin.communitiesElement.style.transform =
           `translate3d(${body.position.x - radius}px, ${body.position.y - radius}px, 0) rotate(${tilt}rad)`;
       });
+      const mouseReleased = !instance.mouse || instance.mouse.button === -1;
       if (instance.dropped && bodies.every((body) => body.isSleeping)
-        && !instance.mouseConstraint?.body) {
+        && mouseReleased && !instance.mouseConstraint?.body) {
         stopTicker(instance);
       }
     };
@@ -173,6 +189,12 @@ function initMouse(instance, resume) {
   World.add(engine.world, mouseConstraint);
   instance.mouse = mouse;
   instance.mouseConstraint = mouseConstraint;
+  instance.mouseDownHandler = () => resume();
+  pile.addEventListener("mousedown", instance.mouseDownHandler);
+  instance.mouseUpHandler = (event) => {
+    if (mouse.button !== -1) mouse.mouseup(event);
+  };
+  window.addEventListener("mouseup", instance.mouseUpHandler);
   Events.on(mouseConstraint, "startdrag", ({ body }) => {
     if (!body || !bodies.includes(body)) return;
     body.isSleeping = false;
@@ -234,7 +256,9 @@ function buildObstacle(instance) {
 
   const pileRect = instance.pile.getBoundingClientRect();
   const obstacleRect = instance.obstacle.getBoundingClientRect();
-  const overlapLeft = Math.max(pileRect.left, obstacleRect.left - OBSTACLE_PADDING);
+  // Span from the pile's left edge too: a fling could otherwise wedge a ball
+  // in the gap between the wall and the header column, above the pile.
+  const overlapLeft = pileRect.left;
   const overlapRight = Math.min(pileRect.right, obstacleRect.right + OBSTACLE_PADDING);
   // The body reaches far above the pile so nothing can perch on it and settle
   // above the heading, clipped by the section.
@@ -295,6 +319,12 @@ function kill(instance) {
     instance.mouse.element.removeEventListener("touchend", instance.mouse.mouseup);
     instance.mouse.element.removeEventListener("mousewheel", instance.mouse.mousewheel);
     instance.mouse.element.removeEventListener("DOMMouseScroll", instance.mouse.mousewheel);
+  }
+  if (instance.mouseDownHandler) {
+    instance.pile.removeEventListener("mousedown", instance.mouseDownHandler);
+  }
+  if (instance.mouseUpHandler) {
+    window.removeEventListener("mouseup", instance.mouseUpHandler);
   }
   World.clear(instance.engine.world, false);
   Engine.clear(instance.engine);

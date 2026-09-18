@@ -18,11 +18,15 @@ async function geometry(page) {
   return page.locator(section).evaluate((root) => {
     const scroller = root.querySelector("[data-markets-viewport]");
     const track = root.querySelector("[data-hscroll-track]");
-    const bar = root.querySelectorAll("[data-markets-bar]")[6];
+    const barLefts = [...root.querySelectorAll("[data-markets-bar]")].map((bar) =>
+      bar.getBoundingClientRect().left - track.getBoundingClientRect().left,
+    );
     return {
       top: root.getBoundingClientRect().top + window.scrollY,
-      barLeft: bar.getBoundingClientRect().left - track.getBoundingClientRect().left,
       viewportWidth: scroller.clientWidth,
+      barLefts,
+      // First bar fully off screen at band start, so its whole scrub range is reachable.
+      scrubIndex: barLefts.findIndex((left) => left > scroller.clientWidth),
     };
   });
 }
@@ -48,25 +52,91 @@ test("has the twenty authored market bars", async ({ page }) => {
   await expect(page.locator(bars).first()).toHaveAttribute("data-markets-value", "49.19");
 });
 
+test("reveals entry bars in sequence without scrub triggers", async ({ page }) => {
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  await expect(page.locator(`${section}[data-hscroll-active]`)).toHaveCount(1);
+
+  const state = await page.locator(section).evaluate(async (root) => {
+    const { ScrollTrigger } = await import("/src/lib/gsap.js");
+    const viewport = root.querySelector("[data-markets-viewport]");
+    const track = root.querySelector("[data-hscroll-track]");
+    const allBars = [...root.querySelectorAll("[data-markets-bar]")];
+    const trackLeft = track.getBoundingClientRect().left;
+    const entryIndices = allBars.flatMap((bar, index) => (
+      bar.getBoundingClientRect().left - trackLeft + viewport.scrollLeft
+        <= viewport.clientWidth * 0.55 ? [index] : []
+    ));
+    return {
+      entryIndices,
+      clips: entryIndices.map((index) => allBars[index].style.clipPath),
+      hasScrub: entryIndices.map((index) => ScrollTrigger.getAll()
+        .some((trigger) => trigger.vars.trigger === allBars[index])),
+    };
+  });
+  expect(state.entryIndices.length).toBeGreaterThanOrEqual(2);
+  expect(state.clips.every((clip) => clip.startsWith("inset(100%"))).toBe(true);
+  expect(state.hasScrub.every((hasScrub) => !hasScrub)).toBe(true);
+
+  const top = await page.locator(section).evaluate((root) =>
+    root.getBoundingClientRect().top + window.scrollY,
+  );
+  // Scroll and sample in one evaluate: the stagger is 80ms, so a round trip
+  // between the scroll and the first sample would miss the sequence.
+  const samples = await page.locator(section).evaluate(async (root, target) => {
+    const entry = root._marketsChart.entryBars.slice(0, 2);
+    const values = [];
+    const read = () => entry.map((bar) => Number.parseFloat(
+      bar.style.clipPath.match(/inset\(\s*([\d.]+)%/i)?.[1] ?? 0,
+    ));
+    window.scrollTo({ top: target + 2, behavior: "instant" });
+    let frame = 0;
+    return new Promise((resolve) => {
+      const sample = () => {
+        values.push(read());
+        frame += 1;
+        if (frame < 70) requestAnimationFrame(sample);
+        else resolve(values);
+      };
+      sample();
+    });
+  }, top);
+  // Left bar leads the right one by the 80ms stagger; a long frame under load
+  // can skip the window where the second bar is still fully clipped, so the
+  // assertion is on the lead itself, not on catching that exact frame.
+  expect(samples.some(([first, second]) => first < second - 5)).toBe(true);
+  expect(samples.some(([first, second]) => first < 95 && second < 95)).toBe(true);
+  await page.waitForTimeout(250);
+  await expect.poll(() => page.locator(section).evaluate((root) =>
+    root._marketsChart.entryBars.every((bar) => bar.style.clipPath.startsWith("inset(0%")),
+  )).toBe(true);
+});
+
 test("grows a desktop bar continuously and reverses on scroll back", async ({ page }) => {
   await page.goto("/");
   await page.waitForLoadState("networkidle");
   await expect(page.locator(`${section}[data-hscroll-active]`)).toHaveCount(1);
 
   const chart = await geometry(page);
-  const start = chart.barLeft - chart.viewportWidth;
-  const end = chart.barLeft - chart.viewportWidth * 0.55;
+  const scrubIndex = chart.scrubIndex;
+  const barLeft = chart.barLefts[scrubIndex];
+  const start = barLeft - chart.viewportWidth;
+  const end = barLeft - chart.viewportWidth * 0.55;
 
   await page.evaluate((target) => window.scrollTo({ top: target, behavior: "instant" }), chart.top + start - 2);
   await settle(page);
-  const before = await page.locator(bars).nth(6).evaluate(clipTopOf);
+  const before = await page.locator(bars).nth(scrubIndex).evaluate(clipTopOf);
 
   const samples = await page.locator(section).evaluate(async (root) => {
     const values = [];
     const top = root.getBoundingClientRect().top + window.scrollY;
-    const bar = root.querySelectorAll("[data-markets-bar]")[6];
+    const allBars = [...root.querySelectorAll("[data-markets-bar]")];
     const track = root.querySelector("[data-hscroll-track]");
     const scroller = root.querySelector("[data-markets-viewport]");
+    const bar = allBars.find((candidate) =>
+      candidate.getBoundingClientRect().left - track.getBoundingClientRect().left
+        > scroller.clientWidth,
+    );
     const start = bar.getBoundingClientRect().left - track.getBoundingClientRect().left - scroller.clientWidth;
     const end = bar.getBoundingClientRect().left - track.getBoundingClientRect().left - scroller.clientWidth * 0.55;
     let frame = 0;
@@ -94,7 +164,7 @@ test("grows a desktop bar continuously and reverses on scroll back", async ({ pa
 
   await page.evaluate((target) => window.scrollTo({ top: target, behavior: "instant" }), chart.top + start - 2);
   await settle(page);
-  expect(await page.locator(bars).nth(6).evaluate(clipTopOf)).toBeGreaterThan(95);
+  expect(await page.locator(bars).nth(scrubIndex).evaluate(clipTopOf)).toBeGreaterThan(95);
 });
 
 test("grows from native mobile viewport scrollLeft", async ({ page }) => {
@@ -105,11 +175,18 @@ test("grows from native mobile viewport scrollLeft", async ({ page }) => {
 
   const positions = await page.locator(section).evaluate((root) => {
     const scroller = root.querySelector("[data-markets-viewport]");
-    const bar = root.querySelectorAll("[data-markets-bar]")[6];
+    const allBars = [...root.querySelectorAll("[data-markets-bar]")];
+    const track = root.querySelector("[data-hscroll-track]");
+    // First bar fully off screen at scrollLeft 0, so its whole scrub range is reachable.
+    const index = allBars.findIndex((candidate) =>
+      candidate.getBoundingClientRect().left - track.getBoundingClientRect().left
+        > scroller.clientWidth,
+    );
+    const bar = allBars[index];
     const left = bar.getBoundingClientRect().left - scroller.getBoundingClientRect().left + scroller.scrollLeft;
-    return { start: left - scroller.clientWidth, end: left - scroller.clientWidth * 0.55 };
+    return { index, start: left - scroller.clientWidth, end: left - scroller.clientWidth * 0.55 };
   });
-  const bar = page.locator(bars).nth(6);
+  const bar = page.locator(bars).nth(positions.index);
 
   await page.locator(viewport).evaluate((element, left) => {
     element.scrollLeft = left;
@@ -138,6 +215,26 @@ test("grows from native mobile viewport scrollLeft", async ({ page }) => {
   }, positions.start - 2);
   await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
   expect(await bar.evaluate(clipTopOf)).toBeGreaterThan(95);
+});
+
+test("reveals mobile entry bars from the window trigger", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 844 });
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+
+  const entryCount = await page.locator(section).evaluate((root) =>
+    root._marketsChart.entryBars.length,
+  );
+  expect(entryCount).toBeGreaterThanOrEqual(1);
+  expect(await page.locator(section).evaluate((root) =>
+    root._marketsChart.entryBars.every((bar) => bar.style.clipPath.startsWith("inset(100%")),
+  )).toBe(true);
+
+  await page.locator(section).scrollIntoViewIfNeeded();
+  await page.waitForTimeout(1200);
+  expect(await page.locator(section).evaluate((root) =>
+    root._marketsChart.entryBars.every((bar) => bar.style.clipPath.startsWith("inset(0%")),
+  )).toBe(true);
 });
 
 test("reveals the decor line lead on desktop section entry", async ({ page }) => {

@@ -14,6 +14,7 @@ import { initHorizontalParallax } from "./animations/horizontalParallax.js";
 import { initShapeSwap } from "./animations/shapeSwap.js";
 import { initShapeReveal } from "./animations/shapeReveal.js";
 import { initSignatureEvents } from "./animations/signatureEvents.js";
+import { initMarketsChart } from "./animations/marketsChart.js";
 import {
   HSCROLL_REBUILT,
   initHorizontalScroller,
@@ -50,6 +51,7 @@ function initBandAware() {
   initHorizontalParallax();
   initShapeSwap();
   initSignatureEvents();
+  initMarketsChart();
 }
 
 function init() {

@@ -51,6 +51,8 @@ dist/          bundled output pasted into Webflow custom code
 - [`docs/signature-events.md`](docs/signature-events.md) — the Signature Events
   band: element tree, measurements, the parallax wordmark
   (`horizontalParallax.js`) and the per-card brand shape (`shapeSwap.js`).
+- `src/animations/marketsChart.js` — the Markets Interest for Members horizontal
+  bar chart, scrubbed against the desktop band or mobile swipe viewport.
 - [`docs/image-breaker.md`](docs/image-breaker.md) — the image breaker that
   closes the CEO's Foreword: how the sticky clip-path reveal works, the Webflow
   contract, measurements, and troubleshooting.

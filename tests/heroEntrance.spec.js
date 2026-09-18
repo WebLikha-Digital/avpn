@@ -99,7 +99,8 @@ test("sweep shapes reveal clockwise with a conic mask", async ({ page }) => {
     expect(degrees).toBeLessThan(90);
     expect(mask).toContain("conic-gradient");
   });
-  await page.locator("[data-hero-entrance]").evaluate((container) => container._heroEntranceInstance.timeline.play());
+  // Braces: play() returns the timeline, and serializing GSAP's object graph back to Node fails once the page holds enough tweens.
+  await page.locator("[data-hero-entrance]").evaluate((container) => { container._heroEntranceInstance.timeline.play(); });
   await expect.poll(() => page.locator("[data-hero-sweep]").evaluateAll((elements) => elements.map((element) => ({
     sweep: element.style.getPropertyValue("--hero-sweep"),
     mask: element.style.getPropertyValue("mask-image") || element.style.getPropertyValue("-webkit-mask-image"),

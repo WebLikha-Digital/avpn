@@ -1,8 +1,9 @@
 import { test, expect } from "@playwright/test";
 
 const ROOT = '[data-testid="fade-near-top"]';
-const TEXT = `${ROOT} [data-fade-top]:not(img)`;
+const TEXT = `${ROOT} [data-fade-top]:not(img):not([data-fade-top-trigger])`;
 const IMAGE = `${ROOT} img[data-fade-top]`;
+const TRIGGERED = `${ROOT} [data-fade-top][data-fade-top-trigger]`;
 
 async function loadFixture(page, width = 1200) {
   await page.setViewportSize({ width, height: 800 });
@@ -23,6 +24,7 @@ async function sampleWhileScrolling(page, selector, start, end, count = 40) {
     ({ selector, start, end, count }) =>
       new Promise((resolve) => {
         const element = document.querySelector(selector);
+        const trigger = element._fadeNearTop.scrollTrigger.trigger;
         const samples = [];
         let index = 0;
 
@@ -31,6 +33,7 @@ async function sampleWhileScrolling(page, selector, start, end, count = 40) {
           samples.push({
             top: rect.top,
             bottom: rect.bottom,
+            triggerBottom: trigger.getBoundingClientRect().bottom,
             opacity: Number.parseFloat(getComputedStyle(element).opacity),
           });
 
@@ -80,8 +83,8 @@ test("scrubs opacity through the top and restores it on reverse scroll", async (
 
 test("does not create fade tweens below the minimum width", async ({ page }) => {
   await loadFixture(page, 900);
-  await expect(page.locator(`${ROOT} [data-fade-top]`)).toHaveCount(2);
-  await expect.poll(() => page.locator(`${ROOT} [data-fade-top]`).evaluateAll((elements) => elements.map((element) => Boolean(element._fadeNearTop)))).toEqual([false, false]);
+  await expect(page.locator(`${ROOT} [data-fade-top]`)).toHaveCount(3);
+  await expect.poll(() => page.locator(`${ROOT} [data-fade-top]`).evaluateAll((elements) => elements.map((element) => Boolean(element._fadeNearTop)))).toEqual([false, false, false]);
 });
 
 test("passes authored start and end values to ScrollTrigger", async ({ page }) => {
@@ -99,4 +102,35 @@ test("passes authored start and end values to ScrollTrigger", async ({ page }) =
   expect(values.varsEnd).toBe("top 30%");
   expect(values.start).toBeCloseTo(values.top - 400, 0);
   expect(values.end).toBeCloseTo(values.top - 240, 0);
+});
+
+test("uses the authored trigger for range and opacity", async ({ page }) => {
+  await loadFixture(page);
+  const values = await page.locator(TRIGGERED).evaluate((element) => {
+    const trigger = element._fadeNearTop.scrollTrigger;
+    const ancestor = element.closest('[data-testid="fade-near-top"]');
+    return {
+      triggerIsAncestor: trigger.trigger === ancestor,
+      ancestorBottom: ancestor.getBoundingClientRect().bottom + window.scrollY,
+      start: trigger.start,
+      end: trigger.end,
+    };
+  });
+
+  expect(values.triggerIsAncestor).toBe(true);
+  expect(values.start).toBeCloseTo(values.ancestorBottom - 800, 0);
+  expect(values.end).toBeCloseTo(values.ancestorBottom - 440, 0);
+
+  const samples = await sampleWhileScrolling(
+    page,
+    TRIGGERED,
+    values.start - 100,
+    values.end + 100,
+  );
+  expect(samples.length).toBeGreaterThan(10);
+
+  const beforeStart = samples.find((sample) => sample.triggerBottom > 800);
+  const afterEnd = samples.find((sample) => sample.triggerBottom < 440);
+  expect(beforeStart?.opacity).toBeCloseTo(1, 2);
+  expect(afterEnd?.opacity).toBeCloseTo(0, 2);
 });

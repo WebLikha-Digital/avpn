@@ -83,7 +83,11 @@ partly faded. `data-fade-top-min-width` sets the minimum viewport width in
 pixels and defaults to `992` (invalid values also use `992`). Below that width
 the element is untouched because the wordmark is static. The fade only changes
 opacity, so it can share an element with split-heading or wipe-reveal
-attributes.
+attributes. Use optional `data-fade-top-trigger` to key the fade to another
+element: it resolves the nearest matching ancestor, then the first page match,
+then the fading element itself (invalid selectors also fall back to the element).
+This lets a sticky `.sticky-picture_image-frame` fade out as its
+`.section_sticky-picture` leaves the viewport while the frame remains pinned.
 
 ---
 

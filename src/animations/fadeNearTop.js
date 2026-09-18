@@ -8,7 +8,8 @@ const DEFAULT_MIN_WIDTH = 992;
  * Fades marked elements out as they travel toward the top of the viewport.
  *
  * Webflow contract:
- *   [data-fade-top]             element to fade; it is also the trigger
+ *   [data-fade-top]             element to fade; it is also the trigger by default
+ *   [data-fade-top-trigger]     optional selector for a different ScrollTrigger trigger
  *   [data-fade-top-start]       optional ScrollTrigger start
  *   [data-fade-top-end]         optional ScrollTrigger end
  *   [data-fade-top-min-width]   minimum viewport width in px; default 992
@@ -30,7 +31,7 @@ export function initFadeNearTop() {
         opacity: 0,
         ease: "none",
         scrollTrigger: {
-          trigger: el,
+          trigger: resolveTrigger(el),
           start: el.getAttribute("data-fade-top-start") || DEFAULT_START,
           end: el.getAttribute("data-fade-top-end") || DEFAULT_END,
           scrub: true,
@@ -40,6 +41,19 @@ export function initFadeNearTop() {
   });
 
   installResizeListener();
+}
+
+function resolveTrigger(el) {
+  const selector = el.getAttribute("data-fade-top-trigger");
+  if (selector) {
+    try {
+      return el.closest(selector) || document.querySelector(selector) || el;
+    } catch {
+      return el;
+    }
+  }
+
+  return el;
 }
 
 function resolveMinWidth(el) {

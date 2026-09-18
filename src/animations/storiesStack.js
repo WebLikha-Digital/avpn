@@ -100,7 +100,7 @@ export function initStoriesStack() {
           item.style.zIndex = String(index + 1);
         });
 
-        list._storiesPinTweens = items.slice(0, -1).map((item) => {
+        list._storiesPinTweens = items.map((item) => {
           const parts = resolveScaleParts(item);
           const trigger = {
             trigger: item,

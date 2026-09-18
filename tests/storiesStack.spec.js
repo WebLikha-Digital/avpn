@@ -29,27 +29,32 @@ async function pinState(page) {
   });
 }
 
-test("pins each non-final row and keeps the line behind the stack", async ({ page }) => {
+test("pins every row and keeps the line behind the stack", async ({ page }) => {
   await loadStories(page);
   const result = await pinState(page);
-  expect(result.pins).toBe(2);
-  expect(result.spacers).toBe(2);
+  expect(result.pins).toBe(3);
+  expect(result.spacers).toBe(3);
   expect(result.scales).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 1]);
   await expect(page.locator(`${ROOT} .stories-stack-demo__line`)).toBeVisible();
 });
 
-test("holds a row during continuous scroll, scales monotonically, and releases at its runway", async ({ page }) => {
-  await loadStories(page);
-  const range = await page.locator(ITEM).first().evaluate((item) => {
-    const trigger = item.closest("[data-stories-init]")._storiesPinTweens?.[0]?.scrollTrigger;
-    return { start: trigger.start, end: trigger.end };
+async function sampleRowDuringContinuousScroll(page, itemIndex) {
+  const range = await page.locator(ITEM).nth(itemIndex).evaluate((item) => {
+    const list = item.closest("[data-stories-init]");
+    const items = [...list.querySelectorAll("[data-stories-item]")];
+    const trigger = list._storiesPinTweens?.[items.indexOf(item)]?.scrollTrigger;
+    return {
+      start: trigger.start,
+      end: trigger.end,
+      offset: Number.parseFloat(list.getAttribute("data-stories-pin-offset")) || 0,
+    };
   });
 
-  const samples = await page.evaluate(({ start, end }) => new Promise((resolve, reject) => {
+  const samples = await page.evaluate(({ start, end, itemIndex }) => new Promise((resolve, reject) => {
     const list = document.querySelector('[data-testid="stories-stack"] [data-stories-init]');
     const items = list?.querySelectorAll("[data-stories-item]");
-    const item = items?.[0];
-    const next = items?.[1];
+    const item = items?.[itemIndex];
+    const next = items?.[itemIndex + 1];
     const heading = item?.querySelector("h1, h2, h3, h4, h5, h6");
     const shape = item?.querySelector(".stories-community_shape");
     const body = item?.querySelector("p");
@@ -65,7 +70,7 @@ test("holds a row during continuous scroll, scales monotonically, and releases a
         values.push({
           scrollY: window.scrollY,
           itemTop: item.getBoundingClientRect().top,
-          nextTop: next.getBoundingClientRect().top,
+          nextTop: next?.getBoundingClientRect().top ?? null,
           contentBottom: content.getBoundingClientRect().bottom,
           headingScale: scale(heading),
           shapeScale: scale(shape),
@@ -100,7 +105,24 @@ test("holds a row during continuous scroll, scales monotonically, and releases a
       requestAnimationFrame(waitForEntrance);
     };
     requestAnimationFrame(waitForEntrance);
-  }), range);
+  }), { ...range, itemIndex });
+
+  return { range, samples };
+}
+
+function expectMonotonicScale(samples, property, maximum, minimum) {
+  expect(samples.length).toBeGreaterThan(20);
+  expect(samples[0][property]).toBeGreaterThan(0.9);
+  expect(samples.at(-1)[property]).toBeLessThan(maximum);
+  expect(samples.at(-1)[property]).toBeGreaterThan(minimum);
+  for (let index = 1; index < samples.length; index += 1) {
+    expect(samples[index][property]).toBeLessThanOrEqual(samples[index - 1][property] + 0.02);
+  }
+}
+
+test("holds a row during continuous scroll, scales monotonically, and releases at its runway", async ({ page }) => {
+  await loadStories(page);
+  const { range, samples } = await sampleRowDuringContinuousScroll(page, 0);
 
   expect(samples.length).toBeGreaterThan(20);
   const pinned = samples.filter((sample) => sample.scrollY >= range.start + 2 && sample.scrollY <= range.end - 2);
@@ -139,6 +161,31 @@ test("holds a row during continuous scroll, scales monotonically, and releases a
     return transform === "none" ? 1 : new DOMMatrixReadOnly(transform).a;
   }));
   reverseScales.forEach((scale) => expect(scale).toBeCloseTo(1, 1));
+});
+
+test("pins and scales the final row during continuous scroll, then releases at its runway", async ({ page }) => {
+  await loadStories(page);
+  const { range, samples } = await sampleRowDuringContinuousScroll(page, 2);
+  const pinned = samples.filter((sample) => sample.scrollY >= range.start + 2 && sample.scrollY <= range.end - 2);
+
+  expect(pinned.length).toBeGreaterThan(5);
+  expect(Math.max(...pinned.map((sample) => sample.itemTop)) - Math.min(...pinned.map((sample) => sample.itemTop))).toBeLessThan(2);
+  expect(Math.abs(pinned[0].itemTop - range.offset)).toBeLessThan(2);
+  expectMonotonicScale(pinned, "headingScale", 0.6, 0.45);
+  expectMonotonicScale(pinned, "shapeScale", 0.6, 0.45);
+  expectMonotonicScale(pinned, "bodyScale", 0.8, 0.7);
+  expect(pinned.at(-1).headingScale).toBeCloseTo(0.5, 1);
+  expect(pinned.at(-1).shapeScale).toBeCloseTo(0.5, 1);
+  expect(pinned.at(-1).bodyScale).toBeCloseTo(0.75, 1);
+
+  await page.evaluate((end) => {
+    window.scrollTo({ top: end + 40, behavior: "instant" });
+  }, range.end);
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => {
+    requestAnimationFrame(resolve);
+  })));
+  const releasedTop = await page.locator(ITEM).nth(2).evaluate((item) => item.getBoundingClientRect().top);
+  expect(releasedTop).toBeLessThan(pinned[0].itemTop - 2);
 });
 
 test("honours scale attributes and falls back for invalid values", async ({ page }) => {

@@ -96,7 +96,9 @@ with `--resume <thread_id>`; the launcher supplies Codex's different resume synt
 Classify before implementing.
 
 - **Webflow-only** — layout, sections, classes, variables, attributes, Designer
-  breakpoints, content, components. Claude does it directly.
+  breakpoints, content, components. Claude does it directly, per
+  `skills/webflow-build/SKILL.md`: spacing, colour, and type from the site's
+  variables and Text Style modes, never Figma values (absolute geometry excepted).
 - **Code-only** — GSAP behavior, JS bugs, animation lifecycle, refactors, tests,
   build config, repo CSS. Claude hands off to Codex, unless it is **trivial** (below).
 - **Mixed** — Claude does the Webflow half, hands the repo half to Codex, then
@@ -151,6 +153,7 @@ Before doing work related to animations, builds, Webflow embedding, delegation, 
 review, check `skills/` for a relevant `SKILL.md` and follow it. Start with
 `skills/README.md` for the index and conventions.
 
+- Building or restyling a Webflow section → `skills/webflow-build/SKILL.md`
 - Bug reported → `skills/fix-bug/SKILL.md`
 - Handing repo work to Codex → `skills/codex-handoff/SKILL.md`
 - Reviewing a PR → `skills/review-pr/SKILL.md`

@@ -12,17 +12,22 @@ const shapeValues = new Set([
   "0% 0% 100% 0%",
   "0% 0% 0% 100%",
 ]);
-const paddingValues = {
-  square: [10, 10, 10, 10],
-  circle: [10, 10, 10, 10],
-  "leaf-a": [10, 10, 10, 10],
-  "leaf-b": [10, 10, 10, 10],
-  "quarter-tl": [28, 8, 8, 28],
-  "quarter-tr": [28, 28, 8, 8],
-  "quarter-br": [8, 28, 28, 8],
-  "quarter-bl": [8, 8, 28, 28],
+const shapeRadii = {
+  square: "15% 15% 15% 15%",
+  circle: "50% 50% 50% 50%",
+  "leaf-a": "25% 0% 25% 0%",
+  "leaf-b": "0% 25% 0% 25%",
+  "quarter-tl": "100% 0% 0% 0%",
+  "quarter-tr": "0% 100% 0% 0%",
+  "quarter-br": "0% 0% 100% 0%",
+  "quarter-bl": "0% 0% 0% 100%",
 };
-const quarterShapes = ["quarter-tl", "quarter-tr", "quarter-br", "quarter-bl"];
+const shapeNames = Object.keys(shapeRadii);
+const fitTolerance = 0.02;
+// Authored shapes are checked loosely, only to catch a start shape that visibly
+// spills; the original Climate quarter-tl measured 1.14–1.20. The morph rule
+// is stricter.
+const authoredTolerance = 0.06;
 
 async function scrollIntoView(page) {
   await page.locator(section).scrollIntoViewIfNeeded();
@@ -40,6 +45,179 @@ async function radii(page) {
     ].join(" ");
   }));
 }
+
+function fitsBoxes(boxes, radii, tolerance = fitTolerance) {
+  const centers = [
+    (radius) => [radius, radius],
+    (radius) => [1 - radius, radius],
+    (radius) => [1 - radius, 1 - radius],
+    (radius) => [radius, 1 - radius],
+  ];
+  return boxes.length > 0 && boxes.every((box) =>
+    [
+      [box.left, box.top],
+      [box.right, box.top],
+      [box.right, box.bottom],
+      [box.left, box.bottom],
+    ].every(([x, y]) =>
+      radii.every((radius, index) => {
+        if (radius <= 0) return true;
+        const inCornerSquare = [
+          x <= radius && y <= radius,
+          x >= 1 - radius && y <= radius,
+          x >= 1 - radius && y >= 1 - radius,
+          x <= radius && y >= 1 - radius,
+        ][index];
+        if (!inCornerSquare) return true;
+        const [centerX, centerY] = centers[index](radius);
+        return Math.hypot(x - centerX, y - centerY) <= radius * (1 + tolerance);
+      }),
+    ),
+  );
+}
+
+async function independentFits(page, shapeName, tolerance = fitTolerance) {
+  return page.locator(tile).evaluateAll((tiles, authoredRadii) => {
+    return tiles.map((element) => {
+      const tileRect = element.getBoundingClientRect();
+      const boxes = [];
+      element.querySelectorAll("p").forEach((paragraph) => {
+        const range = document.createRange();
+        range.selectNodeContents(paragraph);
+        const styles = getComputedStyle(paragraph);
+        const lineHeight = parseFloat(styles.lineHeight);
+        const fontSize = parseFloat(styles.fontSize);
+        const inset = Number.isFinite(lineHeight) && Number.isFinite(fontSize)
+          ? (lineHeight - fontSize) / 2
+          : 0;
+        [...range.getClientRects()].forEach((rect) => {
+          if (rect.width === 0 || rect.height === 0) return;
+          boxes.push({
+            left: (rect.left - tileRect.left) / tileRect.width,
+            top: (rect.top + inset - tileRect.top) / tileRect.width,
+            right: (rect.right - tileRect.left) / tileRect.width,
+            bottom: (rect.bottom - inset - tileRect.top) / tileRect.width,
+          });
+        });
+      });
+      return {
+        boxes,
+        radii: authoredRadii.split(" ").map((radius) => parseFloat(radius) / 100),
+      };
+    });
+  }, shapeRadii[shapeName]).then((measurements) =>
+    measurements.map(({ boxes, radii }) => fitsBoxes(boxes, radii, tolerance)),
+  );
+}
+
+test("fitsShape matches the independent geometry check at every breakpoint", async ({ page }) => {
+  for (const width of [1440, 991, 479]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+
+    const result = await page.locator(section).evaluate((root, names) => {
+      const instance = root._causesShapes;
+      return {
+        authored: instance.tiles.map((tile) => tile.dataset.causesShape),
+        actual: instance.tiles.map((_, tileIndex) =>
+          names.map((shapeName) => instance.fitsShape(tileIndex, shapeName)),
+        ),
+      };
+    }, shapeNames);
+
+    for (const shapeName of shapeNames) {
+      expect(result.actual.map((tile) => tile[shapeNames.indexOf(shapeName)])).toEqual(
+        await independentFits(page, shapeName),
+      );
+    }
+    const authoredFits = await Promise.all(
+      result.authored.map((shapeName) =>
+        independentFits(page, shapeName, authoredTolerance),
+      ),
+    );
+    for (const [index, shapeName] of result.authored.entries()) {
+      expect(authoredFits[index][index]).toBe(true);
+    }
+  }
+});
+
+test("never morphs a tile into a shape that spills its live text box", async ({ page }) => {
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  const violations = await page.locator(section).evaluate((root, tolerance) => {
+    const instance = root._causesShapes;
+    const failures = [];
+    for (let swap = 0; swap < instance.tiles.length * 2; swap += 1) {
+      instance.swapNext();
+      instance.currentTween?.progress(1);
+      instance.tiles.forEach((element, index) => {
+        const tileRect = element.getBoundingClientRect();
+        const boxes = [];
+        element.querySelectorAll("p").forEach((paragraph) => {
+          const range = document.createRange();
+          range.selectNodeContents(paragraph);
+          const paragraphStyles = getComputedStyle(paragraph);
+          const lineHeight = parseFloat(paragraphStyles.lineHeight);
+          const fontSize = parseFloat(paragraphStyles.fontSize);
+          const inset = Number.isFinite(lineHeight) && Number.isFinite(fontSize)
+            ? (lineHeight - fontSize) / 2
+            : 0;
+          [...range.getClientRects()].forEach((rect) => {
+            if (rect.width === 0 || rect.height === 0) return;
+            boxes.push({
+              left: (rect.left - tileRect.left) / tileRect.width,
+              top: (rect.top + inset - tileRect.top) / tileRect.width,
+              right: (rect.right - tileRect.left) / tileRect.width,
+              bottom: (rect.bottom - inset - tileRect.top) / tileRect.width,
+            });
+          });
+        });
+        const styles = getComputedStyle(element);
+        const radii = [
+          styles.borderTopLeftRadius,
+          styles.borderTopRightRadius,
+          styles.borderBottomRightRadius,
+          styles.borderBottomLeftRadius,
+        ].map((radius) =>
+          radius.endsWith("%")
+            ? parseFloat(radius) / 100
+            : parseFloat(radius) / tileRect.width,
+        );
+        const centers = [
+          (radius) => [radius, radius],
+          (radius) => [1 - radius, radius],
+          (radius) => [1 - radius, 1 - radius],
+          (radius) => [radius, 1 - radius],
+        ];
+        const fits = boxes.length > 0 && boxes.every((box) =>
+          [
+            [box.left, box.top],
+            [box.right, box.top],
+            [box.right, box.bottom],
+            [box.left, box.bottom],
+          ].every(([x, y]) =>
+            radii.every((radius, cornerIndex) => {
+              if (radius <= 0) return true;
+              const inCornerSquare = [
+                x <= radius && y <= radius,
+                x >= 1 - radius && y <= radius,
+                x >= 1 - radius && y >= 1 - radius,
+                x <= radius && y >= 1 - radius,
+              ][cornerIndex];
+              if (!inCornerSquare) return true;
+              const [centerX, centerY] = centers[cornerIndex](radius);
+              return Math.hypot(x - centerX, y - centerY) <= radius * (1 + tolerance);
+            }),
+          ),
+        );
+        if (!fits) failures.push({ swap, index });
+      });
+    }
+    return failures;
+  }, fitTolerance);
+  expect(violations).toEqual([]);
+});
 
 test("morphs one visible tile to another authored shape", async ({ page }) => {
   await page.goto("/");
@@ -83,97 +261,4 @@ test("sixteen swaps visit every tile once", async ({ page }) => {
     return indices;
   });
   expect(new Set(visited).size).toBe(16);
-});
-
-test("keeps every causes label corner inside quarter-round tiles while morphing", async ({ page }) => {
-  for (const width of [1440, 991, 479]) {
-    await page.setViewportSize({ width, height: 900 });
-    await page.goto("/");
-    await page.waitForLoadState("networkidle");
-
-    const initialPaddings = await page.locator(tile).evaluateAll((tiles) =>
-      tiles.map((element) => {
-        const styles = getComputedStyle(element);
-        const rect = element.getBoundingClientRect();
-        return {
-          shape: element.dataset.causesShape,
-          padding: [
-            styles.paddingTop,
-            styles.paddingRight,
-            styles.paddingBottom,
-            styles.paddingLeft,
-          ].map((value) => parseFloat(value) / rect.width * 100),
-        };
-      }),
-    );
-    initialPaddings.forEach(({ shape, padding }) => {
-      padding.forEach((value, index) => {
-        expect(value).toBeCloseTo(paddingValues[shape][index], 1);
-      });
-    });
-
-    for (const targetShape of quarterShapes) {
-      const violations = await page.locator(section).evaluate((root, target) => {
-        const instance = root._causesShapes;
-        const targetTile = instance.tiles[0];
-        targetTile.dataset.causesShape = "square";
-        targetTile.style.borderRadius = "15% 15% 15% 15%";
-        targetTile.style.padding = "10% 10% 10% 10%";
-        const tween = instance.morphTo(0, target);
-        const progressValues = [0, 0.25, 0.5, 0.75, 1];
-        const cornerNames = ["top-left", "top-right", "bottom-right", "bottom-left"];
-        const pointsFor = (rect) => [
-          [rect.left, rect.top],
-          [rect.right, rect.top],
-          [rect.right, rect.bottom],
-          [rect.left, rect.bottom],
-        ];
-        const violations = [];
-
-        progressValues.forEach((progress) => {
-          tween.progress(progress);
-          const tileRect = targetTile.getBoundingClientRect();
-          const styles = getComputedStyle(targetTile);
-          const radii = [
-            styles.borderTopLeftRadius,
-            styles.borderTopRightRadius,
-            styles.borderBottomRightRadius,
-            styles.borderBottomLeftRadius,
-          ].map((value) => parseFloat(value) / tileRect.width);
-          const paragraphs = [...targetTile.querySelectorAll("p")];
-
-          paragraphs.forEach((paragraph) => {
-            pointsFor(paragraph.getBoundingClientRect()).forEach(([x, y], index) => {
-              const localX = (x - tileRect.left) / tileRect.width;
-              const localY = (y - tileRect.top) / tileRect.width;
-              const radius = radii[index];
-              const inCornerSquare = [
-                localX < radius && localY < radius,
-                localX > 1 - radius && localY < radius,
-                localX > 1 - radius && localY > 1 - radius,
-                localX < radius && localY > 1 - radius,
-              ][index];
-              if (!inCornerSquare) return;
-
-              const centerX = index === 0 || index === 3 ? radius : 1 - radius;
-              const centerY = index === 0 || index === 1 ? radius : 1 - radius;
-              const distance = Math.hypot(localX - centerX, localY - centerY);
-              if (distance > radius + 0.01) {
-                violations.push({
-                  progress,
-                  paragraph: paragraph.className,
-                  corner: cornerNames[index],
-                  distance,
-                  radius,
-                });
-              }
-            });
-          });
-        });
-        tween.kill();
-        return violations;
-      }, targetShape);
-      expect(violations, `${width}px ${targetShape}`).toEqual([]);
-    }
-  }
 });

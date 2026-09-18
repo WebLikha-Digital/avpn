@@ -2,15 +2,18 @@ import { gsap, ScrollTrigger } from "../lib/gsap.js";
 
 /**
  * Morph one square Social Causes tile at a time by tweening its four
- * border-radius values and padding. Border-radius preserves the tile's layout
- * while padding shifts the text toward the square corner of quarter-round
- * shapes, expressing all eight authored shapes without SVG morphing or a
- * crossfade. The repeating timeline follows the Osmo Logo Wall Cycle:
+ * border-radius values. Border-radius preserves the tile's layout and text
+ * position while expressing all eight authored shapes without SVG morphing or
+ * a crossfade. The repeating timeline follows the Osmo Logo Wall Cycle:
  * repeatDelay spaces swaps by four seconds and a shuffled tile pattern makes
  * every tile morph once per round. The shared "smooth" ease comes from
  * lib/gsap.js; ScrollTrigger and visibilitychange keep the cycle active only
  * while the section is visible and the document is visible. Reduced-motion
- * users keep the static authored shapes.
+ * users keep the static authored shapes. Text stays centred and does not move,
+ * so a tile only morphs into a shape whose rounded corners still contain its
+ * text; quarter shapes are used only when their arcs fit. The
+ * data-causes-shape start shape authored in Webflow should itself fit the
+ * tile's text, though authored starts are not validated by this morph rule.
  *
  * Webflow's contract is [data-causes-init] containing
  * [data-causes-tile][data-causes-shape] elements. The data-causes-shape value
@@ -18,41 +21,29 @@ import { gsap, ScrollTrigger } from "../lib/gsap.js";
  * the CSS and JavaScript state remain aligned.
  */
 const SHAPES = Object.freeze({
-  square: Object.freeze({
-    borderRadius: "15% 15% 15% 15%",
-    padding: "10% 10% 10% 10%",
-  }),
-  circle: Object.freeze({
-    borderRadius: "50% 50% 50% 50%",
-    padding: "10% 10% 10% 10%",
-  }),
-  "leaf-a": Object.freeze({
-    borderRadius: "25% 0% 25% 0%",
-    padding: "10% 10% 10% 10%",
-  }),
-  "leaf-b": Object.freeze({
-    borderRadius: "0% 25% 0% 25%",
-    padding: "10% 10% 10% 10%",
-  }),
-  "quarter-tl": Object.freeze({
-    borderRadius: "100% 0% 0% 0%",
-    padding: "28% 8% 8% 28%",
-  }),
-  "quarter-tr": Object.freeze({
-    borderRadius: "0% 100% 0% 0%",
-    padding: "28% 28% 8% 8%",
-  }),
-  "quarter-br": Object.freeze({
-    borderRadius: "0% 0% 100% 0%",
-    padding: "8% 28% 28% 8%",
-  }),
-  "quarter-bl": Object.freeze({
-    borderRadius: "0% 0% 0% 100%",
-    padding: "8% 8% 28% 28%",
-  }),
+  square: "15% 15% 15% 15%",
+  circle: "50% 50% 50% 50%",
+  "leaf-a": "25% 0% 25% 0%",
+  "leaf-b": "0% 25% 0% 25%",
+  "quarter-tl": "100% 0% 0% 0%",
+  "quarter-tr": "0% 100% 0% 0%",
+  "quarter-br": "0% 0% 100% 0%",
+  "quarter-bl": "0% 0% 0% 100%",
 });
 
+const SHAPE_RADII = Object.freeze(
+  Object.fromEntries(
+    Object.entries(SHAPES).map(([name, value]) => [
+      name,
+      Object.freeze(value.split(" ").map((radius) => parseFloat(radius) / 100)),
+    ]),
+  ),
+);
 const SHAPE_NAMES = Object.keys(SHAPES);
+// A 2% slack is the measured line between ink clearly inside and ink touching
+// the arc on published tiles. Authored start shapes are not validated by this
+// morph-decision rule.
+const FIT_TOLERANCE = 0.02;
 
 export function initCausesShapes() {
   document.querySelectorAll("[data-causes-init]").forEach((section) => {
@@ -77,18 +68,17 @@ export function initCausesShapes() {
       trigger: null,
       visibilityHandler: null,
       swapNext: null,
-      morphTo: null,
+      fitsShape: null,
     };
 
     tiles.forEach((tile) => {
       const shape = tile.dataset.causesShape;
-      const values = SHAPES[shape] || SHAPES.square;
-      gsap.set(tile, { ...values });
+      gsap.set(tile, { borderRadius: SHAPES[shape] || SHAPES.square });
     });
 
-    instance.morphTo = (tileIndex, targetShape) =>
-      morphTo(instance, tileIndex, targetShape);
     instance.swapNext = () => swapNext(instance);
+    instance.fitsShape = (tileIndex, shapeName) =>
+      fitsShape(instance.tiles[tileIndex], shapeName);
     instance.timeline = gsap.timeline({
       repeat: -1,
       repeatDelay: 4,
@@ -124,27 +114,20 @@ function swapNext(instance) {
     instance.patternIndex = 0;
   }
 
-  const tileIndex = instance.pattern[instance.patternIndex];
-  const tile = instance.tiles[tileIndex];
+  const tile = instance.tiles[instance.pattern[instance.patternIndex]];
   instance.patternIndex += 1;
   const currentShape = tile.dataset.causesShape;
-  const choices = SHAPE_NAMES.filter((shape) => shape !== currentShape);
+  const choices = SHAPE_NAMES.filter(
+    (shape) => shape !== currentShape && fitsShape(tile, shape),
+  );
+  if (choices.length === 0) {
+    instance.currentTween = null;
+    return;
+  }
   const targetShape = choices[Math.floor(Math.random() * choices.length)];
 
-  instance.currentTween = instance.morphTo(
-    tileIndex,
-    targetShape,
-  );
-}
-
-function morphTo(instance, tileIndex, targetShape) {
-  const tile = instance.tiles[tileIndex];
-  const currentShape = tile?.dataset.causesShape;
-  const values = SHAPES[targetShape];
-  if (!tile || !currentShape || !values) return null;
-
-  return gsap.to(tile, {
-    ...values,
+  instance.currentTween = gsap.to(tile, {
+    borderRadius: SHAPES[targetShape],
     duration: 0.9,
     ease: "smooth",
     overwrite: "auto",
@@ -154,6 +137,74 @@ function morphTo(instance, tileIndex, targetShape) {
       }
     },
   });
+}
+
+function fitsShape(tile, shapeName) {
+  const tileRect = tile?.getBoundingClientRect();
+  const radii = SHAPE_RADII[shapeName];
+  if (!tileRect || !radii || tileRect.width <= 0) return false;
+
+  const textBoxes = getTextBoxes(tile);
+  return textBoxes.length > 0 && textBoxes.every((box) =>
+    [
+      [box.left, box.top],
+      [box.right, box.top],
+      [box.right, box.bottom],
+      [box.left, box.bottom],
+    ].every(([x, y]) => {
+      const point = [
+        (x - tileRect.left) / tileRect.width,
+        (y - tileRect.top) / tileRect.width,
+      ];
+      return radii.every((radius, cornerIndex) => {
+        if (radius <= 0) return true;
+        const inCornerSquare = [
+          point[0] <= radius && point[1] <= radius,
+          point[0] >= 1 - radius && point[1] <= radius,
+          point[0] >= 1 - radius && point[1] >= 1 - radius,
+          point[0] <= radius && point[1] >= 1 - radius,
+        ][cornerIndex];
+        if (!inCornerSquare) return true;
+
+        const centers = [
+          [radius, radius],
+          [1 - radius, radius],
+          [1 - radius, 1 - radius],
+          [radius, 1 - radius],
+        ];
+        const [centerX, centerY] = centers[cornerIndex];
+        return (
+          Math.hypot(point[0] - centerX, point[1] - centerY) <=
+          radius * (1 + FIT_TOLERANCE)
+        );
+      });
+    }),
+  );
+}
+
+function getTextBoxes(tile) {
+  const boxes = [];
+  tile.querySelectorAll("p").forEach((paragraph) => {
+    const range = document.createRange();
+    range.selectNodeContents(paragraph);
+    const styles = getComputedStyle(paragraph);
+    const lineHeight = parseFloat(styles.lineHeight);
+    const fontSize = parseFloat(styles.fontSize);
+    const inset = Number.isFinite(lineHeight) && Number.isFinite(fontSize)
+      ? (lineHeight - fontSize) / 2
+      : 0;
+
+    [...range.getClientRects()].forEach((rect) => {
+      if (rect.width === 0 || rect.height === 0) return;
+      boxes.push({
+        left: rect.left,
+        top: rect.top + inset,
+        right: rect.right,
+        bottom: rect.bottom - inset,
+      });
+    });
+  });
+  return boxes;
 }
 
 function shuffleArray(values) {
@@ -174,6 +225,6 @@ function teardown(section) {
   if (previous.visibilityHandler) {
     document.removeEventListener("visibilitychange", previous.visibilityHandler);
   }
-  gsap.set(previous.tiles, { clearProps: "borderRadius,padding" });
+  gsap.set(previous.tiles, { clearProps: "borderRadius" });
   section._causesShapes = null;
 }

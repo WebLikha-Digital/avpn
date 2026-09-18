@@ -65,7 +65,7 @@ test("reveals entry bars in sequence without scrub triggers", async ({ page }) =
     const trackLeft = track.getBoundingClientRect().left;
     const entryIndices = allBars.flatMap((bar, index) => (
       bar.getBoundingClientRect().left - trackLeft + viewport.scrollLeft
-        <= viewport.clientWidth * 0.55 ? [index] : []
+        < viewport.clientWidth ? [index] : []
     ));
     return {
       entryIndices,

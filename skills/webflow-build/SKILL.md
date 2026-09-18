@@ -54,7 +54,7 @@ of colour, type, or spacing values — the site's design system is.
   and set type with `set_style_variable_mode { style_name, variable_collection_id:
   <Text Style>, mode_id }`. Reference classes that already do it right:
   `ecosystem_heading` (H3 mode, no margins), `sig-events_card-desc` (Text Large mode
-  + `font-size` variable), `section_testimonials` (`section-space/main` padding).
+  and `font-size` variable), `section_testimonials` (`section-space/main` padding).
 - The WHTML builder's `css` parameter only takes literals. Use it for layout
   (display, position, flex, sizes) and then rebind colour, type, and spacing with
   `update_style` before publishing — or create the classes with `create_style` and

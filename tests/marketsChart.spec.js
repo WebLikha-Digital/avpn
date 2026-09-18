@@ -337,3 +337,23 @@ test("draws the line fully without a trigger in reduced motion", async ({ page }
   expect(state.trigger).toBe(false);
   expect(state.render).toBe(false);
 });
+
+test("finishes every bar at the end of the band", async ({ page }) => {
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  await expect(page.locator(`${section}[data-hscroll-active]`)).toHaveCount(1);
+
+  const chart = await page.locator(section).evaluate((root) => {
+    const viewport = root.querySelector("[data-markets-viewport]");
+    return {
+      top: root.getBoundingClientRect().top + window.scrollY,
+      overflow: viewport.scrollWidth - viewport.clientWidth,
+    };
+  });
+  await page.evaluate((target) => window.scrollTo({ top: target, behavior: "instant" }), chart.top + chart.overflow);
+
+  // Scrub bars settle with the scroll; the entry tween's expo tail needs a moment.
+  await expect.poll(() => page.locator(bars).evaluateAll((items) => Math.max(...items.map((bar) =>
+    Number.parseFloat(bar.style.clipPath.match(/inset\(\s*([\d.]+)%/i)?.[1] ?? 0),
+  ))), { timeout: 3000 }).toBeLessThan(1);
+});

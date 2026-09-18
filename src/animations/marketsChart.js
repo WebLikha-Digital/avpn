@@ -84,7 +84,10 @@ function initBarAnimations(instance) {
         scrollTrigger: {
           trigger: bar,
           start: "left right",
-          end: "left 55%",
+          // clamp: the last bars never reach 55% of the viewport before the
+          // band runs out of scroll, so their end is pulled back to the
+          // scroller's max — every bar is complete at the band end.
+          end: "clamp(left 55%)",
           scrub: true,
           ...horizontal,
         },

@@ -102,8 +102,11 @@ function measureEntryBars(instance) {
     return;
   }
 
+  // Every bar visible at scrollLeft 0 is an entry bar. A bar past the scrub
+  // end (55%) but inside the viewport would otherwise sit partly revealed by
+  // its scrub before the section has even entered, ahead of the entry rise.
   const trackLeft = track.getBoundingClientRect().left;
-  const threshold = viewport.clientWidth * 0.55;
+  const threshold = viewport.clientWidth;
   instance.entryBars = instance.bars.filter((bar) => (
     bar.getBoundingClientRect().left - trackLeft + viewport.scrollLeft <= threshold
   ));

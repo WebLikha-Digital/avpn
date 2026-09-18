@@ -209,7 +209,8 @@ test("keeps the track mapped to the page after a width change", async ({ page })
 });
 
 test("redirects nested draw-path connectors onto the band's scroller", async ({ page }) => {
-  const inBand = await page.locator("[data-hscroll-track] [data-draw-scroll-wrap]").evaluate((wrap) => {
+  // Programmes Highlights connector and the Markets chart decor line.
+  const inBand = await page.locator("[data-hscroll-track] [data-draw-scroll-wrap]").evaluateAll((wraps) => wraps.map((wrap) => {
     const trigger = wrap._drawTl?.scrollTrigger;
     const viewport = wrap.closest("[data-hscroll-init]")
       .querySelector("[data-hscroll-viewport]");
@@ -218,7 +219,8 @@ test("redirects nested draw-path connectors onto the band's scroller", async ({ 
       horizontal: trigger?.vars.horizontal === true,
       onBand: trigger?.scroller === viewport,
     };
-  });
+  }));
 
-  expect(inBand).toEqual({ exists: true, horizontal: true, onBand: true });
+  expect(inBand).toHaveLength(2);
+  inBand.forEach((wrap) => expect(wrap).toEqual({ exists: true, horizontal: true, onBand: true }));
 });

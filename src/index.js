@@ -37,6 +37,7 @@ import { initMembersTestimonials } from "./animations/membersTestimonials.js";
 import { initHeroVideoGate } from "./animations/heroVideoGate.js";
 import { initHeroEntrance } from "./animations/heroEntrance.js";
 import { initEventModal } from "./animations/eventModal.js";
+import { initCommunitiesPile } from "./animations/communitiesPile.js";
 
 // Components that look up the band they sit in. The band has to exist before
 // any of them initialize, and they all have to rebuild when a resize tears it
@@ -82,6 +83,7 @@ function init() {
   watchDocumentHeight();
   initHeroEntrance();
   initEventModal();
+  initCommunitiesPile();
 }
 
 window.addEventListener(HSCROLL_REBUILT, initBandAware);

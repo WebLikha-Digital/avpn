@@ -54,6 +54,7 @@ dist/          bundled output pasted into Webflow custom code
 - `src/animations/marketsChart.js` — the Markets Interest for Members horizontal
   bar chart, entry reveal, and budgeted decor-line reveal, scrubbed against the
   desktop band or mobile swipe viewport.
+- `src/animations/communitiesPile.js` — the Communities Served Matter.js DOM ball pile.
 - [`docs/image-breaker.md`](docs/image-breaker.md) — the image breaker that
   closes the CEO's Foreword: how the sticky clip-path reveal works, the Webflow
   contract, measurements, and troubleshooting.

@@ -69,6 +69,22 @@ element (e.g. an image column that stays put while text scrolls past beside
 it — the pattern on svinogradov.art's second section), use native CSS
 `position: sticky; top: 0` in the Designer. No script involvement needed.
 
+### Fading content near a pinned wordmark
+
+Use `[data-fade-top]` on each content element that should disappear before it
+reaches a desktop sticky wordmark. The element is its own ScrollTrigger and
+scrubs opacity from `1` to `0` between `top 35%` and `top 15%`; the defaults can
+be overridden with `data-fade-top-start` and `data-fade-top-end`, whose values
+are passed directly to ScrollTrigger. Both thresholds use the element's top
+edge: the wordmark occupies roughly the top 10–12% of the desktop viewport, so
+`top 15%` leaves a small margin before content clears it. An end keyed to the
+bottom edge would leave a tall paragraph overlapping the wordmark while only
+partly faded. `data-fade-top-min-width` sets the minimum viewport width in
+pixels and defaults to `992` (invalid values also use `992`). Below that width
+the element is untouched because the wordmark is static. The fade only changes
+opacity, so it can share an element with split-heading or wipe-reveal
+attributes.
+
 ---
 
 ## The crop-box parallax pattern

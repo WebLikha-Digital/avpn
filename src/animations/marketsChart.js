@@ -11,8 +11,10 @@ const LINE_LOOKUP_STEPS = 200;
  * size while the CSS-owned bar height remains untouched.
  *
  * The bar height belongs to CSS. JavaScript only owns the clip path, so the
- * static chart remains usable if this bundle is absent. The companion line is
- * drawn separately from its lead and the band's horizontal scroll budget.
+ * static chart remains usable if this bundle is absent. Bars already inside
+ * the entry threshold use a one-shot reveal; later bars scrub independently.
+ * The companion line is drawn separately from its lead and the band's
+ * horizontal scroll budget.
  */
 export function initMarketsChart() {
   document.querySelectorAll("[data-markets-init]").forEach((section) => {
@@ -37,51 +39,86 @@ export function initMarketsChart() {
       lineRender: null,
       lineActive: false,
       lineMeasurements: null,
+      entryBars: [],
+      entryTween: null,
+      band: bandContext(section),
+      section,
+      bars,
     };
     section._marketsChart = instance;
 
-    if (!reducedMotion) {
-      bars.forEach((bar) => {
-        const band = bandContext(bar);
-        const barViewport = bar.closest("[data-markets-viewport]");
-        const horizontal = band || (barViewport
-          ? { scroller: barViewport, horizontal: true }
-          : null);
-        if (!horizontal) return;
-
-        const tween = gsap.fromTo(
-          bar,
-          { clipPath: "inset(100% 0 0 0)" },
-          {
-            clipPath: "inset(0% 0 0 0)",
-            ease: "none",
-            scrollTrigger: {
-              trigger: bar,
-              start: "left right",
-              end: "left 55%",
-              scrub: true,
-              ...horizontal,
-            },
-          },
-        );
-        instance.tweens.push(tween);
-      });
+    if (reducedMotion) {
+      initLine(instance, true);
+      return;
     }
 
-    initLine(instance, reducedMotion, section);
+    measureEntryBars(instance);
+    initBarAnimations(instance);
+    const hasLine = initLine(instance, false);
+    if (hasLine || instance.entryBars.length > 0) {
+      initSectionTrigger(instance);
+    }
   });
 }
 
-function initLine(instance, reducedMotion, section) {
+function initBarAnimations(instance) {
+  const entrySet = new Set(instance.entryBars);
+  if (instance.entryBars.length) {
+    gsap.set(instance.entryBars, { clipPath: "inset(100% 0 0 0)" });
+  }
+
+  instance.bars.forEach((bar) => {
+    if (entrySet.has(bar)) return;
+
+    const horizontal = instance.band || (instance.viewport
+      ? { scroller: instance.viewport, horizontal: true }
+      : null);
+    if (!horizontal) return;
+
+    const tween = gsap.fromTo(
+      bar,
+      { clipPath: "inset(100% 0 0 0)" },
+      {
+        clipPath: "inset(0% 0 0 0)",
+        ease: "none",
+        scrollTrigger: {
+          trigger: bar,
+          start: "left right",
+          end: "left 55%",
+          scrub: true,
+          ...horizontal,
+        },
+      },
+    );
+    instance.tweens.push(tween);
+  });
+}
+
+function measureEntryBars(instance) {
+  const { viewport, section } = instance;
+  const track = section.querySelector("[data-hscroll-track]");
+  if (!viewport || !track) {
+    instance.entryBars = [];
+    return;
+  }
+
+  const trackLeft = track.getBoundingClientRect().left;
+  const threshold = viewport.clientWidth * 0.55;
+  instance.entryBars = instance.bars.filter((bar) => (
+    bar.getBoundingClientRect().left - trackLeft + viewport.scrollLeft <= threshold
+  ));
+}
+
+function initLine(instance, reducedMotion) {
   const { line, path, viewport } = instance;
-  if (!line || !path || !viewport || !bandContext(section)) return;
-  if (getComputedStyle(line).display === "none") return;
+  if (!line || !path || !viewport || !instance.band) return false;
+  if (getComputedStyle(line).display === "none") return false;
 
   gsap.registerPlugin(DrawSVGPlugin);
 
   if (reducedMotion) {
     gsap.set(path, { drawSVG: "100%" });
-    return;
+    return true;
   }
 
   measureLine(instance);
@@ -89,20 +126,39 @@ function initLine(instance, reducedMotion, section) {
 
   instance.lineRender = () => renderLine(instance);
   gsap.ticker.add(instance.lineRender, false, true);
+  return true;
+}
+
+function initSectionTrigger(instance) {
   instance.lineTrigger = ScrollTrigger.create({
-    trigger: section,
-    start: "top top",
+    trigger: instance.section,
+    start: instance.band ? "top top" : "top 80%",
     once: true,
     onEnter: () => {
       instance.lineActive = true;
-      instance.lineTween = gsap.to(instance.lead, {
-        value: 1,
-        duration: LINE_REVEAL_DURATION,
-        ease: LINE_REVEAL_EASE,
-        onUpdate: instance.lineRender,
-      });
+      if (instance.lineRender) {
+        instance.lineTween = gsap.to(instance.lead, {
+          value: 1,
+          duration: LINE_REVEAL_DURATION,
+          ease: LINE_REVEAL_EASE,
+          onUpdate: instance.lineRender,
+        });
+      }
+      if (instance.entryBars.length) {
+        instance.entryTween = gsap.to(instance.entryBars, {
+          clipPath: "inset(0% 0 0 0)",
+          duration: LINE_REVEAL_DURATION,
+          ease: "expo.out",
+          stagger: 0.08,
+        });
+      }
     },
-    onRefresh: () => measureLine(instance),
+    // Entry bars are classified once at init: their scrub triggers are
+    // already built (or deliberately absent), so a refresh must not move a bar
+    // between the two mechanisms. A width change rebuilds the whole component.
+    onRefresh: () => {
+      if (instance.lineRender) measureLine(instance);
+    },
   });
 }
 
@@ -179,6 +235,7 @@ function teardown(section) {
   });
   previous.lineTrigger?.kill();
   previous.lineTween?.kill();
+  previous.entryTween?.kill();
   if (previous.lineRender) gsap.ticker.remove(previous.lineRender);
   if (previous.path) gsap.set(previous.path, { clearProps: "all" });
   gsap.set(section.querySelectorAll("[data-markets-bar]"), {

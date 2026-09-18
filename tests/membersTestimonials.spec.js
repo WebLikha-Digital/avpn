@@ -64,6 +64,46 @@ test("places the active visual at three o'clock and the thumbs at the orbit slot
   expect(geometry.step).toBe(70);
 });
 
+test("rotates the wheel to the mobile six o'clock layout without horizontal overflow", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  const root = await showSection(page);
+  const geometry = await root.evaluate((node) => {
+    const origin = node.querySelector("[data-testimonials-wheel]").getBoundingClientRect();
+    const radius = node.querySelector(".testimonials_orbit").offsetWidth / 2;
+    const base = Number.parseFloat(getComputedStyle(node).getPropertyValue("--testi-base"));
+    const items = [...node.querySelectorAll("[data-testimonials-item]")];
+    return {
+      origin: { x: origin.left, y: origin.top },
+      radius,
+      base,
+      scrollWidth: document.documentElement.scrollWidth,
+      viewportWidth: window.innerWidth,
+      items: items.map((item) => {
+        const box = item.getBoundingClientRect();
+        return {
+          status: item.dataset.testimonialsItemStatus,
+          x: box.left + box.width / 2,
+          y: box.top + box.height / 2,
+          scale: Number(getComputedStyle(item).transform.match(/matrix\([^,]+, [^,]+, [^,]+, ([^,]+)/)?.[1] || 1),
+        };
+      }),
+    };
+  });
+  const active = geometry.items.find((item) => item.status === "active");
+  const prev = geometry.items.find((item) => item.status === "prev");
+  const next = geometry.items.find((item) => item.status === "next");
+  expect(geometry.base).toBe(90);
+  expect(Math.abs(active.x - geometry.origin.x)).toBeLessThan(2);
+  expect(Math.abs(active.y - (geometry.origin.y + geometry.radius))).toBeLessThan(2);
+  expect(active.scale).toBeCloseTo(1, 2);
+  expect(prev.x).toBeGreaterThan(geometry.origin.x);
+  expect(prev.y).toBeGreaterThan(geometry.origin.y);
+  expect(next.x).toBeLessThan(geometry.origin.x);
+  expect(next.y).toBeGreaterThan(geometry.origin.y);
+  expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.viewportWidth);
+});
+
 test("rotates both directions, including the hidden wrap slot sampled during motion", async ({ page }) => {
   const root = await showSection(page);
   const start = await root.locator("[data-testimonials-item]").evaluateAll((items) => items.map((item) => item.dataset.testimonialsItemStatus));

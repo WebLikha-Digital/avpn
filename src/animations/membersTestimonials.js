@@ -59,6 +59,7 @@ function initMembersTestimonials(scope = document) {
       isInView: false,
       reduced,
       radius: 0,
+      base: 0,
       step: 70,
       thumbScale: 0.476,
     };
@@ -72,6 +73,7 @@ function initMembersTestimonials(scope = document) {
     const readGeometry = () => {
       const styles = getComputedStyle(root);
       instance.step = Number.parseFloat(styles.getPropertyValue("--testi-step")) || 70;
+      instance.base = Number.parseFloat(styles.getPropertyValue("--testi-base")) || 0;
       instance.thumbScale = Number.parseFloat(
         styles.getPropertyValue("--testi-thumb-scale"),
       ) || 0.476;
@@ -86,8 +88,8 @@ function initMembersTestimonials(scope = document) {
       const activeOffset = offsetFor(index, instance.activeIndex);
       const progress = Math.min(1, Math.abs(angle) / Math.max(0.001, instance.step));
       gsap.set(item, {
-        x: instance.radius * Math.cos(angle * Math.PI / 180),
-        y: instance.radius * Math.sin(angle * Math.PI / 180),
+        x: instance.radius * Math.cos((instance.base + angle) * Math.PI / 180),
+        y: instance.radius * Math.sin((instance.base + angle) * Math.PI / 180),
         scale: 1 - (1 - instance.thumbScale) * progress,
       });
       item.setAttribute("data-testimonials-item-status", slotStatus(activeOffset));

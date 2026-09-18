@@ -2530,6 +2530,7 @@
     --testi-thumb: min(18.2vw, 262px);         /* prev/next square size */
     --testi-thumb-scale: 0.476;                /* thumb / active — JS reads this */
     --testi-step: 70;                          /* degrees between slots — JS reads this */
+    --testi-base: 0;                           /* angle of the active slot: 0 = 3 o'clock — JS reads this */
     --testi-corner: min(4.17vw, 60px);         /* rounded corner on the thumbs */
     --testi-ease: cubic-bezier(0.25, 0.1, 0, 1);
     /* thumbs are the active box scaled down, so the corner is authored unscaled */
@@ -2589,32 +2590,42 @@
   .testimonials_arrow:hover { background-color: #e42919; color: #fff; }
   .testimonials_arrow:focus-visible { outline: 2px solid #002944; outline-offset: 2px; }
 
-  /* Tablet and below: wheel stacks above the copy and the slots close up so the
-     thumbs stay on screen. Wrap height = the thumbs' vertical reach
-     (R·sin(step) each side) plus half a thumb top and bottom. */
+  /* Tablet and below (Figma 4036:38581 for mobile): the wheel turns a quarter
+     turn. Its centre sits above the section (--testi-center-y), the active
+     circle hangs at 6 o'clock, horizontally centred, and the two thumbs sit
+     ±step around it, mostly off screen left and right; only the dashed orbit
+     peeks in at the sides. Wrap height = centre-y + R + active/2 + gap. */
   @media screen and (max-width: 991px) {
     .section_testimonials {
-      --testi-radius: 38vw; --testi-center-x: -6vw; --testi-active: 44vw;
-      --testi-thumb: 22vw; --testi-thumb-scale: 0.5; --testi-corner: 5vw;
-      --testi-step: 60; --testi-reach: 1.74;      /* 2·sin(step): thumbs' vertical reach in radii */
+      --testi-base: 90;
+      --testi-radius: 60vw; --testi-center-x: 50%; --testi-center-y: -12vw;
+      --testi-active: 48vw; --testi-thumb: 28vw; --testi-thumb-scale: 0.583;
+      --testi-corner: 5vw;
     }
-    .testimonials_layout { min-height: 0; padding: 4rem 0 4rem; }
-    .testimonials_wheel-wrap { position: relative; width: 100%; height: calc(var(--testi-radius) * var(--testi-reach) + var(--testi-thumb)); }
-    .testimonials_content { grid-column: 1; max-width: none; margin-left: 0; padding-top: 2rem; }
-    .testimonials_heading { font-size: 2.5rem; margin-bottom: 3rem; }
+    .testimonials_layout { grid-template-columns: 1fr; min-height: 0; padding: 0 0 4rem; }
+    .testimonials_wheel-wrap { position: relative; width: 100%; height: 75vw; }
+    .testimonials_orbit, .testimonials_wheel { top: var(--testi-center-y); }
+    .testimonials_wordmark { display: none; }
+    .testimonials_content { grid-column: 1; max-width: none; margin-left: 0; }
+    .testimonials_heading { font-size: 2.5rem; margin-bottom: 2rem; }
     .testimonials_quote { font-size: 1.25rem; }
     .testimonials_controls { margin-top: 3rem; }
   }
+  /* Mobile, Figma at 375: circle 310 from y 135 to 445, copy 24px wide-set, arrow pills. */
   @media screen and (max-width: 767px) {
     .section_testimonials {
-      --testi-radius: 46vw; --testi-center-x: -14vw; --testi-active: 56vw;
-      --testi-thumb: 28vw; --testi-thumb-scale: 0.5; --testi-corner: 6vw;
-      --testi-step: 65; --testi-reach: 1.81;
+      --testi-radius: 95vw; --testi-center-y: -17.6vw;
+      --testi-active: 82.7vw; --testi-thumb: 48.5vw; --testi-thumb-scale: 0.587;
+      --testi-corner: 8vw;
     }
-    .testimonials_layout { padding: 3rem 0 4rem; }
-    .testimonials_wordmark { display: none; }
-    .testimonials_heading { font-size: 2rem; }
-    .testimonials_play-icon { width: 40px; height: 40px; }
+    .testimonials_wheel-wrap { height: 128.5vw; }             /* 445 + 37 gap at 375 */
+    .testimonials_wordmark { display: block; top: 118vw; left: 0.8vw; font-size: 35vw; }
+    .testimonials_heading { font-size: 2rem; line-height: 1.25; margin-bottom: 0.5rem; }
+    .testimonials_quote { font-size: 1.5rem; }
+    .testimonials_slide { gap: 3.6875rem; }
+    .testimonials_controls { width: 100%; gap: 1.25rem; margin-top: 4rem; }
+    .testimonials_arrow { flex: 1 1 0; width: auto; height: 3.75rem; border-radius: 1.875rem; }
+    .testimonials_play-icon { width: 50px; height: 50px; }
   }
 
   @media (prefers-reduced-motion: reduce) {

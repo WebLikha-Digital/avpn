@@ -236,11 +236,11 @@ function initEngagementsTimeline(scope = document) {
       const incoming = linesFor(newIndex);
       if (outgoing.length) timeline.to(outgoing, {
         yPercent: direction === "prev" ? 110 : -110,
-        duration: 0.6, ease: "power4.inOut", stagger: { amount: 0.25 },
+        duration: 0.35, ease: "power3.in", stagger: { amount: 0.15 },
       }, 0);
       if (incoming.length) timeline.to(incoming, {
-        yPercent: 0, duration: 0.6, ease: "power4.inOut", stagger: { amount: 0.3 },
-      }, 0);
+        yPercent: 0, duration: 0.45, ease: "power4.out", stagger: { amount: 0.15 },
+      }, 0.3);
     };
 
     function goTo(targetIndex, automatic = false) {
@@ -290,6 +290,7 @@ function initEngagementsTimeline(scope = document) {
         onComplete: () => {
           oldSlide.setAttribute("aria-hidden", "true");
           gsap.set(oldSlide, { autoAlpha: 0 });
+          gsap.set(oldSlide.querySelector(".engagements_meta"), { y: 0 });
           gsap.set(oldImage, { autoAlpha: 0 });
           gsap.set(newImage, { autoAlpha: 1 });
           media.dataset.engagementsShape = newSlide.dataset.engagementsShape || "leaf-a";
@@ -305,26 +306,52 @@ function initEngagementsTimeline(scope = document) {
       if (instance.reduced) {
         timeline.to(oldSlide, { autoAlpha: 0, duration: 0.35 }, 0);
         timeline.fromTo(newSlide, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.35 }, 0);
+        timeline.to(visibleBackground, { autoAlpha: 0, duration: 0.35, ease: "none" }, 0);
+        timeline.to(hiddenBackground, { autoAlpha: 1, duration: 0.35, ease: "none" }, 0);
       } else {
         animateLines(oldIndex, newIndex, direction, timeline);
-        timeline.to(oldSlide.querySelector(".engagements_meta"), { autoAlpha: 0, duration: 0.35 }, 0.4);
-        timeline.fromTo(newSlide.querySelector(".engagements_meta"), { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.35 }, 0.4);
+        timeline.to(oldSlide.querySelector(".engagements_meta"), {
+          autoAlpha: 0,
+          y: direction === "prev" ? 12 : -12,
+          duration: 0.25,
+          ease: "power2.in",
+        }, 0);
+        timeline.fromTo(newSlide.querySelector(".engagements_meta"), {
+          autoAlpha: 0,
+          y: direction === "prev" ? -12 : 12,
+        }, {
+          autoAlpha: 1,
+          y: 0,
+          duration: 0.3,
+          ease: "power2.out",
+        }, 0.55);
         timeline.to(media, { borderRadius: targetShape, duration: 0.8, ease: "smooth", onComplete: () => {
           media.dataset.engagementsShape = newSlide.dataset.engagementsShape || "leaf-a";
         } }, 0);
       }
-      timeline.to(oldImage, { autoAlpha: 0, duration: 0.5, ease: "power1.inOut" }, 0.1);
-      timeline.to(newImage, { autoAlpha: 1, duration: 0.5, ease: "power1.inOut" }, 0.1);
-      timeline.to(hiddenBackground, { autoAlpha: 1, duration: 0.7, ease: "power1.inOut" }, 0);
+      timeline.to(oldImage, {
+        autoAlpha: 0,
+        duration: 0.5,
+        ease: instance.reduced ? "power1.inOut" : "power4.out",
+      }, instance.reduced ? 0.1 : 0);
+      timeline.to(newImage, {
+        autoAlpha: 1,
+        duration: 0.5,
+        ease: instance.reduced ? "power1.inOut" : "power4.out",
+      }, instance.reduced ? 0.1 : 0);
+      if (!instance.reduced) {
+        timeline.to(visibleBackground, { autoAlpha: 0, duration: 0.35, ease: "power2.in" }, 0);
+        timeline.to(hiddenBackground, { autoAlpha: 1, duration: 0.5, ease: "power2.out" }, 0.3);
+      }
       timeline.to([nav, navWrap], {
         "--eng-nav-x": `${targetNav}px`,
         duration: instance.reduced ? 0 : 0.6,
-        ease: "smooth",
+        ease: "power4.out",
       }, 0);
       timeline.to(navWrap, {
         "--eng-tip-x": `${targetNav}px`,
         duration: instance.reduced ? 0 : 0.6,
-        ease: "smooth",
+        ease: "power4.out",
       }, 0);
       if (automatic) scheduleAutoplay();
     }

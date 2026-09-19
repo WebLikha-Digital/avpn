@@ -105,6 +105,31 @@ function initEngagementsTimeline(scope = document) {
       gsap.set(navWrap, { "--eng-tip-x": value });
     };
 
+    const setDistance = (element, distance) => {
+      element.style.setProperty("--distance", String(Number(distance.toFixed(4))));
+      element.style.setProperty("--distance-abs", String(Number(Math.abs(distance).toFixed(4))));
+    };
+
+    const renderTicks = (activeIndex) => {
+      [...ticks.querySelectorAll(".engagements_tick")].forEach((tick, index) => {
+        const position = index < 2
+          ? (index - 2) / 3
+          : Math.floor((index - 2) / 3) + ((index - 2) % 3) / 3;
+        setDistance(tick, position - activeIndex);
+      });
+    };
+
+    const renderDrum = (centerIndex) => {
+      [...tooltip.querySelectorAll("[data-engagements-tooltip-item]")].forEach((item, index) => {
+        const distance = index - centerIndex;
+        setDistance(item, distance);
+        item.dataset.engagementsTooltipStatus = distance === 0 ? "active" : "not-active";
+      });
+    };
+
+    instance.renderTicks = renderTicks;
+    instance.renderDrum = renderDrum;
+
     const buildTicks = () => {
       ticks.replaceChildren();
       for (let index = 0; index < 2; index += 1) {
@@ -129,6 +154,19 @@ function initEngagementsTimeline(scope = document) {
           ticks.append(tick);
         }
       });
+      renderTicks(instance.activeIndex);
+    };
+
+    const buildDrum = () => {
+      tooltip.replaceChildren();
+      slides.forEach((slide) => {
+        const item = document.createElement("div");
+        item.className = "engagements_tooltip-item";
+        item.setAttribute("data-engagements-tooltip-item", "");
+        item.textContent = slide.dataset.engagementsDate || "";
+        tooltip.append(item);
+      });
+      renderDrum(instance.activeIndex);
     };
 
     const setInitialState = () => {
@@ -155,8 +193,8 @@ function initEngagementsTimeline(scope = document) {
       setColors(hiddenBackground, slides[mod(instance.activeIndex + 1, slides.length)]);
       gsap.set(activeBackground, { autoAlpha: 1 });
       gsap.set(hiddenBackground, { autoAlpha: 0 });
-      tooltip.textContent = activeSlide.dataset.engagementsDate || "";
       buildTicks();
+      buildDrum();
       setNav(instance.activeIndex);
     };
 
@@ -190,14 +228,15 @@ function initEngagementsTimeline(scope = document) {
       });
     };
 
-    const animateLines = (oldIndex, newIndex, timeline) => {
+    const animateLines = (oldIndex, newIndex, direction, timeline) => {
       const linesFor = (index) => instance.splits
         .filter((split) => split.lines[0]?.closest("[data-engagements-slide]") === slides[index])
         .flatMap((split) => split.lines);
       const outgoing = linesFor(oldIndex);
       const incoming = linesFor(newIndex);
       if (outgoing.length) timeline.to(outgoing, {
-        yPercent: -110, duration: 0.6, ease: "power4.inOut", stagger: { amount: 0.25 },
+        yPercent: direction === "prev" ? 110 : -110,
+        duration: 0.6, ease: "power4.inOut", stagger: { amount: 0.25 },
       }, 0);
       if (incoming.length) timeline.to(incoming, {
         yPercent: 0, duration: 0.6, ease: "power4.inOut", stagger: { amount: 0.3 },
@@ -205,10 +244,16 @@ function initEngagementsTimeline(scope = document) {
     };
 
     function goTo(targetIndex, automatic = false) {
-      if (instance.isAnimating) return;
       const newIndex = mod(targetIndex, slides.length);
+      if (instance.isAnimating) return;
       if (newIndex === instance.activeIndex) return;
       const oldIndex = instance.activeIndex;
+      const direction = targetIndex === oldIndex + 1
+        ? "next"
+        : targetIndex === oldIndex - 1
+          ? "prev"
+          : newIndex > oldIndex ? "next" : "prev";
+      root.dataset.engagementsDirection = direction;
       const oldSlide = slides[oldIndex];
       const newSlide = slides[newIndex];
       const oldImage = images[oldIndex];
@@ -233,7 +278,11 @@ function initEngagementsTimeline(scope = document) {
       setImageState(newImage, true);
       gsap.set([oldImage, newImage], { autoAlpha: 1 });
       gsap.set(newImage, { autoAlpha: 0 });
-      if (!instance.reduced) gsap.set(newSlide.querySelectorAll(".text-line"), { yPercent: 110 });
+      if (!instance.reduced) gsap.set(newSlide.querySelectorAll(".text-line"), {
+        yPercent: direction === "prev" ? -110 : 110,
+      });
+      renderTicks(newIndex);
+      renderDrum(newIndex);
       if (instance.reduced) gsap.set(media, { borderRadius: targetShape });
 
       const timeline = gsap.timeline({
@@ -257,7 +306,7 @@ function initEngagementsTimeline(scope = document) {
         timeline.to(oldSlide, { autoAlpha: 0, duration: 0.35 }, 0);
         timeline.fromTo(newSlide, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.35 }, 0);
       } else {
-        animateLines(oldIndex, newIndex, timeline);
+        animateLines(oldIndex, newIndex, direction, timeline);
         timeline.to(oldSlide.querySelector(".engagements_meta"), { autoAlpha: 0, duration: 0.35 }, 0.4);
         timeline.fromTo(newSlide.querySelector(".engagements_meta"), { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.35 }, 0.4);
         timeline.to(media, { borderRadius: targetShape, duration: 0.8, ease: "smooth", onComplete: () => {
@@ -277,13 +326,6 @@ function initEngagementsTimeline(scope = document) {
         duration: instance.reduced ? 0 : 0.6,
         ease: "smooth",
       }, 0);
-      if (instance.reduced) {
-        timeline.call(() => { tooltip.textContent = newSlide.dataset.engagementsDate || ""; }, [], 0);
-      } else {
-        timeline.to(tooltip, { autoAlpha: 0, duration: 0.15, ease: "power1.in" }, 0.15);
-        timeline.call(() => { tooltip.textContent = newSlide.dataset.engagementsDate || ""; }, [], 0.3);
-        timeline.to(tooltip, { autoAlpha: 1, duration: 0.15, ease: "power1.out" }, 0.3);
-      }
       if (automatic) scheduleAutoplay();
     }
 
@@ -314,14 +356,14 @@ function initEngagementsTimeline(scope = document) {
         listen(marker, "mouseenter", () => {
           if (instance.isAnimating) return;
           const index = Number(marker.dataset.engagementsTickIndex);
-          tooltip.textContent = slides[index].dataset.engagementsDate || "";
+          renderDrum(index);
           gsap.to(navWrap, {
             "--eng-tip-x": `${navTarget(index)}px`, duration: 0.3, ease: "smooth", overwrite: true,
           });
         });
         listen(marker, "mouseleave", () => {
           if (instance.isAnimating) return;
-          tooltip.textContent = slides[instance.activeIndex].dataset.engagementsDate || "";
+          renderDrum(instance.activeIndex);
           gsap.to(navWrap, {
             "--eng-tip-x": `${navTarget(instance.activeIndex)}px`, duration: 0.3, ease: "smooth", overwrite: true,
           });
@@ -342,6 +384,7 @@ function initEngagementsTimeline(scope = document) {
       instance.listeners.forEach((remove) => remove());
       instance.splits.forEach((split) => split.revert());
       ticks.replaceChildren();
+      tooltip.replaceChildren();
       gsap.killTweensOf(navWrap);
       gsap.set([...slides, ...images, ...backgrounds, media, nav, navWrap, tooltip], { clearProps: "all" });
       if (root._engagementsTimelineInstance === instance) root._engagementsTimelineInstance = null;

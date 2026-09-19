@@ -41,6 +41,7 @@ import { initCommunitiesPile } from "./animations/communitiesPile.js";
 import { initCausesShapes } from "./animations/causesShapes.js";
 import { initEngagementsTimeline } from "./animations/engagementsTimeline.js";
 import { initPartnersProximity } from "./animations/partnersProximity.js";
+import { initPartnersTestimonials } from "./animations/partnersTestimonials.js";
 import { initTextFitToWidth } from "./animations/textFitWidth.js";
 
 // Components that look up the band they sit in. The band has to exist before
@@ -93,6 +94,7 @@ function init() {
   initCausesShapes();
   initEngagementsTimeline();
   initPartnersProximity();
+  initPartnersTestimonials();
 }
 
 window.addEventListener(HSCROLL_REBUILT, () => {

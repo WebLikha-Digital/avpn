@@ -523,6 +523,27 @@
         line-height: 1.1;
       }
       .sticky-picture-demo__content p { margin: 0; max-width: 28rem; }
+      /* Mirrors the Webflow Foreword title contract used by textFitWidth.js. */
+      .foreword-text-fit-mirror {
+        margin: 0 0 35vh;
+        padding: 3rem 0;
+        background: #f7f1ea;
+        color: #002944;
+      }
+      .foreword-text-fit-mirror .container-large {
+        container-type: inline-size;
+        line-height: 1;
+      }
+      .foreword-text-fit-mirror .sticky-picture_bgtext-inner.is-1 {
+        white-space: nowrap;
+        text-align: center;
+        text-transform: uppercase;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        display: block;
+        font-size: 6.5cqw;
+        line-height: 1;
+      }
       .fade-near-top-demo {
         position: relative;
         display: grid;
@@ -1768,6 +1789,17 @@
         <p>Building stronger connections across Asia takes patience, trust, and a willingness to keep moving.</p>
         <p>We bring people together so capital can travel further toward impact.</p>
         <p>Scroll through this long-form section to see the portrait stay pinned while its image gently drifts.</p>
+      </div>
+    </section>
+
+    <section class="foreword-text-fit-mirror" data-testid="text-fit-width">
+      <div class="container-large">
+        <div
+          class="sticky-picture_bgtext-inner is-1"
+          data-fit-width
+          data-split="heading"
+          data-split-reveal="lines"
+        >Foreword from avpn chair</div>
       </div>
     </section>
 

@@ -39,6 +39,10 @@ test("builds ticks, wraps controls, updates palette, drum, and nav", async ({ pa
     radius: getComputedStyle(node.querySelector("[data-engagements-media]")).borderTopLeftRadius,
   }));
   const samples = await root.evaluate((node) => {
+    const visibleBackground = [...node.querySelectorAll("[data-engagements-bg]")]
+      .find((layer) => layer.dataset.engagementsBgStatus === "active");
+    const hiddenBackground = [...node.querySelectorAll("[data-engagements-bg]")]
+      .find((layer) => layer !== visibleBackground);
     node.querySelector("[data-engagements-next]").click();
     const master = node._engagementsTimelineInstance.master;
     const duration = master.duration();
@@ -52,13 +56,31 @@ test("builds ticks, wraps controls, updates palette, drum, and nav", async ({ pa
           radius: getComputedStyle(media).borderTopLeftRadius,
           incomingY: incomingLine?._gsap?.yPercent,
         });
-        if (!node._engagementsTimelineInstance?.isAnimating) resolve({ duration, frames });
+        if (!node._engagementsTimelineInstance?.isAnimating) {
+          resolve({
+            duration,
+            frames,
+            visibleBackgroundTweens: master.getTweensOf(visibleBackground).map((tween) => ({
+              autoAlpha: tween.vars.autoAlpha,
+              startTime: tween.startTime(),
+            })),
+            hiddenBackgroundTweens: master.getTweensOf(hiddenBackground).map((tween) => ({
+              autoAlpha: tween.vars.autoAlpha,
+              startTime: tween.startTime(),
+            })),
+            incomingLineStarts: master.getTweensOf(incomingLine).map((tween) => tween.startTime()),
+          });
+        }
         else requestAnimationFrame(sample);
       };
       requestAnimationFrame(sample);
     });
   });
   expect(samples.duration).toBeLessThanOrEqual(0.9);
+  expect(samples.visibleBackgroundTweens).toContainEqual({ autoAlpha: 0, startTime: 0 });
+  expect(samples.hiddenBackgroundTweens).toContainEqual({ autoAlpha: 1, startTime: 0.3 });
+  expect(samples.incomingLineStarts.length).toBeGreaterThan(0);
+  expect(samples.incomingLineStarts.every((startTime) => startTime >= 0.3)).toBe(true);
   expect(samples.frames.some((sample) => sample.nav > before.nav)).toBe(true);
   expect(samples.frames.some((sample) => sample.radius !== before.radius)).toBe(true);
   expect(samples.frames.some((sample) => sample.incomingY > 0)).toBe(true);

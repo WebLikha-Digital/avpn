@@ -40,6 +40,7 @@ import { initEventModal } from "./animations/eventModal.js";
 import { initCommunitiesPile } from "./animations/communitiesPile.js";
 import { initCausesShapes } from "./animations/causesShapes.js";
 import { initEngagementsTimeline } from "./animations/engagementsTimeline.js";
+import { initTextFitToWidth } from "./animations/textFitWidth.js";
 
 // Components that look up the band they sit in. The band has to exist before
 // any of them initialize, and they all have to rebuild when a resize tears it
@@ -65,6 +66,8 @@ function init() {
   initHorizontalScroller();
   initEcosystemTabs();
   initEcosystemFolders();
+  // Fit before SplitText runs so its line measurements use the final font size.
+  initTextFitToWidth();
   initBandAware();
   initMarqueeScrollDirection();
   initForewordFade();
@@ -90,7 +93,12 @@ function init() {
   initEngagementsTimeline();
 }
 
-window.addEventListener(HSCROLL_REBUILT, initBandAware);
+window.addEventListener(HSCROLL_REBUILT, () => {
+  initBandAware();
+  // SplitText reverts and recreates the contents during a band rebuild; refit
+  // against the current Range so the rebuilt line wrappers stay exact.
+  initTextFitToWidth();
+});
 
 /**
  * Re-measure every trigger while the page is still growing.

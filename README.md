@@ -43,6 +43,10 @@ dist/          bundled output pasted into Webflow custom code
   [`docs/hero-tunnel2-rollback.md`](docs/hero-tunnel2-rollback.md) records the
   repo and Webflow state at retirement and how to bring the tunnel and
   preloader back.
+- [`docs/perf-line-layer-rollback.md`](docs/perf-line-layer-rollback.md) — the
+  2026-09-19 compositor-layer fix for the two scroll-drawn background lines
+  (`.ecosystem_line`, `.impact-collab_line`): Webflow state before, measured
+  numbers, the checkpoint backup, and targeted vs. full rollback.
 - [`docs/locomotive.md`](docs/locomotive.md) — page-wide smooth scroll and
   `data-scroll-speed` parallax: Webflow setup, tuning, troubleshooting.
 - [`docs/horizontal-scroller.md`](docs/horizontal-scroller.md) — a horizontal

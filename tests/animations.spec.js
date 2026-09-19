@@ -284,7 +284,7 @@ test("initializes the scroll-direction marquee", async ({ page }) => {
 
 test("draws every marked line in each draw-path wrapper", async ({ page }) => {
   const paths = page.locator("[data-draw-scroll-wrap] [data-draw-scroll-path]");
-  await expect(paths).toHaveCount(8);
+  await expect(paths).toHaveCount(9);
 
   expect(await page.locator("[data-draw-scroll-wrap]").evaluateAll((wrappers) =>
     wrappers.map((wrapper) => {
@@ -304,6 +304,8 @@ test("draws every marked line in each draw-path wrapper", async ({ page }) => {
     // ImpactCollab: the line that enters left and exits right behind the tiles.
     { hasTrigger: true, targetCount: 1 },
     // Our Members: the solid path drawn over the pinned runway.
+    { hasTrigger: true, targetCount: 1 },
+    // Upcoming Initiatives: the line that snakes between the four rows.
     { hasTrigger: true, targetCount: 1 },
   ]);
 });

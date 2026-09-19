@@ -113,6 +113,43 @@ test("expands, pauses marquee, collapses, and supports Esc", async ({ page }) =>
   await expect(deck.locator("[data-deck-folder]")).toBeFocused();
 });
 
+test("keeps the ecosystem section height stable while a folder expands", async ({ page }) => {
+  const deck = page.locator(learn);
+  const heightSample = page.evaluate(() => new Promise((resolve) => {
+    const section = document.querySelector(".section_ecosystem");
+    const deck = document.querySelector("[data-deck-init=learn]");
+    const heights = [];
+    let sawExpanding = false;
+    let expandedFrames = 0;
+
+    const sample = () => {
+      const state = deck.dataset.deckState;
+      if (state === "expanding" || state === "expanded") {
+        heights.push(section.getBoundingClientRect().height);
+        sawExpanding ||= state === "expanding";
+        if (state === "expanded") expandedFrames += 1;
+      }
+      if (expandedFrames >= 3) {
+        resolve({
+          heights,
+          sawExpanding,
+          sawExpanded: expandedFrames > 0,
+        });
+        return;
+      }
+      requestAnimationFrame(sample);
+    };
+
+    requestAnimationFrame(sample);
+  }));
+
+  await deck.locator("[data-deck-folder]").click();
+  const result = await heightSample;
+  expect(result.sawExpanding).toBe(true);
+  expect(result.sawExpanded).toBe(true);
+  expect(Math.max(...result.heights) - Math.min(...result.heights)).toBeLessThanOrEqual(1);
+});
+
 test("replays both folder intros after each collapse", async ({ page }) => {
   const root = page.locator(folders);
   const deck = root.locator(learn);

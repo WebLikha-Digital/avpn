@@ -1313,6 +1313,10 @@
       .ecosystem_deck:not([data-deck-state="expanded"]) .ecosystem_card { pointer-events:none; }
       .ecosystem_deck-hint { margin:16px 0 0; text-align:center; color:#6e6e6a; font:500 14px/20px Archivo,system-ui,sans-serif; }
       .ecosystem_deck-collapse { padding:10px 16px; border:1px solid #002944; border-radius:999px; background:#F7F1EA; color:#002944; font:700 12px/1 Archivo,system-ui,sans-serif; letter-spacing:.08em; cursor:pointer; }
+      /* While expanding the COLLAPSE pill is still `hidden` (the JS unhides it on finish), so
+         the deck was 50px shorter mid-expand, the section shrank, and the stretched line SVG
+         squashed then sprang back. Keep the pill in flow but invisible until it is shown. */
+      .ecosystem_deck[data-deck-state="expanding"] .ecosystem_deck-collapse[hidden] { display:block; visibility:hidden; }
       .ecosystem_deck-intro { min-height:52px; margin:24px auto 0; opacity:1 !important; visibility:visible !important; }
       .ecosystem_deck[data-deck-state="stacked"] .ecosystem_deck-intro { display:block; }
       /* Hidden through collapsing too, so the split reveal runs once on the settled folder rather than showing under the fan first. */

@@ -1,6 +1,5 @@
 import { gsap, ScrollTrigger, SplitText } from "../lib/gsap.js";
 
-const DURATION = 1;
 const SHAPES = Object.freeze({
   "leaf-a": "22% 0 22% 0",
   "leaf-b": "0 22% 0 22%",
@@ -103,6 +102,7 @@ function initEngagementsTimeline(scope = document) {
     const setNav = (index) => {
       const value = `${navTarget(index)}px`;
       gsap.set([nav, navWrap], { "--eng-nav-x": value });
+      gsap.set(navWrap, { "--eng-tip-x": value });
     };
 
     const buildTicks = () => {
@@ -200,8 +200,8 @@ function initEngagementsTimeline(scope = document) {
         yPercent: -110, duration: 0.6, ease: "power4.inOut", stagger: { amount: 0.25 },
       }, 0);
       if (incoming.length) timeline.to(incoming, {
-        yPercent: 0, duration: 0.7, ease: "power4.inOut", stagger: { amount: 0.4 },
-      }, ">-=0.3");
+        yPercent: 0, duration: 0.6, ease: "power4.inOut", stagger: { amount: 0.3 },
+      }, 0);
     };
 
     function goTo(targetIndex, automatic = false) {
@@ -258,17 +258,32 @@ function initEngagementsTimeline(scope = document) {
         timeline.fromTo(newSlide, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.35 }, 0);
       } else {
         animateLines(oldIndex, newIndex, timeline);
-        timeline.to(oldSlide.querySelector(".engagements_meta"), { autoAlpha: 0, duration: 0.35 }, 0.45);
-        timeline.fromTo(newSlide.querySelector(".engagements_meta"), { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.35 }, 0.45);
-        timeline.to(media, { borderRadius: targetShape, duration: DURATION, ease: "radial", onComplete: () => {
+        timeline.to(oldSlide.querySelector(".engagements_meta"), { autoAlpha: 0, duration: 0.35 }, 0.4);
+        timeline.fromTo(newSlide.querySelector(".engagements_meta"), { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.35 }, 0.4);
+        timeline.to(media, { borderRadius: targetShape, duration: 0.8, ease: "smooth", onComplete: () => {
           media.dataset.engagementsShape = newSlide.dataset.engagementsShape || "leaf-a";
         } }, 0);
       }
-      timeline.to(oldImage, { autoAlpha: 0, duration: 0.65 }, 0);
-      timeline.to(newImage, { autoAlpha: 1, duration: 0.65 }, 0);
-      timeline.to(hiddenBackground, { autoAlpha: 1, duration: 0.8 }, 0);
-      timeline.to([nav, navWrap], { "--eng-nav-x": `${targetNav}px`, duration: instance.reduced ? 0 : DURATION }, 0);
-      timeline.call(() => { tooltip.textContent = newSlide.dataset.engagementsDate || ""; }, [], instance.reduced ? 0 : 0.5);
+      timeline.to(oldImage, { autoAlpha: 0, duration: 0.5, ease: "power1.inOut" }, 0.1);
+      timeline.to(newImage, { autoAlpha: 1, duration: 0.5, ease: "power1.inOut" }, 0.1);
+      timeline.to(hiddenBackground, { autoAlpha: 1, duration: 0.7, ease: "power1.inOut" }, 0);
+      timeline.to([nav, navWrap], {
+        "--eng-nav-x": `${targetNav}px`,
+        duration: instance.reduced ? 0 : 0.6,
+        ease: "smooth",
+      }, 0);
+      timeline.to(navWrap, {
+        "--eng-tip-x": `${targetNav}px`,
+        duration: instance.reduced ? 0 : 0.6,
+        ease: "smooth",
+      }, 0);
+      if (instance.reduced) {
+        timeline.call(() => { tooltip.textContent = newSlide.dataset.engagementsDate || ""; }, [], 0);
+      } else {
+        timeline.to(tooltip, { autoAlpha: 0, duration: 0.15, ease: "power1.in" }, 0.15);
+        timeline.call(() => { tooltip.textContent = newSlide.dataset.engagementsDate || ""; }, [], 0.3);
+        timeline.to(tooltip, { autoAlpha: 1, duration: 0.15, ease: "power1.out" }, 0.3);
+      }
       if (automatic) scheduleAutoplay();
     }
 
@@ -294,6 +309,25 @@ function initEngagementsTimeline(scope = document) {
       const marker = event.target.closest("[data-engagements-tick-index]");
       if (marker) goTo(Number(marker.dataset.engagementsTickIndex));
     });
+    if (!window.matchMedia?.("(pointer: coarse)").matches) {
+      ticks.querySelectorAll("[data-engagements-tick-index]").forEach((marker) => {
+        listen(marker, "mouseenter", () => {
+          if (instance.isAnimating) return;
+          const index = Number(marker.dataset.engagementsTickIndex);
+          tooltip.textContent = slides[index].dataset.engagementsDate || "";
+          gsap.to(navWrap, {
+            "--eng-tip-x": `${navTarget(index)}px`, duration: 0.3, ease: "smooth", overwrite: true,
+          });
+        });
+        listen(marker, "mouseleave", () => {
+          if (instance.isAnimating) return;
+          tooltip.textContent = slides[instance.activeIndex].dataset.engagementsDate || "";
+          gsap.to(navWrap, {
+            "--eng-tip-x": `${navTarget(instance.activeIndex)}px`, duration: 0.3, ease: "smooth", overwrite: true,
+          });
+        });
+      });
+    }
     listen(window, "keydown", (event) => {
       if (!instance.isInView || isTypingTarget(event.target)) return;
       if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
@@ -308,6 +342,7 @@ function initEngagementsTimeline(scope = document) {
       instance.listeners.forEach((remove) => remove());
       instance.splits.forEach((split) => split.revert());
       ticks.replaceChildren();
+      gsap.killTweensOf(navWrap);
       gsap.set([...slides, ...images, ...backgrounds, media, nav, navWrap, tooltip], { clearProps: "all" });
       if (root._engagementsTimelineInstance === instance) root._engagementsTimelineInstance = null;
     };

@@ -31,11 +31,17 @@ test("builds ticks, wraps controls, updates palette, shape, tooltip, and nav", a
     radius: getComputedStyle(node.querySelector("[data-engagements-media]")).borderTopLeftRadius,
   }));
   const samples = await root.evaluate((node) => {
+    const tooltip = node.querySelector("[data-engagements-tooltip]");
     node.querySelector("[data-engagements-next]").click();
-    const duration = node._engagementsTimelineInstance.master.duration();
+    const master = node._engagementsTimelineInstance.master;
+    const tooltipTweens = master.getTweensOf(tooltip).map((tween) => ({
+      autoAlpha: tween.vars.autoAlpha,
+      duration: tween.duration(),
+      startTime: tween.startTime(),
+    }));
+    const duration = master.duration();
     node.querySelector("[data-engagements-next]").click();
     const media = node.querySelector("[data-engagements-media]");
-    const tooltip = node.querySelector("[data-engagements-tooltip]");
     const frames = [];
     return new Promise((resolve) => {
       const sample = () => {
@@ -44,16 +50,24 @@ test("builds ticks, wraps controls, updates palette, shape, tooltip, and nav", a
           radius: getComputedStyle(media).borderTopLeftRadius,
           tooltipOpacity: parseFloat(getComputedStyle(tooltip).opacity),
         });
-        if (!node._engagementsTimelineInstance?.isAnimating) resolve({ duration, frames });
+        if (!node._engagementsTimelineInstance?.isAnimating) resolve({ duration, frames, tooltipTweens });
         else requestAnimationFrame(sample);
       };
       requestAnimationFrame(sample);
     });
   });
   expect(samples.duration).toBeLessThanOrEqual(0.9);
+  expect(samples.tooltipTweens).toHaveLength(2);
+  const [tooltipOut, tooltipIn] = samples.tooltipTweens.sort((a, b) => a.startTime - b.startTime);
+  expect(tooltipOut.autoAlpha).toBe(0);
+  expect(tooltipOut.duration).toBeCloseTo(0.15, 5);
+  expect(tooltipOut.startTime).toBeCloseTo(0.15, 5);
+  expect(tooltipIn.autoAlpha).toBe(1);
+  expect(tooltipIn.duration).toBeCloseTo(0.15, 5);
+  expect(tooltipIn.startTime).toBeCloseTo(0.3, 5);
   expect(samples.frames.some((sample) => sample.nav > before.nav)).toBe(true);
   expect(samples.frames.some((sample) => sample.radius !== before.radius)).toBe(true);
-  expect(samples.frames.some((sample) => sample.tooltipOpacity < 0.5)).toBe(true);
+  expect(samples.frames.some((sample) => sample.tooltipOpacity < 1)).toBe(true);
   await settle(root);
   // The second synchronous NEXT click is ignored while the first transition is running.
   await expect(root).toHaveAttribute("data-engagements-active", "2");

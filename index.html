@@ -192,7 +192,8 @@
      opacity, slide and scale, all on the band's curve. */
   .engagements_tick{--distance:0;--distance-abs:0;height:calc(2.125rem - .25rem*clamp(0,var(--distance-abs) - 1,4));opacity:calc(1 - .15*clamp(0,var(--distance-abs) - 1,4));transition:height .6s cubic-bezier(.38,.005,.215,1),opacity .6s cubic-bezier(.38,.005,.215,1),transform .12s ease}
   .engagements_tick[data-engagements-tick-status="active"]{height:1.625rem;opacity:1}
-  .engagements_tooltip-item{--distance:0;--distance-abs:0;transform:translateX(calc(var(--distance)*110%)) scale(calc(1 - .25*min(var(--distance-abs),1)));opacity:clamp(0,1 - .5*var(--distance-abs),1);transition:transform .6s cubic-bezier(.38,.005,.215,1),opacity .6s cubic-bezier(.38,.005,.215,1)}
+  .engagements_tooltip-item{--distance:0;--distance-abs:0;transform:translateX(calc(var(--distance)*110%)) scale(calc(1 - .25*min(var(--distance-abs),1)));opacity:0;transition:transform .6s cubic-bezier(.38,.005,.215,1),opacity .6s cubic-bezier(.38,.005,.215,1)}
+  .engagements_tooltip-item[data-engagements-tooltip-status="active"]{opacity:1} /* neighbours hidden by user choice; the drum still slides so the active date arrives from its side */
   @media (prefers-reduced-motion:reduce){.engagements_tick,.engagements_tooltip-item,.engagements_decor{transition:none}}
       @media (max-width:991px){.engagements_body{grid-template-columns:minmax(0,1fr);row-gap:1.5rem}.engagements_visual{max-width:none}.engagements_card{padding:0;border-radius:0}.engagements_meta{flex-direction:column;align-items:flex-start;row-gap:.5rem}.engagements_meta-line{flex:none;width:100%}.engagements_nav-btn{width:3rem;padding:.5rem}.engagements_nav-label{display:none}.engagements_ticks{padding:.625rem .625rem}.engagements_dash{display:none}}
       .section_markets{position:relative;background-color:#f7f1ea;color:#002944;overflow:clip;display:block;height:auto;margin-bottom:0;border:0;font-size:inherit}

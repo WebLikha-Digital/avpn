@@ -843,6 +843,7 @@
       .sig-events_card-heading { font-size: 3.3vw; line-height: 1.1; margin: 0.6em 0 0.3em; }
       .sig-events_card-link {
         display: inline-block; margin-top: 1.5rem; padding: 1rem 2rem;
+        isolation: isolate; /* Webflow: contains the label/icon z-index:1 from the button-style embed so a following section's arc (z-index:0 bg) covers the whole button */
         border: 1px solid #ee2a18; border-radius: 99px;
         color: #0b3b4d; text-decoration: none; font-weight: 700;
       }

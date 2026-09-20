@@ -25,6 +25,14 @@ const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
  *   data-curve percentage of wrapper width (default 12)
  *   data-scroll-start / data-scroll-end optional ScrollTrigger positions
  *   data-scrub optional scrub smoothing (default 0.3)
+ *   data-arc-clip writes the arc as an inline clip-path: path() on the wrapper
+ *     so its own background, such as a gradient, shows through instead of
+ *     appending an SVG; the arc zone is the part above the closest section,
+ *     falling back to the full wrapper height when it is not extended
+ *   clip mode triggers that incoming section, defaulting to top bottom -> top top
+ *   data-mode is ignored in clip mode (cover only)
+ *   reduced motion keeps the static progress-0 clip
+ *   page CSS should provide clip-path: inset(<zone> 0 0 0) as the pre-JS fallback
  */
 export function initArcScrollTransition() {
   document.querySelectorAll("[data-arc-scroll-transition]").forEach((wrapper) => {

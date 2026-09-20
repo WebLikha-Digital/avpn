@@ -22,6 +22,7 @@ import {
 import { initRotaryWheel } from "./animations/rotaryWheel.js";
 import { initStoriesStack } from "./animations/storiesStack.js";
 import { initArcScrollTransition } from "./animations/arcScrollTransition.js";
+import { initForwardSection } from "./animations/forwardSection.js";
 import { initProgrammesOverview } from "./animations/programmesOverview.js";
 import { initListHoverReveal } from "./animations/listHoverReveal.js";
 import { initListPreviewFollower } from "./animations/listPreviewFollower.js";
@@ -79,6 +80,7 @@ function init() {
   initHighlightDrum();
   initStoriesStack();
   initArcScrollTransition();
+  initForwardSection();
   initProgrammesOverview();
   initEcosystemSlider();
   initListHoverReveal();

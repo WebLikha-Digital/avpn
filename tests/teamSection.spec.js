@@ -46,8 +46,8 @@ test("reveals incoming rows on category changes and settles cleanly", async ({ p
   const section = page.locator(root);
   await section.locator("[data-team-toggle]").click();
 
-  const leadership = section.locator(panel("team-leadership"));
-  await expect.poll(() => leadership.locator("[data-team-row]").evaluateAll((nodes) =>
+  const advisor = section.locator(panel("team-advisor"));
+  await expect.poll(() => advisor.locator("[data-team-row]").evaluateAll((nodes) =>
     nodes.every((row) => getComputedStyle(row).opacity === "1" && !row.style.transform),
   ), { timeout: 2_000 }).toBe(true);
 
@@ -91,15 +91,15 @@ test("reveals incoming rows on category changes and settles cleanly", async ({ p
 test("rapid switching clears the interrupted panel and reveals the last panel", async ({ page }) => {
   const section = page.locator(root);
   await section.locator("[data-team-toggle]").click();
-  const leadership = section.locator(panel("team-leadership"));
-  await expect.poll(() => leadership.locator("[data-team-row]").evaluateAll((nodes) =>
+  const advisor = section.locator(panel("team-advisor"));
+  await expect.poll(() => advisor.locator("[data-team-row]").evaluateAll((nodes) =>
     nodes.every((row) => getComputedStyle(row).opacity === "1" && !row.style.transform),
   ), { timeout: 2_000 }).toBe(true);
 
   await page.evaluate(async () => {
     document.querySelector('[data-team-tab="team-programmes"]').click();
     await new Promise((resolve) => setTimeout(resolve, 80));
-    document.querySelector('[data-team-tab="team-operations"]').click();
+    document.querySelector('[data-team-tab="team-finance"]').click();
   });
 
   const result = await page.evaluate(() => [...document.querySelectorAll("[data-team-panel]")].map((panel) => ({
@@ -112,11 +112,11 @@ test("rapid switching clears the interrupted panel and reveals the last panel", 
   })));
 
   const intermediate = result.find(({ id }) => id === "team-programmes");
-  const last = result.find(({ id }) => id === "team-operations");
+  const last = result.find(({ id }) => id === "team-finance");
   expect(intermediate.hidden).toBe(true);
   expect(intermediate.rows.every(({ opacity, transform }) => !opacity && !transform)).toBe(true);
   expect(last.hidden).toBe(false);
-  await expect.poll(() => section.locator(panel("team-operations")).locator("[data-team-row]").evaluateAll((nodes) =>
+  await expect.poll(() => section.locator(panel("team-finance")).locator("[data-team-row]").evaluateAll((nodes) =>
     nodes.every((row) => {
       const styles = getComputedStyle(row);
       return styles.opacity === "1" && (styles.transform === "none" || new DOMMatrix(styles.transform).isIdentity);
@@ -127,14 +127,14 @@ test("rapid switching clears the interrupted panel and reveals the last panel", 
 test("ArrowDown switches subtabs and reduced motion swaps without inline reveal styles", async ({ page }) => {
   const section = page.locator(root);
   await section.locator("[data-team-toggle]").click();
-  const leadershipTab = section.locator('[data-team-tab="team-leadership"]');
-  await leadershipTab.focus();
-  await leadershipTab.press("ArrowDown");
-  await expect(section.locator(panel("team-programmes"))).not.toBeHidden();
+  const advisorTab = section.locator('[data-team-tab="team-advisor"]');
+  await advisorTab.focus();
+  await advisorTab.press("ArrowDown");
+  await expect(section.locator(panel("team-ceo-office"))).not.toBeHidden();
 
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await section.locator('[data-team-tab="team-operations"]').click();
-  const reduced = await section.locator(panel("team-operations")).locator("[data-team-row]").evaluateAll((nodes) =>
+  await section.locator('[data-team-tab="team-finance"]').click();
+  const reduced = await section.locator(panel("team-finance")).locator("[data-team-row]").evaluateAll((nodes) =>
     nodes.map((row) => ({ opacity: row.style.opacity, transform: row.style.transform, computed: getComputedStyle(row).opacity })),
   );
   expect(reduced.every(({ opacity, transform, computed }) => !opacity && !transform && computed === "1")).toBe(true);

@@ -359,14 +359,14 @@
       @media (max-width:991px){.newsletter_card{grid-template-columns:1fr}.newsletter_shape{display:none}}
       @media (max-width:767px){.newsletter_card{padding:clamp(1.75rem,2.2vw,2rem) clamp(1.25rem,1.6vw,1.5rem)}.newsletter_form-slot{min-height:20rem}} /* Webflow: padding = space/5 x space/4 */
       /* newsletter-css embed — glass, blob gradients and decor geometry only */
-      .section_newsletter{overflow:visible;overflow-x:clip} /* blobs bleed up into section_podcast and down into the footer; only sideways overflow is clipped */
-      .newsletter_card{background-color:rgba(228,241,245,.2);-webkit-backdrop-filter:blur(50px);backdrop-filter:blur(50px)}
-      .newsletter_blob.is-left{top:-55%;left:-25%;width:80vw;height:180%;background:radial-gradient(ellipse at 50% 50%,#e42919 0%,#f27c38 32%,transparent 70%);opacity:.85} /* Webflow: var(--_primitives---brand--primary--red-main) / --secondary--orange-main */
-      .newsletter_blob.is-right{right:-30%;bottom:-55%;width:70vw;height:160%;background:radial-gradient(ellipse at 50% 50%,#f27c38 0%,#ffd552 38%,transparent 70%);opacity:.7} /* Webflow: orange-main / yellow-main */
+      .section_newsletter{overflow:visible;overflow-x:clip} /* blobs bleed up into section_podcast; only sideways overflow is clipped. Blobs never extend below the section, so they add no scroll height */
+      .newsletter_card{background-color:rgba(228,241,245,.2)} /* Figma's backdrop blur is dropped on purpose: the blobs behind the glass are already smooth gradients, so a 50px backdrop-filter changed nothing visible and cost a full-card blur every frame */
+      .newsletter_blob.is-left{top:-55%;left:-25%;width:80vw;height:150%;background:radial-gradient(ellipse at 50% 50%,#e42919 0%,#f27c38 32%,transparent 70%);opacity:.85} /* Webflow: var(--_primitives---brand--primary--red-main) / --secondary--orange-main */
+      .newsletter_blob.is-right{right:-30%;bottom:0;width:70vw;height:130%;background:radial-gradient(ellipse at 50% 50%,#f27c38 0%,#ffd552 38%,transparent 70%);opacity:.7} /* Webflow: orange-main / yellow-main */
       .newsletter_shape.is-teal{width:13.3rem;height:13.3rem;left:6.2rem;bottom:.35rem}
       .newsletter_shape.is-yellow{width:13.3rem;height:13.3rem;left:-6.7rem;bottom:.35rem}
       .newsletter_form-note{color:#002944} /* Webflow: navy-main */
-      @media (max-width:767px){.newsletter_blob.is-left{top:-35%;left:-70%;width:190vw;height:130%}.newsletter_blob.is-right{right:-70%;bottom:-45%;width:170vw;height:120%}}
+      @media (max-width:767px){.newsletter_blob.is-left{top:-35%;left:-70%;width:190vw;height:120%}.newsletter_blob.is-right{right:-70%;bottom:0;width:170vw;height:100%}}
       .partners_layout{display:flex;flex-direction:column;row-gap:clamp(2.25rem,3.4vw,3rem)} /* Webflow: gap = space/7 */
       .partners_heading{margin:0;font-family:Open Sans,Arial,sans-serif;font-size:clamp(2rem,4.44vw,4rem);line-height:1.1;font-weight:700} /* Webflow: Text Style mode H3 */
       .partners_cloud{display:flex;flex-wrap:wrap;align-items:center;row-gap:clamp(1.25rem,1.6vw,1.5rem);column-gap:clamp(1.25rem,1.6vw,1.5rem)} /* Webflow: gaps = space/4 */

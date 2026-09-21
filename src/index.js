@@ -46,6 +46,8 @@ import { initEngagementsTimeline } from "./animations/engagementsTimeline.js";
 import { initPartnersProximity } from "./animations/partnersProximity.js";
 import { initPartnersTestimonials } from "./animations/partnersTestimonials.js";
 import { initTextFitToWidth } from "./animations/textFitWidth.js";
+import { initFooterReveal } from "./animations/footerReveal.js";
+import { initFooterFountain } from "./animations/footerFountain.js";
 
 // Components that look up the band they sit in. The band has to exist before
 // any of them initialize, and they all have to rebuild when a resize tears it
@@ -101,6 +103,8 @@ function init() {
   initEngagementsTimeline();
   initPartnersProximity();
   initPartnersTestimonials();
+  initFooterReveal();
+  initFooterFountain();
 }
 
 window.addEventListener(HSCROLL_REBUILT, () => {

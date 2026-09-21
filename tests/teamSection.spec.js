@@ -17,11 +17,15 @@ test("switches team categories and keeps tab state exclusive", async ({ page }) 
   await toggle.click();
   await expect(group).toHaveAttribute("data-team-open", "true");
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
-  await expect(section.locator(panel("team-leadership"))).not.toBeHidden();
+  await expect(section.locator(panel("team-advisor"))).not.toBeHidden();
 
-  for (const id of ["team-leadership", "team-programmes", "team-operations"]) {
+  const categories = await section.locator("[data-team-subtabs] [data-team-tab]").evaluateAll(
+    (tabs) => tabs.map((tab) => tab.dataset.teamTab),
+  );
+  expect(categories).toHaveLength(10);
+  for (const id of categories) {
     await section.locator(`[data-team-tab="${id}"]`).click();
-    for (const candidate of ["board", "team-leadership", "team-programmes", "team-operations"]) {
+    for (const candidate of ["board", ...categories]) {
       const current = section.locator(panel(candidate));
       if (candidate === id) await expect(current).not.toBeHidden();
       else await expect(current).toBeHidden();
@@ -117,8 +121,8 @@ test("keeps every panel live across category switches", async ({ page }) => {
   const boardList = section.locator(panel("board")).locator("[data-team-list]");
 
   await toggle.click();
-  const leadership = section.locator(panel("team-leadership")).locator("[data-team-list]");
-  await expectPreviewForRow(page, leadership, 1);
+  const advisor = section.locator(panel("team-advisor")).locator("[data-team-list]");
+  await expectPreviewForRow(page, advisor, 1);
   await expect.poll(() => previewState(boardList).then((state) => state.opacity), { timeout: 3_000 }).toBe(0);
 
   await section.locator('[data-team-tab="team-programmes"]').click();

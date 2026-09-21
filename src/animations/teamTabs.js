@@ -1,3 +1,10 @@
+import { gsap } from "../lib/gsap.js";
+
+const REVEAL_DURATION = 0.45;
+const REVEAL_EASE = "power2.out";
+const REVEAL_STAGGER = 0.04;
+const REVEAL_DISTANCE = 12;
+
 /**
  * Team section tabs and the collapsible AVPN team category group.
  *
@@ -14,6 +21,8 @@ export function initTeamTabs() {
     const group = root.querySelector("[data-team-group]");
     const toggle = group?.querySelector("[data-team-toggle]");
     const subtabs = group?.querySelector("[data-team-subtabs]");
+    let revealTween = null;
+    let revealRows = [];
 
     if (!tabs.length || !panels.length) return;
 
@@ -53,6 +62,41 @@ export function initTeamTabs() {
       subtabs.inert = !open;
     };
 
+    const clearReveal = () => {
+      revealTween?.kill();
+      revealTween = null;
+      if (revealRows.length) gsap.set(revealRows, { clearProps: "opacity,transform" });
+      revealRows = [];
+    };
+
+    const revealPanel = (panel) => {
+      if (!panel) return;
+      const rows = [...panel.querySelectorAll("[data-team-list] [data-team-row]")];
+      revealRows = rows;
+      if (!rows.length || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        if (rows.length) gsap.set(rows, { clearProps: "opacity,transform" });
+        revealRows = [];
+        return;
+      }
+
+      revealTween = gsap.fromTo(
+        rows,
+        { opacity: 0, y: REVEAL_DISTANCE },
+        {
+          opacity: 1,
+          y: 0,
+          duration: REVEAL_DURATION,
+          ease: REVEAL_EASE,
+          stagger: { each: Math.min(REVEAL_STAGGER, 0.55 / rows.length) },
+          clearProps: "opacity,transform",
+          onComplete: () => {
+            revealTween = null;
+            revealRows = [];
+          },
+        },
+      );
+    };
+
     const activate = (tab, announce = true) => {
       if (!tab || !tabs.includes(tab)) return;
       const id = tab.dataset.teamTab;
@@ -62,6 +106,9 @@ export function initTeamTabs() {
 
       if (isSubtab(tab)) setOpen(true);
       if (id === "board") setOpen(false);
+      if (alreadyActive && announce) return;
+
+      clearReveal();
 
       tabs.forEach((candidate) => {
         const active = candidate === tab;
@@ -80,6 +127,8 @@ export function initTeamTabs() {
           new CustomEvent("teamtabs:change", { bubbles: true, detail: { id } }),
         );
       }
+
+      if (!alreadyActive && announce) revealPanel(panels.find((panel) => panel.dataset.teamPanel === id));
     };
 
     const onTabClick = (event) => activate(event.currentTarget);
@@ -124,6 +173,7 @@ export function initTeamTabs() {
 
     root._teamTabsInstance = {
       destroy() {
+        clearReveal();
         tabs.forEach((tab) => {
           tab.removeEventListener("click", onTabClick);
           tab.removeEventListener("keydown", onTabKeyDown);

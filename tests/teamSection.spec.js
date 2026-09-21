@@ -42,6 +42,104 @@ test("switches team categories and keeps tab state exclusive", async ({ page }) 
   await expect(section.locator('[data-team-subtabs]')).toHaveAttribute("inert", "");
 });
 
+test("reveals incoming rows on category changes and settles cleanly", async ({ page }) => {
+  const section = page.locator(root);
+  await section.locator("[data-team-toggle]").click();
+
+  const advisor = section.locator(panel("team-advisor"));
+  await expect.poll(() => advisor.locator("[data-team-row]").evaluateAll((nodes) =>
+    nodes.every((row) => getComputedStyle(row).opacity === "1" && !row.style.transform),
+  ), { timeout: 2_000 }).toBe(true);
+
+  const rows = section.locator(panel("team-programmes")).locator("[data-team-row]");
+
+  const minOpacities = await page.evaluate(async () => {
+    document.querySelector('[data-team-tab="team-programmes"]').click();
+    const rows = [...document.querySelectorAll('[data-team-panel="team-programmes"] [data-team-row]')];
+    const samples = [];
+    const started = performance.now();
+
+    await new Promise((resolve) => {
+      const sample = () => {
+        const opacities = rows.map((row) => Number.parseFloat(getComputedStyle(row).opacity));
+        samples.push(Math.min(...opacities));
+        if (opacities.every((opacity) => opacity >= 1) || performance.now() - started >= 1_500) {
+          resolve();
+          return;
+        }
+        requestAnimationFrame(sample);
+      };
+      requestAnimationFrame(sample);
+    });
+
+    return samples;
+  });
+
+  expect(minOpacities[0]).toBeLessThan(1);
+  minOpacities.slice(1).forEach((opacity, index) => {
+    expect(opacity).toBeGreaterThanOrEqual(minOpacities[index] - 0.02);
+  });
+  expect(minOpacities.some((opacity) => opacity > 0 && opacity < 1)).toBe(true);
+  await expect.poll(() => rows.evaluateAll((nodes) => nodes.every((row) => {
+    const styles = getComputedStyle(row);
+    return styles.opacity === "1" &&
+      (styles.transform === "none" || new DOMMatrix(styles.transform).isIdentity) &&
+      !row.style.opacity && !row.style.transform;
+  })), { timeout: 2_000 }).toBe(true);
+});
+
+test("rapid switching clears the interrupted panel and reveals the last panel", async ({ page }) => {
+  const section = page.locator(root);
+  await section.locator("[data-team-toggle]").click();
+  const advisor = section.locator(panel("team-advisor"));
+  await expect.poll(() => advisor.locator("[data-team-row]").evaluateAll((nodes) =>
+    nodes.every((row) => getComputedStyle(row).opacity === "1" && !row.style.transform),
+  ), { timeout: 2_000 }).toBe(true);
+
+  await page.evaluate(async () => {
+    document.querySelector('[data-team-tab="team-programmes"]').click();
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    document.querySelector('[data-team-tab="team-finance"]').click();
+  });
+
+  const result = await page.evaluate(() => [...document.querySelectorAll("[data-team-panel]")].map((panel) => ({
+    id: panel.dataset.teamPanel,
+    hidden: panel.hidden,
+    rows: [...panel.querySelectorAll("[data-team-row]")].map((row) => ({
+      opacity: row.style.opacity,
+      transform: row.style.transform,
+    })),
+  })));
+
+  const intermediate = result.find(({ id }) => id === "team-programmes");
+  const last = result.find(({ id }) => id === "team-finance");
+  expect(intermediate.hidden).toBe(true);
+  expect(intermediate.rows.every(({ opacity, transform }) => !opacity && !transform)).toBe(true);
+  expect(last.hidden).toBe(false);
+  await expect.poll(() => section.locator(panel("team-finance")).locator("[data-team-row]").evaluateAll((nodes) =>
+    nodes.every((row) => {
+      const styles = getComputedStyle(row);
+      return styles.opacity === "1" && (styles.transform === "none" || new DOMMatrix(styles.transform).isIdentity);
+    }),
+  ), { timeout: 1_500 }).toBe(true);
+});
+
+test("ArrowDown switches subtabs and reduced motion swaps without inline reveal styles", async ({ page }) => {
+  const section = page.locator(root);
+  await section.locator("[data-team-toggle]").click();
+  const advisorTab = section.locator('[data-team-tab="team-advisor"]');
+  await advisorTab.focus();
+  await advisorTab.press("ArrowDown");
+  await expect(section.locator(panel("team-ceo-office"))).not.toBeHidden();
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await section.locator('[data-team-tab="team-finance"]').click();
+  const reduced = await section.locator(panel("team-finance")).locator("[data-team-row]").evaluateAll((nodes) =>
+    nodes.map((row) => ({ opacity: row.style.opacity, transform: row.style.transform, computed: getComputedStyle(row).opacity })),
+  );
+  expect(reduced.every(({ opacity, transform, computed }) => !opacity && !transform && computed === "1")).toBe(true);
+});
+
 function assertDoesNotIntersect(preview, boxes) {
   for (const box of boxes) {
     const horizontal = preview.left < box.right && preview.right > box.left;

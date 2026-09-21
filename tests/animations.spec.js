@@ -274,12 +274,18 @@ test("initializes the scroll-linked reveal state", async ({ page }) => {
 });
 
 test("initializes the scroll-direction marquee", async ({ page }) => {
-  await expect(page.locator("[data-marquee-status='normal']")).toHaveCount(1);
-  expect(await page.locator("[data-marquee-scroll-direction-target]").evaluate((marquee) => ({
-    collections: marquee.querySelectorAll("[data-marquee-collection-target]").length,
-    hasDirectionTrigger: Boolean(marquee._marqueeScrollDirectionInstance?.directionTrigger),
-    hasScrollTrigger: Boolean(marquee._marqueeScrollDirectionInstance?.scrollTimeline?.scrollTrigger),
-  }))).toEqual({ collections: 3, hasDirectionTrigger: true, hasScrollTrigger: true });
+  // Demo marquee + the Podcast section heading marquee.
+  await expect(page.locator("[data-marquee-status='normal']")).toHaveCount(2);
+  expect(await page.locator("[data-marquee-scroll-direction-target]").evaluateAll((marquees) =>
+    marquees.map((marquee) => ({
+      collections: marquee.querySelectorAll("[data-marquee-collection-target]").length,
+      hasDirectionTrigger: Boolean(marquee._marqueeScrollDirectionInstance?.directionTrigger),
+      hasScrollTrigger: Boolean(marquee._marqueeScrollDirectionInstance?.scrollTimeline?.scrollTrigger),
+    })),
+  )).toEqual([
+    { collections: 3, hasDirectionTrigger: true, hasScrollTrigger: true },
+    { collections: 3, hasDirectionTrigger: true, hasScrollTrigger: true },
+  ]);
 });
 
 test("draws every marked line in each draw-path wrapper", async ({ page }) => {

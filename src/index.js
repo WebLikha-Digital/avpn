@@ -26,6 +26,8 @@ import { initForwardSection } from "./animations/forwardSection.js";
 import { initProgrammesOverview } from "./animations/programmesOverview.js";
 import { initListHoverReveal } from "./animations/listHoverReveal.js";
 import { initListPreviewFollower } from "./animations/listPreviewFollower.js";
+import { initTeamTabs } from "./animations/teamTabs.js";
+import { initTeamPreview } from "./animations/teamPreview.js";
 import { initTunnel2 } from "./canvas/tunnel2.js";
 import { initEcosystemTabs } from "./animations/ecosystemTabs.js";
 import { initEcosystemSlider } from "./animations/ecosystemSlider.js";
@@ -85,6 +87,8 @@ function init() {
   initEcosystemSlider();
   initListHoverReveal();
   initListPreviewFollower();
+  initTeamTabs();
+  initTeamPreview();
   initTunnel2();
   initMembersScroll();
   initMembersGlobe();

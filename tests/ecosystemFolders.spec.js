@@ -2,6 +2,9 @@ import { test, expect } from "@playwright/test";
 
 const folders = "[data-folders-init]";
 const learn = "[data-deck-init=learn]";
+const COLLAPSE_TIMEOUT = 10000;
+// Nominal maximum is about 1.35s: 0.2s footer fade + 0.55s Flip + 0.25s
+// stagger + 0.35s settling Flip; the timeout leaves margin for load.
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
@@ -27,35 +30,55 @@ test("expands, pauses marquee, collapses, and supports Esc", async ({ page }) =>
   const deck = root.locator(learn);
   const jumpPromise = page.evaluate(() => new Promise((resolve) => {
     const root = document.querySelector("[data-folders-init]");
+    const deck = root._ecosystemFoldersInstance.decks.find((candidate) => candidate.root.dataset.deckInit === "learn");
     // Only the first cards: the far ones legitimately cover thousands of px in
-    // the 0.75s Flip, so a per-frame delta there is speed, not a layout jump.
-    const cards = [...root.querySelectorAll("[data-deck-init=learn] [data-deck-card]")].slice(0, 3);
-    let started = null;
-    let previous = null;
-    let previousTime = 0;
-    let maxJump = 0;
+    // the Flip, so a residual there is dominated by sub-pixel rounding.
+    const cards = [...deck.root.querySelectorAll("[data-deck-card]")].slice(0, 3);
+    // The layout jump this guards against (commit 51a0683) moved the cards
+    // sideways mid-flight while the Flip tween kept running. Position as a
+    // function of each card tween's eased ratio is affine for a Flip that tweens x
+    // and scale with one ease, so a jump shows up as a residual from the
+    // straight line through the (ratio, left) samples — and, unlike a
+    // per-frame velocity, that residual does not depend on how many frames
+    // a loaded machine drops.
+    const samples = cards.map(() => []);
+    const tweenFor = (card) => deck.tween?.getChildren(false, true, false)
+      .find((child) => child.timeline && child.targets().includes(card))
+      ?.timeline.getChildren(false, true, false)
+      .find((child) => child.duration() > 0 && child.targets().includes(card));
     const sample = () => {
-      if (root.dataset.foldersState === "expanding") {
-        started ??= performance.now();
-        const now = performance.now();
-        const lefts = cards.map((card) => card.getBoundingClientRect().left);
-        if (previous && now - started > 100) {
-          // Normalise to a 60fps frame so dropped frames under parallel test
-          // load read as speed, not as a layout jump.
-          const frames = Math.max(1, (now - previousTime) / (1000 / 60));
-          maxJump = Math.max(maxJump, ...lefts.map((left, index) => Math.abs(left - previous[index]) / frames));
-        }
-        previous = lefts;
-        previousTime = now;
-        if (performance.now() - started > 900) return resolve(maxJump);
+      if (root.dataset.foldersState === "expanding" && deck.tween) {
+        cards.forEach((card, index) => {
+          const tween = tweenFor(card);
+          if (!tween) return;
+          const ratio = tween.ratio;
+          if (ratio > 0 && ratio < 1) samples[index].push({ ratio, left: card.getBoundingClientRect().left });
+        });
       }
-      if (root.dataset.foldersState === "expanded") return resolve(maxJump);
+      if (root.dataset.foldersState === "expanded") return resolve(samples.map(fit));
       requestAnimationFrame(sample);
+    };
+    const fit = (points) => {
+      // Least-squares line left = a + b * ratio, then the largest residual.
+      const n = points.length;
+      if (n < 4) return { samples: n, residual: null };
+      const mean = (key) => points.reduce((sum, point) => sum + point[key], 0) / n;
+      const meanRatio = mean("ratio");
+      const meanLeft = mean("left");
+      const slope = points.reduce((sum, point) => sum + (point.ratio - meanRatio) * (point.left - meanLeft), 0) /
+        points.reduce((sum, point) => sum + (point.ratio - meanRatio) ** 2, 0);
+      const intercept = meanLeft - slope * meanRatio;
+      const residual = Math.max(...points.map((point) => Math.abs(point.left - (intercept + slope * point.ratio))));
+      return { samples: n, residual };
     };
     requestAnimationFrame(sample);
   }));
   await deck.locator("[data-deck-folder]").click();
-  expect(await jumpPromise).toBeLessThan(60);
+  const fits = await jumpPromise;
+  for (const { samples, residual } of fits) {
+    expect(samples, "enough mid-flight samples to fit the Flip path").toBeGreaterThanOrEqual(4);
+    expect(residual, "card stays on its Flip path (no layout jump)").toBeLessThan(6);
+  }
   await expect(root).toHaveAttribute("data-folders-state", "expanded");
   await expect(deck).toHaveAttribute("data-deck-state", "expanded");
   await expect(root.locator("[data-deck-init=voice]")).toBeHidden();
@@ -103,12 +126,12 @@ test("expands, pauses marquee, collapses, and supports Esc", async ({ page }) =>
   expect(fade.opacity).toBeLessThan(1);
   expect(fade.state).toBe("expanded");
   expect(await collapsingTiming).toBeGreaterThanOrEqual(150);
-  await expect(root).toHaveAttribute("data-folders-state", "stacked");
+  await expect(root).toHaveAttribute("data-folders-state", "stacked", { timeout: COLLAPSE_TIMEOUT });
   await expect(root.locator("[data-deck-init=voice]")).not.toBeHidden();
   await deck.locator("[data-deck-folder]").press("Enter");
   await expect(deck).toHaveAttribute("data-deck-state", "expanded");
   await page.keyboard.press("Escape");
-  await expect(root).toHaveAttribute("data-folders-state", "stacked");
+  await expect(root).toHaveAttribute("data-folders-state", "stacked", { timeout: COLLAPSE_TIMEOUT });
   await expect(root.locator("[data-deck-init=voice]")).not.toBeHidden();
   await expect(deck.locator("[data-deck-folder]")).toBeFocused();
 });
@@ -166,35 +189,72 @@ test("replays both folder intros after each collapse", async ({ page }) => {
 
   const replay = page.evaluate(() => new Promise((resolve) => {
     const group = document.querySelector("[data-folders-init]");
-    const onCollapsed = () => {
-      group.removeEventListener("ecosystemfolders:collapsed", onCollapsed);
-      const started = performance.now();
-      let moved = false;
-      const isIdentity = (value) => {
-        if (value === "none") return true;
-        const matrix = new DOMMatrix(value);
-        return matrix.a === 1 && matrix.b === 0 && matrix.c === 0 &&
-          matrix.d === 1 && matrix.e === 0 && matrix.f === 0;
-      };
-      const sample = () => {
-        const line = group.querySelector("[data-deck-init=learn] .line");
-        if (line && !isIdentity(getComputedStyle(line).transform)) moved = true;
-        if (performance.now() - started < 150) requestAnimationFrame(sample);
-        else resolve(moved);
-      };
+    const moved = { learn: false, voice: false };
+    let eventSeen = false;
+    let done = false;
+    let deadline = 0;
+    const isMoved = (line) => {
+      const value = getComputedStyle(line).transform;
+      if (value === "none") return false;
+      const matrix = new DOMMatrix(value);
+      return !(matrix.a === 1 && matrix.b === 0 && matrix.c === 0 &&
+        matrix.d === 1 && matrix.e === 0 && matrix.f === 0);
+    };
+    const observed = () => {
+      const result = {};
+      ["learn", "voice"].forEach((id) => {
+        const deck = group.querySelector(`[data-deck-init=${id}]`);
+        const headings = [...deck.querySelectorAll('[data-split="heading"]')];
+        result[id] = {
+          hidden: deck.hidden,
+          state: deck.dataset.deckState,
+          headings: headings.map((heading) => ({
+            lines: heading.querySelectorAll(".line").length,
+            hasTween: Boolean(heading._splitTween),
+            progress: heading._splitTween?.progress() ?? null,
+            hasRects: Boolean(heading.getClientRects().length),
+          })),
+        };
+      });
+      return result;
+    };
+    const finish = () => {
+      if (done) return;
+      done = true;
+      clearTimeout(timeout);
+      resolve({ moved, eventSeen, observed: observed() });
+    };
+    const timeout = setTimeout(finish, 3000);
+    const sample = () => {
+      if (done) return;
+      ["learn", "voice"].forEach((id) => {
+        const lines = group.querySelectorAll(`[data-deck-init=${id}] [data-split=heading] .line`);
+        if ([...lines].some(isMoved)) moved[id] = true;
+      });
+      if (moved.learn && moved.voice) {
+        finish();
+        return;
+      }
+      if (performance.now() >= deadline) {
+        finish();
+        return;
+      }
       requestAnimationFrame(sample);
     };
-    group.addEventListener("ecosystemfolders:collapsed", onCollapsed);
+    group.addEventListener("ecosystemfolders:collapsed", () => {
+      eventSeen = true;
+      deadline = performance.now() + 2000;
+      requestAnimationFrame(sample);
+    }, { once: true });
   }));
 
   await deck.locator("[data-deck-collapse]").click();
-  expect(await replay).toBe(true);
+  expect(await replay).toMatchObject({ moved: { learn: true, voice: true } });
   expect(await page.evaluate(() => window.__folderCollapseEvents)).toEqual(["learn"]);
   for (const id of ["learn", "voice"]) {
     expect(await root.locator(`[data-deck-init=${id}] [data-split="heading"] .line`).count()).toBeGreaterThan(0);
   }
-  await page.waitForTimeout(1200);
-  expect(await deck.locator(".line").evaluateAll((lines) => lines.every((line) => {
+  await expect.poll(() => deck.locator(".line").evaluateAll((lines) => lines.every((line) => {
     const value = getComputedStyle(line).transform;
     if (value === "none") return true;
     const matrix = new DOMMatrix(value);
@@ -205,7 +265,7 @@ test("replays both folder intros after each collapse", async ({ page }) => {
   await deck.locator("[data-deck-folder]").press("Enter");
   await expect(deck).toHaveAttribute("data-deck-state", "expanded");
   await deck.locator("[data-deck-collapse]").click();
-  await expect(root).toHaveAttribute("data-folders-state", "stacked");
+  await expect(root).toHaveAttribute("data-folders-state", "stacked", { timeout: COLLAPSE_TIMEOUT });
   expect(await page.evaluate(() => window.__folderCollapseEvents)).toEqual(["learn", "learn"]);
 });
 
@@ -307,8 +367,11 @@ test("drags the infinite row with inertia and keeps links safe", async ({ page }
   expect(await page.evaluate(() => location.hash)).toBe(hashBefore);
 
   // Let the inertia throw settle before the clean click, or the card under the
-  // pointer is still moving and the click lands on a neighbour or a gap.
-  await expect.poll(async () => deck.evaluate((root) => root._ecosystemDeckInstance.throwActive), { timeout: 4000 }).toBe(false);
+  // pointer is still moving and the click lands on a neighbour or a gap. The
+  // throw length comes from the velocity InertiaPlugin measured across the
+  // synthetic moves, which a loaded machine stretches; its default maxDuration
+  // is 10s, so wait past that rather than the nominal ~1-2s.
+  await expect.poll(async () => deck.evaluate((root) => root._ecosystemDeckInstance.throwActive), { timeout: 12000 }).toBe(false);
   const cleanPoint = await deck.locator("[data-deck-viewport]").evaluate((viewport) => {
     const viewportBox = viewport.getBoundingClientRect();
     // A card fully inside the window: a half-off-screen card at the left edge

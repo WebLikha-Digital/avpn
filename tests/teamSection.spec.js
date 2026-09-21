@@ -54,10 +54,25 @@ async function previewState(list) {
   }));
 }
 
+async function waitForRowToSettle(row) {
+  let previous;
+  await expect.poll(async () => {
+    const current = await row.boundingBox();
+    const settled = current && previous && ["x", "y", "width", "height"].every((key) =>
+      Math.abs(current[key] - previous[key]) <= 0.5,
+    );
+    previous = current;
+    return Boolean(settled);
+  }, { timeout: 3_000 }).toBe(true);
+}
+
 async function expectPreviewForRow(page, list, index) {
   const row = list.locator("[data-team-row]").nth(index);
+  await row.scrollIntoViewIfNeeded();
+  await waitForRowToSettle(row);
   await row.hover();
-  await page.waitForTimeout(650);
+  await expect.poll(() => previewState(list).then((state) => state.opacity), { timeout: 3_000 })
+    .toBeGreaterThanOrEqual(0.9);
   const state = await previewState(list);
   const expectedSrc = await row.locator("img").getAttribute("src");
   expect(state.opacity).toBeCloseTo(1, 1);
@@ -81,15 +96,19 @@ test("travels to hovered board rows and swaps one image", async ({ page }) => {
   const rowBox = await row.boundingBox();
   expect(Math.abs(first.state.preview.bottom - (rowBox.y + rowBox.height))).toBeLessThanOrEqual(2);
 
-  await list.locator("[data-team-row]").nth(5).hover();
-  await page.waitForTimeout(700);
+  const nextRow = list.locator("[data-team-row]").nth(5);
+  const expectedNextSrc = await nextRow.locator("img").getAttribute("src");
+  await nextRow.hover();
+  await expect.poll(() => previewState(list).then((state) => state.images), { timeout: 3_000 })
+    .toEqual([expectedNextSrc]);
+  await expect.poll(() => previewState(list).then((state) => state.opacity), { timeout: 3_000 })
+    .toBeGreaterThanOrEqual(0.9);
   const second = await previewState(list);
   expect(second.images).toHaveLength(1);
-  await expect(second.images[0]).toBe(await list.locator("[data-team-row]").nth(5).locator("img").getAttribute("src"));
+  await expect(second.images[0]).toBe(expectedNextSrc);
 
   await page.mouse.move(2, 2);
-  await page.waitForTimeout(400);
-  await expect.poll(() => previewState(list).then((state) => state.opacity)).toBe(0);
+  await expect.poll(() => previewState(list).then((state) => state.opacity), { timeout: 3_000 }).toBe(0);
 });
 
 test("keeps every panel live across category switches", async ({ page }) => {
@@ -100,12 +119,12 @@ test("keeps every panel live across category switches", async ({ page }) => {
   await toggle.click();
   const leadership = section.locator(panel("team-leadership")).locator("[data-team-list]");
   await expectPreviewForRow(page, leadership, 1);
-  expect(await previewState(boardList)).toMatchObject({ opacity: 0 });
+  await expect.poll(() => previewState(boardList).then((state) => state.opacity), { timeout: 3_000 }).toBe(0);
 
   await section.locator('[data-team-tab="team-programmes"]').click();
   const programmes = section.locator(panel("team-programmes")).locator("[data-team-list]");
   await expectPreviewForRow(page, programmes, 1);
-  expect(await previewState(boardList)).toMatchObject({ opacity: 0 });
+  await expect.poll(() => previewState(boardList).then((state) => state.opacity), { timeout: 3_000 }).toBe(0);
 
   await section.locator('[data-team-tab="board"]').click();
   await expectPreviewForRow(page, boardList, 0);

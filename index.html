@@ -106,6 +106,7 @@
       .members_list-wrap{height:100vh;position:relative;overflow:visible}
       .members_list{flex-direction:column;padding-top:8rem;padding-bottom:40vh;display:flex}
       .members_item{color:#fff;background-color:#00b4ae;border-top-left-radius:10px;border-bottom-left-radius:10px;margin-bottom:1rem;padding:1.5rem 1.875rem;position:relative}
+      @media screen and (max-width:991px){.members_item{border-top-right-radius:10px;border-bottom-right-radius:10px}}
       .members_item-toggle{grid-column-gap:.625rem;cursor:pointer;width:100%;color:inherit;align-items:center;text-decoration:none;display:flex}
       .members_item-icon{flex:none;width:1.75rem;height:1.75rem;position:relative}
       .members_item-title{font-family:Archivo,Arial,sans-serif;font-size:1.5rem;font-weight:500;line-height:1.2}
@@ -2894,12 +2895,15 @@
   }
 
   /* Tablet and below: no sticky, no scrub (JS reads the same breakpoint), one
-     column, plain accordion; globe sits behind the list bottom-left. */
+     column, plain accordion; globe sits behind the list bottom-left. Rows sit
+     flush left with no staircase and no right-edge bleed (Figma 4036:29738);
+     the right corners are rounded on the members_item class at the Tablet
+     breakpoint. */
   @media (max-width: 991px) {
-    .section_members { height: auto; --members-step: 8px; }
+    .section_members { height: auto; --members-step: 0px; }
     .members_sticky { position: relative; height: auto; overflow: clip; }
     .members_layout { grid-template-columns: 1fr; height: auto; padding-bottom: 4rem; }
-    .members_list-wrap { height: auto; overflow: visible; }
+    .members_list-wrap { height: auto; overflow: visible; margin-right: 0; clip-path: none; }
     .members_list { padding-bottom: 0; }
     .members_item { width: 100%; }               /* no bleed: keeps body.scrollWidth = viewport */
     .members_copy { margin-left: 0; }            /* one column: copy stays in the container */

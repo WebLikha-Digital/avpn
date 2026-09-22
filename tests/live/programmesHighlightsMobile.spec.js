@@ -76,6 +76,56 @@ test("stacks the band and keeps its mobile scroll animations vertical", async ({
   }
 });
 
+test("centres mobile wheels and clips the next card at rest", async ({ page }) => {
+  const wheels = await page.evaluate((selector) => {
+    const stages = [...document.querySelectorAll(`${selector} [data-rotary-wheel-stage]`)];
+
+    return stages.map((stage) => {
+      stage.scrollIntoView({ block: "center" });
+
+      const disc = stage.querySelector(".prog-highlights_disc");
+      const arc = stage.querySelector(".prog-highlights_arc");
+      const hub = stage.querySelector("[data-rotary-wheel-hub]");
+      const items = [...hub.querySelectorAll(".prog-highlights_item")];
+      hub.scrollLeft = 0;
+
+      const discRect = disc.getBoundingClientRect();
+      const arcRect = arc.getBoundingClientRect();
+      const hubRect = hub.getBoundingClientRect();
+      const padding = getComputedStyle(hub);
+
+      return {
+        discCentreX: (discRect.left + discRect.right) / 2,
+        arcCentreX: (arcRect.left + arcRect.right) / 2,
+        viewportCentreX: window.innerWidth / 2,
+        hub: {
+          left: hubRect.left,
+          right: hubRect.right,
+          paddingLeft: Number.parseFloat(padding.paddingLeft),
+          paddingRight: Number.parseFloat(padding.paddingRight),
+          scrollLeft: hub.scrollLeft,
+          flexShrink: padding.flexShrink,
+        },
+        items: items.map((item) => {
+          const rect = item.getBoundingClientRect();
+          return { left: rect.left, right: rect.right };
+        }),
+      };
+    });
+  }, BAND);
+
+  expect(wheels).toHaveLength(3);
+  for (const wheel of wheels) {
+    expect(Math.abs(wheel.discCentreX - wheel.arcCentreX)).toBeLessThanOrEqual(1);
+    expect(Math.abs(wheel.discCentreX - wheel.viewportCentreX)).toBeLessThanOrEqual(1);
+    expect(wheel.hub.scrollLeft).toBe(0);
+    expect(wheel.hub.flexShrink).toBe("0");
+    expect(wheel.items[0].left).toBeGreaterThanOrEqual(wheel.hub.left + wheel.hub.paddingLeft - 1);
+    expect(wheel.items[0].right).toBeLessThanOrEqual(wheel.hub.right - wheel.hub.paddingRight + 1);
+    expect(wheel.items[1].left).toBeGreaterThanOrEqual(wheel.hub.right - 0.5);
+  }
+});
+
 test("draws the mobile connector and reveals stacked arcs while scrolling", async ({ page }) => {
   const line = page.locator(`${BAND} .prog-highlights_line.is-mobile`);
   await expect(line).toBeVisible();

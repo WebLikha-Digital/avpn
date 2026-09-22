@@ -1,5 +1,8 @@
 import { gsap, ScrollTrigger } from "../lib/gsap.js";
-import { bandContext } from "./horizontalScroller.js";
+import {
+  bandContext,
+  verticalScrollPosition,
+} from "./horizontalScroller.js";
 
 /**
  * Draw Path on Scroll — based on the Osmo Supply resource, wired into this
@@ -120,16 +123,24 @@ export function initDrawPathScroll() {
         // and has to be written in the band's axis when there is one.
         const band = bandContext(wrap);
         const scrollBand = hasWindowTrigger ? null : band;
-        const start =
-          wrap.getAttribute("data-draw-scroll-start") ||
-          (reveal || hasWindowTrigger
+        const authoredStart = wrap.getAttribute("data-draw-scroll-start");
+        const start = authoredStart
+          ? scrollBand
+            ? authoredStart
+            : verticalScrollPosition(authoredStart)
+          : reveal || hasWindowTrigger
             ? "top 80%"
-            : band
+            : scrollBand
               ? "clamp(left center)"
-              : "clamp(top center)");
-        const end =
-          wrap.getAttribute("data-draw-scroll-end") ||
-          (scrollBand ? "clamp(right center)" : "clamp(bottom center)");
+              : "clamp(top center)";
+        const authoredEnd = wrap.getAttribute("data-draw-scroll-end");
+        const end = authoredEnd
+          ? scrollBand
+            ? authoredEnd
+            : verticalScrollPosition(authoredEnd)
+          : scrollBand
+            ? "clamp(right center)"
+            : "clamp(bottom center)";
         const configuredStagger = Number.parseFloat(
           wrap.getAttribute("data-draw-scroll-stagger"),
         );

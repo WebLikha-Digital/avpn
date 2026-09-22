@@ -163,6 +163,16 @@ export function bandContext(element) {
   return scroller ? { scroller, horizontal: true } : null;
 }
 
+/**
+ * Convert a position authored for the band's horizontal axis to the window's
+ * vertical axis. The wrapper syntax and all other position tokens stay intact.
+ */
+export function verticalScrollPosition(position) {
+  return position.replace(/\b(left|right)\b/g, (edge) =>
+    edge === "left" ? "top" : "bottom",
+  );
+}
+
 function teardown(wrap) {
   const previous = wrap._horizontalScroller;
   if (!previous) return;

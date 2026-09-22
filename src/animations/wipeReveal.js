@@ -1,5 +1,8 @@
 import { gsap } from "../lib/gsap.js";
-import { bandContext } from "./horizontalScroller.js";
+import {
+  bandContext,
+  verticalScrollPosition,
+} from "./horizontalScroller.js";
 
 const START_CLIP = "inset(100% 0% 0% 0%)";
 
@@ -42,9 +45,14 @@ export function initWipeReveal() {
     // default has to swap axis with it. An authored start still wins, and is
     // expected to use the band's axis when there is one.
     const band = bandContext(image);
-    const start =
-      image.getAttribute("data-wipe-start") ||
-      (band ? "clamp(left 80%)" : "clamp(top 80%)");
+    const authoredStart = image.getAttribute("data-wipe-start");
+    const start = authoredStart
+      ? band
+        ? authoredStart
+        : verticalScrollPosition(authoredStart)
+      : band
+        ? "clamp(left 80%)"
+        : "clamp(top 80%)";
     const once = image.getAttribute("data-wipe-once") !== "false";
 
     image._wipeTween = gsap.fromTo(

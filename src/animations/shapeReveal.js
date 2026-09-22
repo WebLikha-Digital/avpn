@@ -1,5 +1,8 @@
 import { gsap } from "../lib/gsap.js";
-import { bandContext } from "./horizontalScroller.js";
+import {
+  bandContext,
+  verticalScrollPosition,
+} from "./horizontalScroller.js";
 
 const DEFAULT_ORIGIN = "50% 50%";
 const DEFAULT_DURATION = 0.65;
@@ -39,10 +42,14 @@ export function initShapeReveal() {
       shape.getAttribute("data-shape-scroller") === "window"
         ? null
         : bandContext(shape);
-    const start =
+    const authoredStart =
       shape.getAttribute("data-shape-start") ||
-      (heading && heading.getAttribute("data-split-start")) ||
-      defaultStart(band);
+      (heading && heading.getAttribute("data-split-start"));
+    const start = authoredStart
+      ? band
+        ? authoredStart
+        : verticalScrollPosition(authoredStart)
+      : defaultStart(band);
     const once =
       shape.getAttribute("data-shape-once") !== null
         ? shape.getAttribute("data-shape-once") !== "false"

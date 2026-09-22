@@ -2895,19 +2895,33 @@
   }
 
   /* Tablet and below: no sticky, no scrub (JS reads the same breakpoint), one
-     column, plain accordion; globe sits behind the list bottom-left. Rows sit
-     flush left with no staircase and no right-edge bleed (Figma 4036:29738);
-     the right corners are rounded on the members_item class at the Tablet
-     breakpoint. */
+     column, plain accordion. Rows sit flush left with no staircase and no
+     right-edge bleed (Figma 4036:29738); the right corners are rounded on the
+     members_item class at the Tablet breakpoint.
+
+     Globe (same Figma): bottom-centred under the last row, cut by the section
+     bottom so its top ~53% shows. --members-globe is the canvas box; the drawn
+     sphere is 80% of it (clip above), so at 375 the box is 750px, the sphere
+     600px wide, its centre 0.133 box above the section bottom, and the layout
+     reserves 0.65 box under the last row for it. Capped at 80rem so a wide
+     tablet does not get a 1500px globe. */
   @media (max-width: 991px) {
-    .section_members { height: auto; --members-step: 0px; }
+    .section_members { height: auto; --members-step: 0px; --members-globe: min(200vw, 80rem); }
     .members_sticky { position: relative; height: auto; overflow: clip; }
-    .members_layout { grid-template-columns: 1fr; height: auto; padding-bottom: 4rem; }
+    .members_layout { grid-template-columns: 1fr; height: auto; padding-bottom: calc(var(--members-globe) * 0.65); }
     .members_list-wrap { height: auto; overflow: visible; margin-right: 0; clip-path: none; }
     .members_list { padding-bottom: 0; }
     .members_item { width: 100%; }               /* no bleed: keeps body.scrollWidth = viewport */
     .members_copy { margin-left: 0; }            /* one column: copy stays in the container */
-    .members_globe { top: auto; bottom: -20vw; left: -25vw; width: 85vw; height: 85vw; opacity: 0.6; }
+    .members_globe {
+      top: auto;
+      bottom: calc(var(--members-globe) * -0.367);
+      left: 50%;
+      width: var(--members-globe);
+      height: var(--members-globe);
+      margin-left: calc(var(--members-globe) / -2);
+      opacity: 1;
+    }
     .members_line { top: 0; left: 40%; width: 90vw; }
   }
   </style></div>

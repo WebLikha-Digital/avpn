@@ -1,5 +1,8 @@
 import { gsap, SplitText } from "../lib/gsap.js";
-import { bandContext } from "./horizontalScroller.js";
+import {
+  bandContext,
+  verticalScrollPosition,
+} from "./horizontalScroller.js";
 
 // Per split-type timing. Finer splits get shorter, tighter staggers so a long
 // string doesn't take forever to finish arriving.
@@ -86,9 +89,14 @@ function setupSplit(heading, replay = false) {
   // default has to swap axis with it. An authored start still wins, and has
   // to be written in the band's axis when there is one.
   const band = bandContext(heading);
-  const start =
-    heading.getAttribute("data-split-start") ||
-    (band ? "clamp(left 80%)" : "clamp(top 80%)");
+  const authoredStart = heading.getAttribute("data-split-start");
+  const start = authoredStart
+    ? band
+      ? authoredStart
+      : verticalScrollPosition(authoredStart)
+    : band
+      ? "clamp(left 80%)"
+      : "clamp(top 80%)";
   const once = heading.getAttribute("data-split-once") !== "false";
   const parsedDelay = Number.parseFloat(
     heading.getAttribute("data-split-delay"),

@@ -469,8 +469,97 @@ Measuring this needs a fresh page load per candidate size: SplitText splits
 once on load, so a style injected afterwards keeps the old line breaks and
 reads as a false wrap.
 
-Mobile (≤767px) is a separate build — the band is off there and the section
-still lays out as a horizontal track. See the mobile stack task.
+## Mobile (≤767px): the band stacks
+
+Below 768 `horizontalScroller.js` never marks the band and `rotaryWheel.js`
+returns without a scroller, so the JS is already out of the way; until
+2026-09-22 the Webflow layout was not. The track stayed a flex row of `100vw`
+panels, the section was one viewport tall, and everything after the intro sat
+off-canvas to the right. The stacked layout below follows Figma node
+`4036:38947` (375×4179) and is set on the **Mobile landscape** breakpoint,
+which cascades to portrait.
+
+| Class | Mobile value |
+|---|---|
+| `.prog-highlights_scroller` | `overflow-x: clip` (the disc bleeds both sides) |
+| `.prog-highlights_viewport` | `position: static; height: auto; overflow: visible` |
+| `.prog-highlights_track` | `flex-direction: column; width: 100%; height: auto; row-gap` + `padding-top` = `section-space/small`, `padding-bottom: 0` |
+| `.prog-highlights_panel` | `width: 100%; height: auto; overflow: visible; padding-inline` = `space/4` |
+| `.is-intro`, `.is-intro-media` | `width: 100%; display: block` (media also `overflow: visible` for the arrow) |
+| `.is-*.is-wheel` × 3 | `width: 100%` |
+| `.is-tail` | `display: block; height: 100vh` — the runway the section's arc cover rises over; without it the cover ate the last card |
+| `.prog-highlights_line` | `display: none`; new combo `.is-mobile` is the one line shown (`display: block` here, `none` on desktop) |
+| `.prog-highlights_intro-content` | `padding-left: 0; row-gap` = `space/4` |
+| `.heading-style-h2.prog-highlights_title`, `.prog-highlights_copy-heading` | `font-size: calc(var(--_typography---font-size--h2) * 0.75)` |
+| `.prog-highlights_copy-heading` | `width: 100%; align-items: stretch` |
+| `.prog-highlights_copy-line` | `width: 100%; column-gap` = `space/3` |
+| `.prog-highlights_copy` | `position: static; max-width: none; transform: none; row-gap` = `space/6` |
+| `.prog-highlights_intro-media` | `position: relative; width: 100%; height: auto; aspect-ratio: 1/1`, offsets and transform cleared |
+| `.prog-highlights_intro-icon` | `display: flex; top: 0; left: 50%; margin: -2.5rem 0 0 -2.5rem; transform: none` — straddles the image's top edge; centred with margins, not a transform, because the shape reveal owns the element's transform |
+| `.prog-highlights_intro-icon-wrapper` | `transform: rotate(90deg)` — the arrow art points right; the inner wrapper turns it down |
+| `.prog-highlights_stage` | `width: 100%; height: min(180vw, 140vh, 50rem); overflow: visible; display: flex; align-items: center` |
+| `.prog-highlights_disc` | `width/height: min(180vw, 140vh, 50rem)` |
+| `.prog-highlights_arc` | `width/height: calc(min(180vw, 140vh, 50rem) * 1.28); transform: translate(-50%, -50%) rotate(90deg)` |
+| `.prog-highlights_hub` | `position: relative; width: calc(100% + 2 * space/4); margin-left: calc(-1 * space/4); padding-inline` = `space/4`; `display: flex; column-gap` = `space/3`; `overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-left` = `space/4`; `scrollbar-width: none` |
+| `.prog-highlights_item` | `position: relative; flex: 0 0 100%; scroll-snap-align: start` |
+| `.prog-highlights_card` | `transform: none; width: 100%; height: 100%; min-height: auto; padding` = `space/4` per side |
+
+### Why those numbers
+
+- **Heading at 0.75 × H2.** The H2 variable is 46.6px at 375, and the live
+  font is wider than the Figma's: "thematic areas" plus its two shapes is
+  ~292px at 40px, against a 335px column minus the 14px gap and 51px of
+  shapes. 0.75 (35px at 375, 34px at 360) is the largest factor at which every
+  authored line stays one rendered line from 360px up; 0.85 and 0.9 rewrap the
+  third line. 320px still wraps it — accepted.
+- **`width: 100%` on the heading and its lines.** Both are flex items under
+  `align-items: flex-start`, so they shrink-to-fit; the row then squeezed its
+  text `div` below the text's width and the browser wrapped inside the line
+  *before* SplitText measured it, which turned "thematic areas" into two
+  permanent line elements. Stretching both keeps the text `div` at its natural
+  width.
+- **Disc `min(180vw, 140vh, 50rem)`.** 180vw reproduces the Figma's 677px disc
+  on a 375 screen and bleeds ~52px each side; the `50rem` cap stops it growing
+  to 1380px on a 767 screen (measured before the cap), and `140vh` keeps a
+  landscape phone from getting a disc taller than its screen.
+- **Arc at 1.28 × disc, rotated 90°.** The Figma puts the arc text at 0.82 of
+  the disc radius; the embed's paths sit at r = 32 on the 100-unit box, i.e.
+  0.64 of the box, so the box has to be 1.28× the disc. Rotating the whole SVG
+  90° moves the left run (centred at 9 o'clock) to the top and the right run to
+  the bottom, keeping letters facing outward — upright on top, inverted along
+  the bottom, exactly as the mock draws it. No second set of paths is needed.
+- **Hub bleeds by `space/4` on both sides.** The hub is the scroll container,
+  so it clips its own children; bleeding it to the panel edge is what lets the
+  next card peek in from the viewport edge rather than from the content edge.
+  Snap positions land at item start minus `scroll-padding-left` (measured
+  0/329/657/986 for the four thematic cards).
+- **No "Show more".** The longest card body is 463 characters, ~11 lines at
+  the mobile size; the tallest card is 483px inside a 675px disc. The Figma's
+  truncation was not needed.
+
+### The mobile line
+
+`.prog-highlights_line.is-mobile` is a fourth `[data-draw-scroll-wrap]`
+overlay prepended to the track: `svg[data-draw-scroll-desktop]` with
+`viewBox="0 0 375 4600"`, `preserveAspectRatio="none"`, one
+`path[data-draw-scroll-path]` (`stroke="white"`, `stroke-width="5"`). It has
+no authored start/end, so `drawPathScroll` uses its vertical defaults
+(`clamp(top center)` → `clamp(bottom center)`). The path hugs the right margin
+beside each title block and only crosses the column inside the three disc
+areas, where the card paints over it; the first draft ran through the intro
+copy and was rerouted. Like the desktop lines it is hand-traced, not exported.
+
+### Authored band-axis positions off the band
+
+The arc embeds carry `data-shape-start="clamp(left 80%)"` and the desktop
+lines carry `clamp(left right)` / `clamp(right center)`. Those are band-axis
+positions, and below 768 there is no band, so `horizontalScroller.js` now
+exports `verticalScrollPosition()` — `left` → `top`, `right` → `bottom`,
+wrapper and percentages untouched — and every band-aware component
+(`shapeReveal`, `splitReveal`, `drawPathScroll`, `wipeReveal`,
+`contentReveal`) maps an authored value through it when `bandContext()` is
+null. With a band active nothing changes. `tests/live/programmesHighlightsMobile.spec.js`
+covers the stacked layout at 375×812 on the published page.
 
 ---
 

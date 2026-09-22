@@ -437,6 +437,43 @@ line get rewrapped.
 
 ---
 
+## Tablet (768–991px): heading size and inline decorations
+
+The band still runs on tablet, but the four headings — `prog-highlights_title`
+and the three `prog-highlights_copy-heading`s — did not fit their columns.
+`.prog-highlights_intro-content` and `.prog-highlights_copy` (`max-width: 60vw`)
+shrink to 595px at 991 and 461px at 768 while the H2 variable only scales to
+75px / 65px, so "Programmes ▮" clipped inside its `line-mask` and
+"engagements in / thematic areas" rewrapped, leaving an orphan "in" and the
+shapes floating beside a two-line block. The inline shape and photo were fixed
+`4.5rem` / `7rem` and made the second title worse the smaller the text got.
+
+Set on the **Tablet** breakpoint only (2026-09-22), so desktop is byte-identical:
+
+| Class | Tablet value |
+|---|---|
+| `.heading-style-h2.prog-highlights_title` | `font-size: calc(var(--_typography---font-size--h2) * 0.8)` |
+| `.prog-highlights_copy-heading` | `font-size: calc(var(--_typography---font-size--h2) * 0.8)` |
+| `.prog-highlights-heading_shape` | `width/height: 0.75em` |
+| `.prog-highlights-heading_image` | `width/height: 1.1667em` |
+
+`0.8` is the largest factor at which every authored line stays one rendered
+line at both 991 and 768 (60px / 52px); `0.85` and `0.9` still rewrap
+"engagements in / thematic areas" at 768. The `em` ratios are the desktop
+ratios (`72px / 96px`, `112px / 96px`), so the decorations keep their
+proportion to the text instead of a fixed size. Widening `.prog-highlights_copy`
+to `75vw` was tried instead and rejected: the second and third title panels
+place their copy to the right of the disc and overflow the viewport.
+
+Measuring this needs a fresh page load per candidate size: SplitText splits
+once on load, so a style injected afterwards keeps the old line breaks and
+reads as a false wrap.
+
+Mobile (≤767px) is a separate build — the band is off there and the section
+still lays out as a horizontal track. See the mobile stack task.
+
+---
+
 ## Rebuilding or extending this
 
 - **Card count changes.** Add/remove a `.prog-highlights_item` under the

@@ -498,9 +498,9 @@ which cascades to portrait.
 | `.prog-highlights_intro-icon` | `display: flex; top: 0; left: 50%; margin: -2.5rem 0 0 -2.5rem; transform: none` — straddles the image's top edge; centred with margins, not a transform, because the shape reveal owns the element's transform |
 | `.prog-highlights_intro-icon-wrapper` | `transform: rotate(90deg)` — the arrow art points right; the inner wrapper turns it down |
 | `.prog-highlights_stage` | `width: 100%; height: min(180vw, 140vh, 50rem); overflow: visible; display: flex; align-items: center` |
-| `.prog-highlights_disc` | `width/height: min(180vw, 140vh, 50rem)` |
+| `.prog-highlights_disc` | `width/height: min(180vw, 140vh, 50rem); left: 50%; right: auto; margin-left: calc(-0.5 * min(180vw, 140vh, 50rem)); margin-right: 0` — the desktop `inset: 0; margin: auto` cannot centre a box wider than its parent (PR #160) |
 | `.prog-highlights_arc` | `width/height: calc(min(180vw, 140vh, 50rem) * 1.28); transform: translate(-50%, -50%) rotate(90deg)` |
-| `.prog-highlights_hub` | `position: relative; width: calc(100% + 2 * space/4); margin-left: calc(-1 * space/4); padding-inline` = `space/4`; `display: flex; column-gap` = `space/3`; `overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-left` = `space/4`; `scrollbar-width: none` |
+| `.prog-highlights_hub` | `position: relative; width: calc(100% + 2 * space/4); margin-left: calc(-1 * space/4); padding-inline` = `space/4`; `display: flex; flex: 0 0 auto; column-gap` = `space/4`; `overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-left` = `space/4`; `scrollbar-width: none` |
 | `.prog-highlights_item` | `position: relative; flex: 0 0 100%; scroll-snap-align: start` |
 | `.prog-highlights_card` | `transform: none; width: 100%; height: 100%; min-height: auto; padding` = `space/4` per side |
 
@@ -518,7 +518,11 @@ which cascades to portrait.
   *before* SplitText measured it, which turned "thematic areas" into two
   permanent line elements. Stretching both keeps the text `div` at its natural
   width.
-- **Disc `min(180vw, 140vh, 50rem)`.** 180vw reproduces the Figma's 677px disc
+- **Disc `min(180vw, 140vh, 50rem)`, centred with `left: 50%` + a negative
+  half-width margin.** The desktop `inset: 0; margin: auto` recipe only centres
+  a box that fits its parent; wider than the stage, the over-constrained
+  `margin: auto` resolves to `left: 0` and the disc sits 170px right of the arc
+  text. 180vw reproduces the Figma's 677px disc
   on a 375 screen and bleeds ~52px each side; the `50rem` cap stops it growing
   to 1380px on a 767 screen (measured before the cap), and `140vh` keeps a
   landscape phone from getting a disc taller than its screen.
@@ -528,11 +532,15 @@ which cascades to portrait.
   90° moves the left run (centred at 9 o'clock) to the top and the right run to
   the bottom, keeping letters facing outward — upright on top, inverted along
   the bottom, exactly as the mock draws it. No second set of paths is needed.
-- **Hub bleeds by `space/4` on both sides.** The hub is the scroll container,
-  so it clips its own children; bleeding it to the panel edge is what lets the
-  next card peek in from the viewport edge rather than from the content edge.
-  Snap positions land at item start minus `scroll-padding-left` (measured
-  0/329/657/986 for the four thematic cards).
+- **Hub bleeds by `space/4` on both sides, and does not peek.** The hub is the
+  scroll container, so it clips its own children; bleeding it to the panel edge
+  means a card being swiped in appears from the viewport edge rather than from
+  the content edge. At rest nothing of the next card shows, matching the Figma:
+  `flex: 0 0 auto` stops the stage's flex layout shrinking the hub below its
+  bled width (default `flex-shrink: 1` took it from 375px to 355px), and the
+  `space/4` column gap equals the padding so the next card starts exactly at the
+  hub's clip edge. Snap positions land at item start minus `scroll-padding-left`
+  (measured 0/355/710/1065 for the four thematic cards at 375).
 - **No "Show more".** The longest card body is 463 characters, ~11 lines at
   the mobile size; the tallest card is 483px inside a 675px disc. The Figma's
   truncation was not needed.

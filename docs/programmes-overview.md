@@ -229,6 +229,27 @@ the line never reaches the edge. `4.5` on a `0.9` vertical scale reads as ~4px.
 
 ---
 
+## Tablet: the heading's inline shape and photo scale with the text
+
+`.prog-overview_heading` is `font-size: 6vw`, so the words shrink with the
+viewport, but the quarter-circle (`.is-quarter-circle`, `4.5rem`) and the
+photo (`.prog-overview_heading-_image`, `7rem`) were fixed — at 768 a 46px
+word sat next to a 72px shape and a 112px photo. Same defect and same fix as
+the Programmes Highlights intro (`docs/webflow-programmes-highlights-build.md`,
+"Tablet (768–991px)"): on the **Tablet** breakpoint (2026-09-22) the
+decorations are `em`-sized at the desktop ratios, so desktop is untouched.
+
+| Class | Tablet | Ratio |
+|---|---|---|
+| `.prog-overview_heading-shape.is-quarter-circle` | `0.8333em` | `4.5rem / 86.4px` at 1440 |
+| `.prog-overview_heading-shape.is-circle` | `1.3657em` | `118px / 86.4px` (unused today, kept consistent) |
+| `.prog-overview_heading-_image` | `1.2963em` | `7rem / 86.4px` |
+
+Measured after publishing: 991 → 59px text, 50px shape, 77px photo; 768 →
+46 / 38 / 60; 375 → 22.5 / 19 / 29; 1440 unchanged at 86 / 72 / 112.
+
+---
+
 ## The CSS embed
 
 `programmes-overview-css` holds the rules Webflow's style panel cannot express.

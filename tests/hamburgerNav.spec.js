@@ -36,7 +36,9 @@ test("overlay and Escape close the navigation", async ({ page }) => {
   const toggle = nav.locator('[data-navigation-toggle="toggle"]');
   for (const close of [nav.locator(".nav_dark-bg")]) {
     await toggle.click();
-    await close.click({ force: true });
+    // Keep the real click in the lower-left corner, which the right-aligned panel never covers during its transition.
+    const overlayBox = await close.boundingBox();
+    await close.click({ force: true, position: { x: 24, y: overlayBox.height - 24 } });
     await expect(nav).toHaveAttribute("data-navigation-status", "not-active");
   }
   await toggle.click();

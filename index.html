@@ -444,8 +444,8 @@
       .markets_subheading{margin:0;font-family:Archivo,Arial,sans-serif;font-size:1.125rem;line-height:1.5;font-weight:400} /* Webflow: Text Style mode Text Large */
       .markets_viewport{position:relative;overflow:hidden;width:100%;height:100%}
       .markets_track{position:relative;display:flex;flex-wrap:nowrap;width:max-content;height:100%}
-      .markets_panel{position:relative;flex-shrink:0;height:100%;padding-top:182px;padding-right:100px;padding-left:100px}
-      .markets_line{position:absolute;top:-97.5px;left:0;width:4120px;height:1034.49px;pointer-events:none}
+      .markets_panel{position:relative;flex-shrink:0;height:100%;padding-right:var(--_spacing---section-space--main);padding-left:var(--_spacing---section-space--main)}
+      .markets_line{position:absolute;top:-97.5px;left:0;width:100%;height:auto;aspect-ratio:4120/1034.49;pointer-events:none}
       .markets_bars{position:relative;z-index:1;display:flex;align-items:flex-end;height:100%}
       .markets_bar{display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:196px;padding:3rem 1rem 0;border-top-left-radius:24px;border-top-right-radius:24px;text-align:center;transform-origin:50% 100%}
       .markets_bar-inner{display:flex;flex-direction:column;align-items:center;width:100%}
@@ -1707,6 +1707,7 @@
         --_spacing---space--4-24px: clamp(1.25rem,1.6vw,1.5rem);
         --_spacing---space--5-32px: clamp(1.75rem,2.2vw,2rem);
         --_spacing---space--7-48px: clamp(2.25rem,3vw,3rem);
+        --_spacing---section-space--main: clamp(4rem,7.8vw,7rem);
         --_primitives---brand--primary--red-main: #e42919;
         --_primitives---opacity--neutral-darkest-15: rgba(0,0,0,.15);
         --_typography---font--secondary-family: Arial;

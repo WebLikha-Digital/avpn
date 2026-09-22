@@ -179,6 +179,47 @@ on `.sig-events_card-inner`, not three variants.
 
 ---
 
+## Tablet (768–991px): band kept, card content stacked
+
+Measured on the published page before the change (2026-09-22): at 768×1024
+the cream band was still `25vh` = 256px around a `9.5vw` = 73px wordmark, the
+1024px stage held a 338px card, and the pin tips sat 42px (991) and 127px
+(768) above the line. The desktop pin offset `top: calc(-63vh + 24vw)` only
+works when the card is exactly as tall as its media (`26.7vw`) and sits
+`flex-end` on the stage floor; on tablet the text columns are taller than the
+image and every card is a different height, so the offset lands somewhere
+else per card. The card itself was still `106.3vw` with three columns crushed
+to 205 / 260 / 277px.
+
+The band stays. Set on the **Tablet** breakpoint:
+
+| Class | Tablet value |
+|---|---|
+| `.sig-events_card` | `width: 84vw` |
+| `.sig-events_card-inner` | `flex-wrap: wrap; align-items: flex-start; row-gap: 1.5rem; column-gap: 4vw` — still row direction |
+| `.sig-events_card-media` | `flex-basis: 100%; height: 34vw` — first row, full card width |
+| `.sig-events_card-title-col`, `.sig-events_card-body-col` | `flex-basis: auto; width: 40vw` — second row, side by side |
+| `.sig-events_bg.is-top` height, `.is-bottom` top | `calc(6vh + 9.5vw + 2.5rem)` — the cream is sized by the wordmark (its `top` + font size + clearance), the same inequality as desktop's `25vh` |
+| `.sig-events_line` | `top: calc(6vh + 12.58vw + 2.5rem)` — cream + `3.08vw`, desktop's own offset |
+| `.sig-events_track` | `align-items: flex-start; padding-top: calc(6vh + 12.58vw + 6.5rem); padding-bottom: 0` — cards hang `4rem` under the line instead of standing on the stage floor |
+| `.sig-events_pin` | `top: calc(-4rem - 6.5vw)` — the `4rem` gap plus the pin's own height, so the tip meets the line regardless of card height |
+
+Mobile landscape resets, because Tablet cascades down: `.sig-events_track`
+`padding-top: 0`, `.sig-events_bg.is-top` `height: 25vh`,
+`.sig-events_bg.is-bottom` `top: 25vh`. Everything else at ≤767 was already
+overridden there.
+
+Do not reach for `flex-direction: column` on `.sig-events_card-inner` to stack
+the card: the columns' `flex-basis` then becomes their *height*, their width
+falls back to `stretch` = the card's `106.3vw`, and the description runs off
+the viewport. `flex-wrap` keeps `flex-basis` meaning width.
+
+Measured after publishing: 768 — cream 174px, line at 198, pin tips at 198 on
+all three cards, cards 645×566–623 from y = 262 in the 1024 stage; 991 —
+cream 194, line 225, pin tips 224; 1440 and ≤767 unchanged.
+
+---
+
 ## The structural CSS
 
 These are set as literal properties on the Webflow classes themselves, via the

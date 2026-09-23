@@ -105,8 +105,7 @@
       .members_text{color:#002944;margin-top:0;margin-bottom:0;font-family:Archivo,Arial,sans-serif;font-size:1rem;line-height:1.5}
       .members_list-wrap{height:100vh;position:relative;overflow:visible}
       .members_list{flex-direction:column;padding-top:8rem;padding-bottom:40vh;display:flex}
-      .members_item{color:#fff;background-color:#00b4ae;border-top-left-radius:10px;border-bottom-left-radius:10px;margin-bottom:1rem;padding:1.5rem 1.875rem;position:relative}
-      @media screen and (max-width:991px){.members_item{border-top-right-radius:10px;border-bottom-right-radius:10px}}
+      .members_item{color:#fff;background-color:#00b4ae;border-radius:10px;margin-bottom:1rem;padding:1.5rem 1.875rem;position:relative}
       .members_item-toggle{grid-column-gap:.625rem;cursor:pointer;width:100%;color:inherit;align-items:center;text-decoration:none;display:flex}
       .members_item-icon{flex:none;width:1.75rem;height:1.75rem;position:relative}
       .members_item-title{font-family:Archivo,Arial,sans-serif;font-size:1.5rem;font-weight:500;line-height:1.2}
@@ -2795,7 +2794,7 @@
      and src/canvas/globe.js mounts the cobe canvas in [data-members-globe]. */
 
   .section_members {
-    --members-step: 30px;                          /* staircase indent per row */
+    --members-step: 4%;                            /* staircase: each row starts this much narrower than the one above */
     --members-ease: cubic-bezier(0.625, 0.05, 0, 1);
     container-type: inline-size;                   /* 100cqw = section width, scrollbar excluded (100vw is not) */
   }
@@ -2807,29 +2806,33 @@
   .members_item[data-members-color="yellow"] { background-color: #ffd552; color: #2c2c2c; }
   .members_item[data-members-color="blue"]   { background-color: #39627a; color: #ffffff; }
 
-  /* Staircase: each row steps right by one --members-step. */
-  .members_item:nth-child(2)  { margin-left: calc(var(--members-step) * 1); }
-  .members_item:nth-child(3)  { margin-left: calc(var(--members-step) * 2); }
-  .members_item:nth-child(4)  { margin-left: calc(var(--members-step) * 3); }
-  .members_item:nth-child(5)  { margin-left: calc(var(--members-step) * 4); }
-  .members_item:nth-child(6)  { margin-left: calc(var(--members-step) * 5); }
-  .members_item:nth-child(7)  { margin-left: calc(var(--members-step) * 6); }
-  .members_item:nth-child(8)  { margin-left: calc(var(--members-step) * 7); }
-  .members_item:nth-child(9)  { margin-left: calc(var(--members-step) * 8); }
-  .members_item:nth-child(10) { margin-left: calc(var(--members-step) * 9); }
-  .members_item:nth-child(11) { margin-left: calc(var(--members-step) * 10); }
-  .members_item:nth-child(12) { margin-left: calc(var(--members-step) * 11); }
+  /* Staircase: every row is right-anchored and each one starts a step narrower
+     than the row above. membersScroll.js scrubs them back to full width, so the
+     staircase resolves as the section scrolls and no row ever leaves the wrap. */
+  .members_item:nth-child(2)  { width: calc(100% - var(--members-step) * 1); }
+  .members_item:nth-child(3)  { width: calc(100% - var(--members-step) * 2); }
+  .members_item:nth-child(4)  { width: calc(100% - var(--members-step) * 3); }
+  .members_item:nth-child(5)  { width: calc(100% - var(--members-step) * 4); }
+  .members_item:nth-child(6)  { width: calc(100% - var(--members-step) * 5); }
+  .members_item:nth-child(7)  { width: calc(100% - var(--members-step) * 6); }
+  .members_item:nth-child(8)  { width: calc(100% - var(--members-step) * 7); }
+  .members_item:nth-child(9)  { width: calc(100% - var(--members-step) * 8); }
+  .members_item:nth-child(10) { width: calc(100% - var(--members-step) * 9); }
+  .members_item:nth-child(11) { width: calc(100% - var(--members-step) * 10); }
+  .members_item:nth-child(12) { width: calc(100% - var(--members-step) * 11); }
 
-  /* Bleed the list to the viewport's right edge (Figma: cards run off screen).
-     Column right edge sits at the container edge: (100vw - container) / 2 from
-     the viewport, container = min(90vw, 80rem) (padding-global 5% each side,
-     container-large 80rem). Rows are wider than the wrap so the clip cuts the
-     square right corners, never the rounded left ones. */
+  /* Push the wrap's right edge out to the viewport edge (Figma: the cards reach
+     past the container). Column right edge sits at the container edge:
+     (100vw - container) / 2 from the viewport, container = min(90vw, 80rem)
+     (padding-global 5% each side, container-large 80rem). Rows end there and
+     never cross it, so nothing is clipped. */
   .members_list-wrap {
   margin-right: calc((min(90vw, 80rem) - 100vw) / 2 - 1rem); /* -1rem covers a classic scrollbar */
-  clip-path: inset(0 0 0 -100vw); /* clip top/right/bottom only: rows scrub left past the wrap edge */
 }
-  .members_item { width: calc(135% + 6rem); } /* +35%: rows scrub up to 35% left (membersScroll.js) and must stay flush right */
+  /* Right-anchored: the staircase above takes its width off the left edge only.
+     The min-width stops a narrow desktop shrinking a row until its title
+     rewraps, which would change row heights mid-scrub. */
+  .members_item { width: 100%; margin-left: auto; min-width: min(100%, 26rem); }
 
   /* Copy column: pull the left edge out of the container to the navbar pill's
      left edge (--site--margin, the nav's --nav-inset), so the heading lines up
@@ -2898,7 +2901,7 @@
   /* Tablet and below: no sticky, no scrub (JS reads the same breakpoint), one
      column, plain accordion. Rows sit flush left with no staircase and no
      right-edge bleed (Figma 4036:29738); the right corners are rounded on the
-     members_item class at the Tablet breakpoint.
+     members_item class at every breakpoint.
 
      Globe (same Figma): bottom-centred under the last row, cut by the section
      bottom so its top ~53% shows. --members-globe is the canvas box; the drawn
@@ -2907,10 +2910,10 @@
      reserves 0.65 box under the last row for it. Capped at 80rem so a wide
      tablet does not get a 1500px globe. */
   @media (max-width: 991px) {
-    .section_members { height: auto; --members-step: 0px; --members-globe: min(200vw, 80rem); }
+    .section_members { height: auto; --members-step: 0%; --members-globe: min(200vw, 80rem); }
     .members_sticky { position: relative; height: auto; overflow: clip; }
     .members_layout { grid-template-columns: 1fr; height: auto; padding-bottom: calc(var(--members-globe) * 0.65); }
-    .members_list-wrap { height: auto; overflow: visible; margin-right: 0; clip-path: none; }
+    .members_list-wrap { height: auto; overflow: visible; margin-right: 0; }
     .members_list { padding-bottom: 0; }
     .members_item { width: 100%; }               /* no bleed: keeps body.scrollWidth = viewport */
     .members_copy { margin-left: 0; }            /* one column: copy stays in the container */

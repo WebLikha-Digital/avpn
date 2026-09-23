@@ -2795,13 +2795,14 @@
 
   .section_members {
     --members-content: 21rem;                      /* fixed measure of the row's contents; never reflows while the width scrubs */
-  --members-pad: 3.75rem;                        /* the row's own horizontal padding, 1.875rem each side */
-  /* The staircase is derived, not fixed: the deepest step the column can afford
-     while the narrowest row still shows the whole content measure. At a 712px
-     wrap that is ~4% per row, matching the reference's 5.5556% over 9 rows; on a
-     narrower desktop it flattens itself instead of pushing text off screen. */
-  --members-step: calc((100% - var(--members-content) - var(--members-pad)) / 11);
-  --members-bleed: 21.5rem;                      /* how far past the wrap's right edge a full-width row runs (Figma: cards run off screen) */
+    --members-pad: 3.75rem;                        /* the row's own horizontal padding, 1.875rem each side */
+    /* The staircase is derived, not fixed: the deepest step the column can
+       afford while the narrowest row still shows the whole content measure. At
+       a 712px wrap that is ~4% per row, matching the reference's 5.5556% over 9
+       rows; on a narrower desktop it flattens itself instead of pushing text off
+       screen. */
+    --members-step: calc((100% - var(--members-content) - var(--members-pad)) / 11);
+    --members-bleed: 21.5rem;                      /* how far past the wrap's right edge a full-width row runs (Figma: cards run off screen) */
     --members-ease: cubic-bezier(0.625, 0.05, 0, 1);
     container-type: inline-size;                   /* 100cqw = section width, scrollbar excluded (100vw is not) */
   }

@@ -1,11 +1,5 @@
 import { gsap, ScrollTrigger } from "../lib/gsap.js";
 
-// Horizontal travel is relative to each instance's visible list wrap. The
-// falloff keeps the staircase readable: the first row travels farthest and
-// the twelfth still travels roughly 12% of the wrap width.
-const SHIFT_X_RATIO = 0.35;
-const FALLOFF = 0.06;
-
 export function initMembersScroll() {
   initMembersScroll._mm?.revert();
   const sections = [...document.querySelectorAll("[data-members-init]")];
@@ -21,7 +15,14 @@ export function initMembersScroll() {
       const rows = [...list.querySelectorAll(":scope > [data-accordion-status]")];
 
       gsap.set(list, { y: 0 });
-      gsap.set(rows, { x: 0 });
+      let startWidths;
+      const captureRowWidths = () => {
+        gsap.set(rows, { clearProps: "width" });
+        startWidths = rows.map((row) => row.getBoundingClientRect().width);
+        gsap.set(rows, { width: (index) => startWidths[index] });
+      };
+      captureRowWidths();
+
       const timeline = gsap.timeline({
         scrollTrigger: {
           trigger: section,
@@ -29,6 +30,7 @@ export function initMembersScroll() {
           end: "bottom bottom",
           scrub: true,
           invalidateOnRefresh: true,
+          onRefreshInit: captureRowWidths,
         },
       });
       timeline.to(list, {
@@ -36,18 +38,16 @@ export function initMembersScroll() {
         ease: "none",
         duration: 1,
       }, 0);
-      rows.forEach((row, index) => {
-        timeline.to(row, {
-          x: () => -(wrap.clientWidth * SHIFT_X_RATIO * (1 - index * FALLOFF)),
-          ease: "none",
-          duration: 1,
-        }, 0);
-      });
+      timeline.to(rows, {
+        width: () => Math.max(...startWidths),
+        ease: "none",
+        duration: 1,
+      }, 0);
       const instance = {
         destroy() {
           timeline.scrollTrigger?.kill();
           timeline.kill();
-          gsap.set([list, ...rows], { clearProps: "transform" });
+          gsap.set([list, ...rows], { clearProps: "transform,width" });
           if (section._membersScrollInstance === instance) delete section._membersScrollInstance;
         },
       };

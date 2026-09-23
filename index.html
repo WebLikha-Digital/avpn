@@ -105,14 +105,13 @@
       .members_text{color:#002944;margin-top:0;margin-bottom:0;font-family:Archivo,Arial,sans-serif;font-size:1rem;line-height:1.5}
       .members_list-wrap{height:100vh;position:relative;overflow:visible}
       .members_list{flex-direction:column;padding-top:8rem;padding-bottom:40vh;display:flex}
-      .members_item{color:#fff;background-color:#00b4ae;border-top-left-radius:10px;border-bottom-left-radius:10px;margin-bottom:1rem;padding:1.5rem 1.875rem;position:relative}
-      @media screen and (max-width:991px){.members_item{border-top-right-radius:10px;border-bottom-right-radius:10px}}
+      .members_item{box-sizing:border-box;color:#fff;background-color:#00b4ae;border-radius:10px;margin-bottom:1rem;padding:1.5rem 1.875rem;position:relative}
       .members_item-toggle{grid-column-gap:.625rem;cursor:pointer;width:100%;color:inherit;align-items:center;text-decoration:none;display:flex}
       .members_item-icon{flex:none;width:1.75rem;height:1.75rem;position:relative}
       .members_item-title{font-family:Archivo,Arial,sans-serif;font-size:1.5rem;font-weight:500;line-height:1.2}
       .members_item-bottom{overflow:hidden}
       .members_item-bottom-wrap{min-height:0}
-      .members_item-text{max-width:44.5rem;margin-top:0;margin-bottom:0;padding-top:.5rem;font-family:Archivo,Arial,sans-serif;font-size:1rem;line-height:1.5}
+      .members_item-text{max-width:36rem;margin-top:0;margin-bottom:0;padding-top:.5rem;font-family:Archivo,Arial,sans-serif;font-size:1rem;line-height:1.5}
       .section_testimonials{background-color:#f7f1ea;position:relative;overflow:clip;display:block;height:auto;margin-bottom:0;border:0;font-size:inherit} /* height/margin/border/font-size: undo the sandbox `section` rule, as .section_members does */
       .section_causes{position:relative;background-color:#f7f1ea;color:#002944;padding-top:clamp(4rem,7vw,7rem);padding-bottom:clamp(4rem,7vw,7rem);border-top:1px solid #d9d1b4} /* Webflow: padding = section-space/main, colours = Brand/Neutral/cream + Brand/Primary/navy-main; border is the raw Figma Decor/Line value (no variable) */
       .causes_layout{display:flex;flex-direction:column;row-gap:clamp(2.25rem,3.4vw,3rem)} /* Webflow: gap = space/7 */
@@ -2795,7 +2794,15 @@
      and src/canvas/globe.js mounts the cobe canvas in [data-members-globe]. */
 
   .section_members {
-    --members-step: 30px;                          /* staircase indent per row */
+    --members-content: 21rem;                      /* fixed measure of the row's contents; never reflows while the width scrubs */
+    --members-pad: 3.75rem;                        /* the row's own horizontal padding, 1.875rem each side */
+    /* The staircase is derived, not fixed: the deepest step the column can
+       afford while the narrowest row still shows the whole content measure. At
+       a 712px wrap that is ~4% per row, matching the reference's 5.5556% over 9
+       rows; on a narrower desktop it flattens itself instead of pushing text off
+       screen. */
+    --members-step: calc((100% - var(--members-content) - var(--members-pad)) / 11);
+    --members-bleed: 21.5rem;                      /* how far past the wrap's right edge a full-width row runs (Figma: cards run off screen) */
     --members-ease: cubic-bezier(0.625, 0.05, 0, 1);
     container-type: inline-size;                   /* 100cqw = section width, scrollbar excluded (100vw is not) */
   }
@@ -2807,29 +2814,44 @@
   .members_item[data-members-color="yellow"] { background-color: #ffd552; color: #2c2c2c; }
   .members_item[data-members-color="blue"]   { background-color: #39627a; color: #ffffff; }
 
-  /* Staircase: each row steps right by one --members-step. */
-  .members_item:nth-child(2)  { margin-left: calc(var(--members-step) * 1); }
-  .members_item:nth-child(3)  { margin-left: calc(var(--members-step) * 2); }
-  .members_item:nth-child(4)  { margin-left: calc(var(--members-step) * 3); }
-  .members_item:nth-child(5)  { margin-left: calc(var(--members-step) * 4); }
-  .members_item:nth-child(6)  { margin-left: calc(var(--members-step) * 5); }
-  .members_item:nth-child(7)  { margin-left: calc(var(--members-step) * 6); }
-  .members_item:nth-child(8)  { margin-left: calc(var(--members-step) * 7); }
-  .members_item:nth-child(9)  { margin-left: calc(var(--members-step) * 8); }
-  .members_item:nth-child(10) { margin-left: calc(var(--members-step) * 9); }
-  .members_item:nth-child(11) { margin-left: calc(var(--members-step) * 10); }
-  .members_item:nth-child(12) { margin-left: calc(var(--members-step) * 11); }
+  /* Staircase: every row's right edge is pinned in the same place, off past the
+     viewport edge, and each row starts a step narrower than the row above — so
+     the steps read on the LEFT edge. membersScroll.js scrubs the widths back to
+     full, so the staircase resolves to a flush stack as the section scrolls. */
+  .members_item:nth-child(2)  { width: calc(100% + var(--members-bleed) - var(--members-step) * 1); }
+  .members_item:nth-child(3)  { width: calc(100% + var(--members-bleed) - var(--members-step) * 2); }
+  .members_item:nth-child(4)  { width: calc(100% + var(--members-bleed) - var(--members-step) * 3); }
+  .members_item:nth-child(5)  { width: calc(100% + var(--members-bleed) - var(--members-step) * 4); }
+  .members_item:nth-child(6)  { width: calc(100% + var(--members-bleed) - var(--members-step) * 5); }
+  .members_item:nth-child(7)  { width: calc(100% + var(--members-bleed) - var(--members-step) * 6); }
+  .members_item:nth-child(8)  { width: calc(100% + var(--members-bleed) - var(--members-step) * 7); }
+  .members_item:nth-child(9)  { width: calc(100% + var(--members-bleed) - var(--members-step) * 8); }
+  .members_item:nth-child(10) { width: calc(100% + var(--members-bleed) - var(--members-step) * 9); }
+  .members_item:nth-child(11) { width: calc(100% + var(--members-bleed) - var(--members-step) * 10); }
+  .members_item:nth-child(12) { width: calc(100% + var(--members-bleed) - var(--members-step) * 11); }
 
-  /* Bleed the list to the viewport's right edge (Figma: cards run off screen).
-     Column right edge sits at the container edge: (100vw - container) / 2 from
-     the viewport, container = min(90vw, 80rem) (padding-global 5% each side,
-     container-large 80rem). Rows are wider than the wrap so the clip cuts the
-     square right corners, never the rounded left ones. */
+  /* Pull the wrap's right edge out to the viewport's content edge. In cqw, not
+     vw: cqw already excludes a classic scrollbar, so the edge lands in the same
+     place with and without one. The rows run --members-bleed past that edge on
+     their own. */
   .members_list-wrap {
-  margin-right: calc((min(90vw, 80rem) - 100vw) / 2 - 1rem); /* -1rem covers a classic scrollbar */
-  clip-path: inset(0 0 0 -100vw); /* clip top/right/bottom only: rows scrub left past the wrap edge */
+  margin-right: calc((min(90cqw, 80rem) - 100cqw) / 2);
 }
-  .members_item { width: calc(135% + 6rem); } /* +35%: rows scrub up to 35% left (membersScroll.js) and must stay flush right */
+  /* The negative right margin cancels the bleed in layout, so every row's right
+     edge lands in the same place — off past the viewport, where the section
+     clips it. Nothing readable lives out there: the toggle and the open body are
+     a fixed measure pinned to the row's left edge (below). */
+  .members_item {
+    width: calc(100% + var(--members-bleed));
+    margin-left: auto;
+    margin-right: calc(var(--members-bleed) * -1);
+  }
+
+  /* Row contents are a fixed measure at the left of the row, so they never sit
+     in the clipped zone and cannot reflow while the row width scrubs. The
+     staircase above is sized so even the narrowest row shows all of it. */
+  .members_item-toggle,
+  .members_item-bottom { width: min(var(--members-content), 100%); }
 
   /* Copy column: pull the left edge out of the container to the navbar pill's
      left edge (--site--margin, the nav's --nav-inset), so the heading lines up
@@ -2898,7 +2920,7 @@
   /* Tablet and below: no sticky, no scrub (JS reads the same breakpoint), one
      column, plain accordion. Rows sit flush left with no staircase and no
      right-edge bleed (Figma 4036:29738); the right corners are rounded on the
-     members_item class at the Tablet breakpoint.
+     members_item class at every breakpoint.
 
      Globe (same Figma): bottom-centred under the last row, cut by the section
      bottom so its top ~53% shows. --members-globe is the canvas box; the drawn
@@ -2907,12 +2929,14 @@
      reserves 0.65 box under the last row for it. Capped at 80rem so a wide
      tablet does not get a 1500px globe. */
   @media (max-width: 991px) {
-    .section_members { height: auto; --members-step: 0px; --members-globe: min(200vw, 80rem); }
+    .section_members { height: auto; --members-step: 0px; --members-bleed: 0rem; --members-globe: min(200vw, 80rem); }
     .members_sticky { position: relative; height: auto; overflow: clip; }
     .members_layout { grid-template-columns: 1fr; height: auto; padding-bottom: calc(var(--members-globe) * 0.65); }
-    .members_list-wrap { height: auto; overflow: visible; margin-right: 0; clip-path: none; }
+    .members_list-wrap { height: auto; overflow: visible; margin-right: 0; }
     .members_list { padding-bottom: 0; }
-    .members_item { width: 100%; }               /* no bleed: keeps body.scrollWidth = viewport */
+    .members_item { width: 100%; margin-right: 0; } /* no bleed: keeps body.scrollWidth = viewport */
+    .members_item-toggle,
+    .members_item-bottom { width: 100%; }
     .members_copy { margin-left: 0; }            /* one column: copy stays in the container */
     .members_globe {
       top: auto;

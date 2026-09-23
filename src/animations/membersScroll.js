@@ -39,7 +39,7 @@ export function initMembersScroll() {
         duration: 1,
       }, 0);
       timeline.to(rows, {
-        width: () => wrap.clientWidth,
+        width: () => Math.max(...startWidths),
         ease: "none",
         duration: 1,
       }, 0);

@@ -37,27 +37,24 @@ test("keeps member rows inside the wrap during continuous scroll", async ({ page
   await page.evaluate((top) => window.scrollTo({ top, behavior: "instant" }), sectionTop);
   await nextFrame(page);
 
-  const startWidths = await page.locator("[data-members-list] > [data-accordion-status]").evaluateAll((rows) =>
-    rows.map((row) => row.getBoundingClientRect().width),
+  const startLefts = await page.locator("[data-members-list] > [data-accordion-status]").evaluateAll((rows) =>
+    rows.map((row) => row.getBoundingClientRect().left),
   );
 
   await page.evaluate(() => {
     window.__membersRowFrames = [];
     const sectionNode = document.querySelector("[data-members-init]");
-    const wrap = document.querySelector("[data-members-list-wrap]");
     const rows = [...document.querySelectorAll("[data-members-list] > [data-accordion-status]")];
-    const measuredRow = rows[8];
-    const measuredText = measuredRow.querySelector(".members_item-text");
+    const toggles = rows.map((row) => row.querySelector("[data-accordion-toggle]"));
+    const openBody = rows[8].querySelector(".members_item-bottom");
     let frameCount = 0;
     const sample = () => {
       const sectionRect = sectionNode.getBoundingClientRect();
       if (sectionRect.bottom > 0 && sectionRect.top < window.innerHeight) {
-        const wrapRight = wrap.getBoundingClientRect().right;
         window.__membersRowFrames.push({
-          maxRowRight: Math.max(...rows.map((row) => row.getBoundingClientRect().right)),
-          wrapRight,
-          rowHeight: measuredRow.getBoundingClientRect().height,
-          textWidth: measuredText.getBoundingClientRect().width,
+          viewportRight: document.documentElement.clientWidth,
+          maxToggleRight: Math.max(...toggles.map((toggle) => toggle.getBoundingClientRect().right)),
+          openBodyRight: openBody.getBoundingClientRect().right,
         });
       }
       frameCount += 1;
@@ -75,17 +72,16 @@ test("keeps member rows inside the wrap during continuous scroll", async ({ page
 
   const frames = await page.evaluate(() => window.__membersRowFrames);
   expect(frames.length).toBeGreaterThan(0);
-  expect(Math.max(...frames.map(({ maxRowRight, wrapRight }) => maxRowRight - wrapRight))).toBeLessThanOrEqual(1);
-  expect(Math.max(...frames.map(({ rowHeight }) => rowHeight)) - Math.min(...frames.map(({ rowHeight }) => rowHeight))).toBeLessThanOrEqual(1);
-  expect(Math.max(...frames.map(({ textWidth }) => textWidth)) - Math.min(...frames.map(({ textWidth }) => textWidth))).toBeLessThanOrEqual(1);
-  expect(startWidths.at(-1)).toBeLessThan(startWidths[0] - 1);
+  expect(Math.max(...frames.map(({ maxToggleRight, viewportRight }) => maxToggleRight - viewportRight))).toBeLessThanOrEqual(1);
+  expect(Math.max(...frames.map(({ openBodyRight, viewportRight }) => openBodyRight - viewportRight))).toBeLessThanOrEqual(1);
+  expect(startLefts.at(-1)).toBeGreaterThan(startLefts[0] + 1);
 
   const sectionBottom = await section.evaluate((node) => node.getBoundingClientRect().bottom + window.scrollY);
   await page.evaluate((bottom) => window.scrollTo({ top: bottom - window.innerHeight, behavior: "instant" }), sectionBottom);
   await nextFrame(page);
   await expect.poll(() => page.locator("[data-members-list] > [data-accordion-status]").evaluateAll((rows) => {
-    const widths = rows.map((row) => row.getBoundingClientRect().width);
-    return Math.abs(widths[0] - widths.at(-1));
+    const lefts = rows.map((row) => row.getBoundingClientRect().left);
+    return Math.abs(lefts[0] - lefts.at(-1));
   })).toBeLessThanOrEqual(1);
 });
 

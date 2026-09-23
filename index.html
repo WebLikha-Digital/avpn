@@ -111,7 +111,7 @@
       .members_item-title{font-family:Archivo,Arial,sans-serif;font-size:1.5rem;font-weight:500;line-height:1.2}
       .members_item-bottom{overflow:hidden}
       .members_item-bottom-wrap{min-height:0}
-      .members_item-text{max-width:44.5rem;margin-top:0;margin-bottom:0;padding-top:.5rem;font-family:Archivo,Arial,sans-serif;font-size:1rem;line-height:1.5}
+      .members_item-text{width:32rem;max-width:100%;margin-top:0;margin-bottom:0;padding-top:.5rem;font-family:Archivo,Arial,sans-serif;font-size:1rem;line-height:1.5}
       .section_testimonials{background-color:#f7f1ea;position:relative;overflow:clip;display:block;height:auto;margin-bottom:0;border:0;font-size:inherit} /* height/margin/border/font-size: undo the sandbox `section` rule, as .section_members does */
       .section_causes{position:relative;background-color:#f7f1ea;color:#002944;padding-top:clamp(4rem,7vw,7rem);padding-bottom:clamp(4rem,7vw,7rem);border-top:1px solid #d9d1b4} /* Webflow: padding = section-space/main, colours = Brand/Neutral/cream + Brand/Primary/navy-main; border is the raw Figma Decor/Line value (no variable) */
       .causes_layout{display:flex;flex-direction:column;row-gap:clamp(2.25rem,3.4vw,3rem)} /* Webflow: gap = space/7 */
@@ -2794,7 +2794,7 @@
      and src/canvas/globe.js mounts the cobe canvas in [data-members-globe]. */
 
   .section_members {
-    --members-step: 4%;                            /* staircase: each row starts this much narrower than the one above */
+    --members-step: 1.4%;                          /* staircase: each row starts this much narrower than the one above */
     --members-ease: cubic-bezier(0.625, 0.05, 0, 1);
     container-type: inline-size;                   /* 100cqw = section width, scrollbar excluded (100vw is not) */
   }
@@ -2830,9 +2830,11 @@
   margin-right: calc((min(90vw, 80rem) - 100vw) / 2 - 1rem); /* -1rem covers a classic scrollbar */
 }
   /* Right-anchored: the staircase above takes its width off the left edge only.
-     The min-width stops a narrow desktop shrinking a row until its title
-     rewraps, which would change row heights mid-scrub. */
-  .members_item { width: 100%; margin-left: auto; min-width: min(100%, 26rem); }
+     The min-width holds every row wide enough for the fixed-width body copy
+     (32rem plus the row's 3.75rem of padding), so neither the title nor the
+     open body can rewrap while the width scrubs — a rewrap would change row
+     heights mid-scroll and move every row below. */
+  .members_item { width: 100%; margin-left: auto; min-width: min(100%, 36rem); }
 
   /* Copy column: pull the left edge out of the container to the navbar pill's
      left edge (--site--margin, the nav's --nav-inset), so the heading lines up

@@ -30,6 +30,13 @@ test("keeps member rows inside the wrap during continuous scroll", async ({ page
   await page.evaluate((top) => window.scrollTo({ top, behavior: "instant" }), sectionTop);
   await nextFrame(page);
 
+  const openRow = page.locator("[data-members-list] > [data-accordion-status]").nth(8);
+  await openRow.locator("[data-accordion-toggle]").click({ position: { x: 20, y: 20 } });
+  await expect(openRow).toHaveAttribute("data-accordion-status", "active");
+  await page.waitForTimeout(700);
+  await page.evaluate((top) => window.scrollTo({ top, behavior: "instant" }), sectionTop);
+  await nextFrame(page);
+
   const startWidths = await page.locator("[data-members-list] > [data-accordion-status]").evaluateAll((rows) =>
     rows.map((row) => row.getBoundingClientRect().width),
   );
@@ -39,6 +46,8 @@ test("keeps member rows inside the wrap during continuous scroll", async ({ page
     const sectionNode = document.querySelector("[data-members-init]");
     const wrap = document.querySelector("[data-members-list-wrap]");
     const rows = [...document.querySelectorAll("[data-members-list] > [data-accordion-status]")];
+    const measuredRow = rows[8];
+    const measuredText = measuredRow.querySelector(".members_item-text");
     let frameCount = 0;
     const sample = () => {
       const sectionRect = sectionNode.getBoundingClientRect();
@@ -47,6 +56,8 @@ test("keeps member rows inside the wrap during continuous scroll", async ({ page
         window.__membersRowFrames.push({
           maxRowRight: Math.max(...rows.map((row) => row.getBoundingClientRect().right)),
           wrapRight,
+          rowHeight: measuredRow.getBoundingClientRect().height,
+          textWidth: measuredText.getBoundingClientRect().width,
         });
       }
       frameCount += 1;
@@ -65,6 +76,8 @@ test("keeps member rows inside the wrap during continuous scroll", async ({ page
   const frames = await page.evaluate(() => window.__membersRowFrames);
   expect(frames.length).toBeGreaterThan(0);
   expect(Math.max(...frames.map(({ maxRowRight, wrapRight }) => maxRowRight - wrapRight))).toBeLessThanOrEqual(1);
+  expect(Math.max(...frames.map(({ rowHeight }) => rowHeight)) - Math.min(...frames.map(({ rowHeight }) => rowHeight))).toBeLessThanOrEqual(1);
+  expect(Math.max(...frames.map(({ textWidth }) => textWidth)) - Math.min(...frames.map(({ textWidth }) => textWidth))).toBeLessThanOrEqual(1);
   expect(startWidths.at(-1)).toBeLessThan(startWidths[0] - 1);
 
   const sectionBottom = await section.evaluate((node) => node.getBoundingClientRect().bottom + window.scrollY);

@@ -229,7 +229,10 @@ function dropBalls(instance) {
     }
   });
   startTicker(instance);
-  instance.bodies.forEach((body, index) => {
+  const dropOrder = instance.bodies
+    .map((body, index) => ({ body, index }))
+    .sort((left, right) => compareDropOrder(left, right));
+  dropOrder.forEach(({ body }, dropIndex) => {
     const timer = setTimeout(() => {
       instance.timers.delete(timer);
       if (!instance.section._communitiesPile) return;
@@ -248,9 +251,31 @@ function dropBalls(instance) {
       body.plugin.communitiesElement.style.visibility = "visible";
       World.add(instance.engine.world, body);
       startTicker(instance);
-    }, index * DROP_INTERVAL);
+    }, dropIndex * DROP_INTERVAL);
     instance.timers.add(timer);
   });
+}
+
+function compareDropOrder(left, right) {
+  const radiusDifference = right.body.plugin.communitiesRadius
+    - left.body.plugin.communitiesRadius;
+  if (radiusDifference !== 0) return radiusDifference;
+
+  const leftValue = parseCommunitiesPercentage(left.body);
+  const rightValue = parseCommunitiesPercentage(right.body);
+  if (leftValue === null && rightValue !== null) return 1;
+  if (leftValue !== null && rightValue === null) return -1;
+  if (leftValue !== null && rightValue !== null && leftValue !== rightValue) {
+    return rightValue - leftValue;
+  }
+  return left.index - right.index;
+}
+
+function parseCommunitiesPercentage(body) {
+  const value = body.plugin.communitiesElement
+    .querySelector(".communities_ball-value")?.textContent ?? "";
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function buildObstacle(instance) {

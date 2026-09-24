@@ -5,7 +5,7 @@ const SECTION = "#partners";
 async function showPartners(page) {
   const section = page.locator(SECTION);
   await section.scrollIntoViewIfNeeded();
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(1800);
   return section;
 }
 
@@ -23,9 +23,71 @@ async function scaleOf(pill) {
   });
 }
 
+async function pillVisuals(section) {
+  return section.locator("[data-partners-pill]").evaluateAll((pills) => pills.map((pill) => {
+    const transform = getComputedStyle(pill).transform;
+    const values = transform.match(/matrix(3d)?\(([^)]+)\)/)?.[2].split(",").map(Number);
+    const scale = !values
+      ? 1
+      : transform.startsWith("matrix3d")
+        ? Math.hypot(values[0], values[1], values[2])
+        : Math.hypot(values[0], values[1]);
+    const rotation = values ? Math.atan2(values[1], values[0]) * 180 / Math.PI : 0;
+    return {
+      opacity: Number.parseFloat(getComputedStyle(pill).opacity),
+      scale,
+      y: values
+        ? transform.startsWith("matrix3d") ? values[13] : values[5]
+        : 0,
+      rotation,
+    };
+  }));
+}
+
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await page.waitForLoadState("networkidle");
+});
+
+test("reveals pills once on scroll and preserves authored tilt", async ({ page }) => {
+  const section = page.locator(SECTION);
+  const before = await section.locator("[data-partners-pill]").evaluateAll((pills) => pills.map((pill) => ({
+    opacity: Number.parseFloat(getComputedStyle(pill).opacity),
+    visibility: getComputedStyle(pill).visibility,
+  })));
+  expect(before.every(({ opacity, visibility }) => opacity === 0 && visibility === "hidden")).toBe(true);
+
+  await showPartners(page);
+  const visuals = await pillVisuals(section);
+  expect(visuals.every(({ opacity, scale, y }) => (
+    Math.abs(opacity - 1) < 0.01 && Math.abs(scale - 1) < 0.01 && Math.abs(y) < 0.5
+  ))).toBe(true);
+  expect(Math.abs(visuals[0].rotation - 4)).toBeLessThan(0.1);
+
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.waitForTimeout(150);
+  await section.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(250);
+  const afterReturn = await pillVisuals(section);
+  expect(afterReturn.every(({ opacity, scale, y }) => (
+    Math.abs(opacity - 1) < 0.01 && Math.abs(scale - 1) < 0.01 && Math.abs(y) < 0.5
+  ))).toBe(true);
+});
+
+test("hovering and leaving during the reveal cannot interrupt its final state", async ({ page }) => {
+  const section = page.locator(SECTION);
+  await section.scrollIntoViewIfNeeded();
+  const pill = section.locator("[data-partners-pill]").first();
+  const box = await pill.boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await section.evaluate((element) => element.dispatchEvent(new MouseEvent("mouseleave")));
+  await page.waitForTimeout(2200);
+
+  const visuals = await pillVisuals(section);
+  expect(visuals.every(({ opacity, scale, y }) => (
+    Math.abs(opacity - 1) < 0.01 && Math.abs(scale - 1) < 0.01 && Math.abs(y) < 0.5
+  ))).toBe(true);
+  expect(Math.abs(visuals[0].rotation - 4)).toBeLessThan(0.1);
 });
 
 test("scales by proximity, preserves tilt, and lifts only active pills", async ({ page }) => {
@@ -131,8 +193,11 @@ test("skips the interaction for reduced motion", async ({ page }) => {
   const box = await pill.boundingBox();
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.waitForTimeout(500);
-  expect(await section.evaluate((root) => root._partnersProximity)).toBeFalsy();
-  expect(await scaleOf(pill)).toBeCloseTo(1, 2);
+  expect(await section.evaluate((root) => root._partnersProximity?.revealTrigger)).toBeFalsy();
+  const visuals = await pillVisuals(section);
+  expect(visuals.every(({ opacity, scale, y }) => (
+    Math.abs(opacity - 1) < 0.01 && Math.abs(scale - 1) < 0.01 && Math.abs(y) < 0.5
+  ))).toBe(true);
 });
 
 test("skips the interaction when hover is unavailable", async ({ page }) => {
@@ -162,6 +227,15 @@ test("skips the interaction when hover is unavailable", async ({ page }) => {
   const box = await pill.boundingBox();
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.waitForTimeout(500);
-  expect(await section.evaluate((root) => root._partnersProximity)).toBeFalsy();
-  expect(await scaleOf(pill)).toBeCloseTo(1, 2);
+  expect(await section.evaluate((root) => Boolean(root._partnersProximity?.revealTrigger))).toBe(true);
+  const visuals = await pillVisuals(section);
+  const authoredTilts = await section.locator("[data-partners-pill]").evaluateAll((pills) => (
+    pills.map((pill) => Number.parseFloat(pill.dataset.partnersTilt))
+  ));
+  expect(visuals.every(({ opacity, scale, y, rotation }, index) => (
+    Math.abs(opacity - 1) < 0.01 &&
+    Math.abs(scale - 1) < 0.01 &&
+    Math.abs(y) < 0.5 &&
+    Math.abs(rotation - authoredTilts[index]) < 0.1
+  ))).toBe(true);
 });

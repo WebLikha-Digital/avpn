@@ -1,9 +1,13 @@
-import { gsap } from "../lib/gsap.js";
+import { gsap, ScrollTrigger } from "../lib/gsap.js";
 
 const DEFAULTS = {
   radius: 180,
   maxScale: 1.3,
   duration: 0.35,
+  revealDuration: 0.6,
+  revealStagger: 0.035,
+  revealDistance: "1.75rem",
+  revealScale: 0.62,
 };
 
 function readNumber(styles, property, fallback, isValid = Number.isFinite) {
@@ -22,17 +26,77 @@ export function initPartnersProximity() {
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   document.querySelectorAll("[data-partners-init]").forEach((section) => {
-    section._partnersProximity?.destroy();
-
-    if (hoverNone.matches || reducedMotion.matches) return;
+    const previous = section._partnersProximity;
+    if (previous?.revealTimeline && !section._partnersRevealPlayed) {
+      previous.revealTimeline.progress(1);
+    }
+    previous?.destroy();
 
     const pills = [...section.querySelectorAll("[data-partners-pill]")];
     if (!pills.length) return;
+
+    const cloud = section.querySelector("[data-partners-cloud]");
+    if (!cloud) return;
 
     const styles = getComputedStyle(section);
     const radius = readNumber(styles, "--partners-radius", DEFAULTS.radius, (value) => Number.isFinite(value) && value > 0);
     const maxScale = readNumber(styles, "--partners-scale", DEFAULTS.maxScale);
     const duration = readNumber(styles, "--partners-duration", DEFAULTS.duration, (value) => Number.isFinite(value) && value >= 0);
+
+    const revealPlayed = section._partnersRevealPlayed === true;
+    let revealComplete = reducedMotion.matches || revealPlayed;
+    let revealTimeline = null;
+    let revealTrigger = null;
+
+    if (!reducedMotion.matches && !revealPlayed) {
+      revealTimeline = gsap.timeline({
+        paused: true,
+        onComplete: () => {
+          revealComplete = true;
+          section._partnersRevealPlayed = true;
+        },
+      });
+      revealTimeline.from(pills, {
+        autoAlpha: 0,
+        y: DEFAULTS.revealDistance,
+        scaleX: DEFAULTS.revealScale,
+        scaleY: DEFAULTS.revealScale,
+        duration: DEFAULTS.revealDuration,
+        ease: "back.out(1.6)",
+        stagger: DEFAULTS.revealStagger,
+        overwrite: false,
+      });
+      revealTrigger = ScrollTrigger.create({
+        trigger: cloud,
+        start: "clamp(top 80%)",
+        once: true,
+        animation: revealTimeline,
+      });
+    }
+
+    if (reducedMotion.matches || hoverNone.matches) {
+      const instance = {
+        pills,
+        revealTimeline,
+        revealTrigger,
+        destroy: null,
+        destroyed: false,
+      };
+      const destroy = () => {
+        if (instance.destroyed) return;
+        instance.destroyed = true;
+        if (revealTrigger) revealTrigger.kill();
+        if (revealTimeline) revealTimeline.kill();
+        gsap.killTweensOf(pills);
+        gsap.set(pills, { clearProps: "transform,translate,rotate,scale,opacity,visibility" });
+        pills.forEach((pill) => delete pill.dataset.partnersLift);
+        if (section._partnersProximity?.destroy === destroy) section._partnersProximity = null;
+      };
+
+      instance.destroy = destroy;
+      section._partnersProximity = instance;
+      return;
+    }
 
     let rects = [];
     let rectsDirty = true;
@@ -66,7 +130,7 @@ export function initPartnersProximity() {
     let quickScalesNeedRefresh = false;
 
     const onPointerMove = ({ clientX, clientY }) => {
-      if (destroyed) return;
+      if (destroyed || !revealComplete) return;
       if (rectsDirty) refreshRects();
       if (quickScalesNeedRefresh) {
         quickScales = createQuickScales();
@@ -96,16 +160,17 @@ export function initPartnersProximity() {
     };
 
     const onMouseLeave = () => {
-      if (destroyed) return;
+      if (destroyed || !revealComplete) return;
 
       // quickTo owns a paused tween internally. Kill those tweens before the
       // longer leave tween, then rebuild quickTos on the next pointermove so
       // re-entry never tries to drive a killed tween.
-      gsap.killTweensOf(pills);
+      gsap.killTweensOf(pills, "scaleX,scaleY");
       quickScalesNeedRefresh = true;
       pills.forEach((pill) => delete pill.dataset.partnersLift);
       gsap.to(pills, {
-        scale: 1,
+        scaleX: 1,
+        scaleY: 1,
         duration: duration * 2,
         ease: "power2.out",
         overwrite: "auto",
@@ -121,7 +186,9 @@ export function initPartnersProximity() {
       window.removeEventListener("resize", invalidateRects);
       window.removeEventListener("scroll", invalidateRects, true);
       gsap.killTweensOf(pills);
-      gsap.set(pills, { clearProps: "transform,translate,rotate,scale" });
+      revealTrigger?.kill();
+      revealTimeline?.kill();
+      gsap.set(pills, { clearProps: "transform,translate,rotate,scale,opacity,visibility" });
       pills.forEach((pill) => delete pill.dataset.partnersLift);
       if (section._partnersProximity?.destroy === destroy) section._partnersProximity = null;
     };
@@ -136,6 +203,8 @@ export function initPartnersProximity() {
       maxScale,
       duration,
       pills,
+      revealTimeline,
+      revealTrigger,
       destroy,
       destroyed: false,
     };

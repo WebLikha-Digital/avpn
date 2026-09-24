@@ -44,13 +44,62 @@ test("does not drop until Communities Served enters the viewport", async ({ page
   await expect.poll(() => page.locator(ball).first().evaluate((element) => element.style.transform)).not.toBe(initial.transform);
 });
 
+test("drops balls from largest to smallest without reordering the DOM", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+
+  const domWidths = await page.locator(ball).evaluateAll((elements) => (
+    elements.map((element) => element.offsetWidth)
+  ));
+  expect(domWidths).not.toEqual([...domWidths].sort((left, right) => right - left));
+
+  await page.locator(section).evaluate((root) => {
+    const elements = [...root.querySelectorAll("[data-communities-ball]")];
+    const order = [];
+    const seen = new Set();
+    const observer = new MutationObserver((records) => {
+      records.forEach(({ target }) => {
+        const index = elements.indexOf(target);
+        if (target.style.visibility !== "visible" || seen.has(index)) return;
+        seen.add(index);
+        order.push({ index, width: target.offsetWidth });
+      });
+      root.__communitiesVisibilityOrder = {
+        done: seen.size === elements.length,
+        order,
+      };
+      if (seen.size === elements.length) observer.disconnect();
+    });
+    elements.forEach((element) => observer.observe(element, {
+      attributes: true,
+      attributeFilter: ["style"],
+    }));
+  });
+
+  await page.locator(section).scrollIntoViewIfNeeded();
+  await expect.poll(() => page.locator(section).evaluate((root) => (
+    root.__communitiesVisibilityOrder?.done
+  )), { timeout: 5000 }).toBe(true);
+
+  const visibilityOrder = await page.locator(section).evaluate((root) => (
+    root.__communitiesVisibilityOrder.order.map(({ width }) => width)
+  ));
+  expect(visibilityOrder).toEqual(
+    [...visibilityOrder].sort((left, right) => right - left),
+  );
+});
+
 test("balls move on consecutive frames and settle inside the desktop pile", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
   await page.waitForLoadState("networkidle");
   await scrollIntoView(page);
   const samples = await page.locator(section).evaluate(async (root) => {
-    const element = root.querySelector("[data-communities-ball]");
+    const element = [...root.querySelectorAll("[data-communities-ball]")]
+      .reduce((largest, candidate) => (
+        candidate.offsetWidth > largest.offsetWidth ? candidate : largest
+      ));
     const values = [];
     for (let index = 0; index < 24; index += 1) {
       values.push(element.style.transform);

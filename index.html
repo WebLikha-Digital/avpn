@@ -452,27 +452,28 @@
       .markets_bar-count{display:none;font-family:Archivo,Arial,sans-serif;font-size:1.25rem;line-height:1.3}
       .markets_bar-value{font-family:Archivo,Arial,sans-serif;font-size:1.25rem;line-height:1.3}
       .markets_swipe{display:none;margin:0;text-align:center;font-family:Archivo,Arial,sans-serif;font-size:1.125rem;line-height:1.5;color:#8094a2} /* Webflow: navy-medium, Text Large */
-      .testimonials_wordmark{pointer-events:none;user-select:none;white-space:nowrap;color:rgba(0,41,68,.02);font-family:Open Sans,Arial,sans-serif;font-weight:700;line-height:1.36;position:absolute;top:0;left:0}
+      .testimonials_wordmark{pointer-events:none;user-select:none;white-space:nowrap;color:rgba(0,41,68,.02);font-family:Open Sans,Arial,sans-serif;font-weight:700;/* Webflow: font/primary-family + primary-bold */line-height:1.36;position:absolute;top:0;left:0}
       .testimonials_wheel-wrap{width:50%;position:absolute;top:0;bottom:0;left:0}
       .testimonials_orbit{border:2px dashed #d9d1b4;border-radius:50%;position:absolute;top:50%}
       .testimonials_wheel{width:0;height:0;position:absolute;top:50%}
       .testimonials_item{will-change:transform;position:absolute;top:0;left:0}
-      .testimonials_media{background-color:#002944;border-radius:50%;position:absolute;inset:0;overflow:hidden}
+      .testimonials_media{background-color:var(--_primitives---brand--primary--navy-main);border-radius:50%;position:absolute;inset:0;overflow:hidden}
       .testimonials_img,.testimonials_video{object-fit:cover;width:100%;height:100%;display:block;position:absolute;inset:0}
       .testimonials_video-embed{position:absolute;inset:0}
-      .testimonials_play{z-index:2;cursor:pointer;background-color:transparent;border:2px dashed #fff;border-radius:48px;padding:10px;display:flex;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)}
-      .testimonials_play-icon{color:#fff;background-color:#002944;border-radius:50%;justify-content:center;align-items:center;width:50px;height:50px;display:flex}
+      .testimonials_play{z-index:2;cursor:pointer;background-color:transparent;border:2px dashed var(--_primitives---colors--white);border-radius:48px;padding:10px;display:flex;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)}
+      .testimonials_play-icon{color:var(--_primitives---colors--white);background-color:var(--_primitives---brand--primary--navy-main);border-radius:50%;justify-content:center;align-items:center;width:50px;height:50px;display:flex}
       .testimonials_layout{grid-template-columns:1fr 1fr;display:grid;position:relative}
-      .testimonials_content{z-index:1;grid-column:2;flex-direction:column;justify-content:center;max-width:31.875rem;margin-left:13%;display:flex;position:relative}
-      .testimonials_heading{color:#002944;margin-top:0;margin-bottom:6rem;font-family:Open Sans,Arial,sans-serif;font-size:3rem;font-weight:700;line-height:1.1667}
+      .testimonials_content{z-index:1;grid-column:2;flex-direction:column;justify-content:center;row-gap:var(--_spacing---section-space--small);max-width:31.875rem;margin-left:13%;display:flex;position:relative} /* Webflow: row-gap = section-space/small, space/1 on mobile */
+      .testimonials_heading{color:var(--_primitives---brand--primary--navy-main);margin-top:0;margin-bottom:0;font-family:Open Sans,Arial,sans-serif;font-size:clamp(1.5rem,3.33vw,3rem);font-weight:700;line-height:1.1} /* Webflow: Text Style mode H4 */
       .testimonials_list{width:100%;display:grid}
-      .testimonials_slide{grid-area:1/1;flex-direction:column;gap:3.75rem;display:flex}
-      .testimonials_quote{color:#292929;margin-top:0;margin-bottom:0;font-family:Open Sans,Arial,sans-serif;font-size:1.5rem;font-weight:400;line-height:1.3333}
-      .testimonials_person{flex-direction:column;gap:.5rem;display:flex}
-      .testimonials_name{color:#002944;margin-top:0;margin-bottom:0;font-family:Archivo,Arial,sans-serif;font-size:1.25rem;font-weight:500;line-height:1.4}
-      .testimonials_role{color:#416073;margin-top:0;margin-bottom:0;font-family:Archivo,Arial,sans-serif;font-size:1rem;font-weight:400;line-height:1.5}
-      .testimonials_controls{gap:.5rem;margin-top:4.625rem;display:flex}
-      .testimonials_arrow{color:#252828;cursor:pointer;background-color:transparent;border:1px solid #e42919;border-radius:50%;justify-content:center;align-items:center;width:3.5rem;height:3.5rem;padding:0;display:flex}
+      .testimonials_slide{grid-area:1/1;flex-direction:column;gap:var(--_spacing---space--8-64px);display:flex} /* Webflow: gap = space/8 */
+      .testimonials_quote{color:#252828;margin-top:0;margin-bottom:0;font-family:Open Sans,Arial,sans-serif;font-size:clamp(1.25rem,1.7vw,1.5rem);font-weight:400;line-height:1.3} /* Webflow: font/primary-family + primary-regular, font-size/text-xlarge, line-height/large, Brand/Secondary/charcoal-main */
+      .testimonials_person{flex-direction:column;gap:var(--_spacing---space--1-8px);display:flex} /* Webflow: gap = space/1 */
+      .testimonials_name{color:var(--_primitives---brand--primary--navy-main);margin-top:0;margin-bottom:0;font-family:Archivo,Arial,sans-serif;font-size:clamp(1.125rem,1.4vw,1.25rem);font-weight:500;line-height:1.3} /* Webflow: font/secondary-family + secondary-medium, font-size/text-large, line-height/large */
+      .testimonials_role{color:var(--_primitives---brand--primary--navy-dark);margin-top:0;margin-bottom:0;font-family:Archivo,Arial,sans-serif;font-size:clamp(.875rem,1.1vw,1rem);font-weight:400;line-height:1.5} /* Webflow: font/secondary-family + secondary-regular, font-size/text-medium, line-height/huge */
+      .testimonials_controls{gap:var(--_spacing---space--1-8px);display:flex} /* Webflow: gap = space/1; margin-top space/8 on mobile only */
+      @media (max-width:767px){.testimonials_content{row-gap:var(--_spacing---space--1-8px)}.testimonials_controls{gap:var(--_spacing---space--4-24px);margin-top:var(--_spacing---space--8-64px)}}
+      .testimonials_arrow{color:#252828;cursor:pointer;background-color:transparent;border:1px solid var(--_primitives---brand--primary--red-main);border-radius:50%;justify-content:center;align-items:center;width:3.5rem;height:3.5rem;padding:0;display:flex}
       /* Stands in for a Webflow section tall enough to give the parallax
          elements room to drift before/after they enter the viewport.
          Positioning here uses flex/gap, not `transform` — Locomotive writes
@@ -1690,6 +1691,11 @@
         --_primitives---colors--neutral-lightest: #e5e5e5;
         --_primitives---colors--neutral-darkest: #002944;
         --_primitives---colors--white: #fff;
+        --_primitives---opacity--neutral-darkest-40: rgba(0,0,0,.4);
+        --_spacing---space--1-8px: clamp(.375rem,.5vw,.5rem);
+        --_spacing---space--8-64px: clamp(2.5rem,4.4vw,4rem);
+        --_spacing---section-space--small: clamp(3rem,5.5vw,5rem);
+        --_primitives---brand--primary--navy-dark: #416073;
         --_primitives---brand--secondary--charcoal-main: #131313;
         --_primitives---brand--secondary--orange-main: #ef6c35;
         --_primitives---brand--secondary--teal-main: #43b8b1;
@@ -3014,7 +3020,7 @@
   /* 40% black wash over every visual (Figma); lifts while a video plays. */
   .testimonials_media::after {
     content: ""; position: absolute; inset: 0; pointer-events: none;
-    background: rgba(0, 0, 0, 0.4);
+    background: var(--_primitives---opacity--neutral-darkest-40);
     transition: opacity 0.4s var(--testi-ease);
   }
   .testimonials_item[data-testimonials-playing="true"] .testimonials_media::after { opacity: 0; }
@@ -3030,8 +3036,8 @@
   .text-line-mask { padding-bottom: 0.2em; margin-bottom: -0.2em; }  /* SplitText line masks: room for descenders */
 
   .testimonials_arrow { transition: background-color 0.3s var(--testi-ease), color 0.3s var(--testi-ease); }
-  .testimonials_arrow:hover { background-color: #e42919; color: #fff; }
-  .testimonials_arrow:focus-visible { outline: 2px solid #002944; outline-offset: 2px; }
+  .testimonials_arrow:hover { background-color: var(--_primitives---brand--primary--red-main); color: var(--_primitives---colors--white); }
+  .testimonials_arrow:focus-visible { outline: 2px solid var(--_primitives---brand--primary--navy-main); outline-offset: 2px; }
 
   /* Tablet and below (Figma 4036:38581 for mobile): the wheel turns a quarter
      turn. Its centre sits above the section (--testi-center-y), the active
@@ -3045,14 +3051,11 @@
       --testi-active: 48vw; --testi-thumb: 28vw; --testi-thumb-scale: 0.583;
       --testi-corner: 5vw;
     }
-    .testimonials_layout { grid-template-columns: 1fr; min-height: 0; padding: 0 0 4rem; }
+    .testimonials_layout { grid-template-columns: 1fr; min-height: 0; padding: 0 0 var(--_spacing---space--8-64px); }
     .testimonials_wheel-wrap { position: relative; width: 100%; height: 75vw; }
     .testimonials_orbit, .testimonials_wheel { top: var(--testi-center-y); }
     .testimonials_wordmark { display: none; }
     .testimonials_content { grid-column: 1; max-width: none; margin-left: 0; }
-    .testimonials_heading { font-size: 2.5rem; margin-bottom: 2rem; }
-    .testimonials_quote { font-size: 1.25rem; }
-    .testimonials_controls { margin-top: 3rem; }
   }
   /* Mobile, Figma at 375: circle 310 from y 135 to 445, copy 24px wide-set, arrow pills. */
   @media screen and (max-width: 767px) {
@@ -3063,10 +3066,7 @@
     }
     .testimonials_wheel-wrap { height: 128.5vw; }             /* 445 + 37 gap at 375 */
     .testimonials_wordmark { display: block; top: 118vw; left: 0.8vw; font-size: 35vw; }
-    .testimonials_heading { font-size: 2rem; line-height: 1.25; margin-bottom: 0.5rem; }
-    .testimonials_quote { font-size: 1.5rem; }
-    .testimonials_slide { gap: 3.6875rem; }
-    .testimonials_controls { width: 100%; gap: 1.25rem; margin-top: 4rem; }
+    .testimonials_controls { width: 100%; }
     .testimonials_arrow { flex: 1 1 0; width: auto; height: 3.75rem; border-radius: 1.875rem; }
     .testimonials_play-icon { width: 50px; height: 50px; }
   }

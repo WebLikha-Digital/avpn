@@ -95,23 +95,23 @@
       /* Minimal layout for the published section mirror in the local fixture. */
       .padding-global { padding-left: 5%; padding-right: 5%; }
       .container-large { width: 100%; max-width: 80rem; margin-left: auto; margin-right: auto; }
-      .section_members{background-color:#f7f1ea;height:250vh;position:relative;overflow:clip;display:block;margin-bottom:0;border:0;font-size:inherit}
+      .section_members{background-color:#f7f1ea;color:#002944;height:250vh;position:relative;overflow:clip;display:block;margin-bottom:0;border:0;font-size:inherit}
       .members_sticky{height:100vh;position:sticky;top:0;overflow:hidden}
       .members_line{z-index:0;pointer-events:none;width:56.5vw;position:absolute;top:-6vh;left:50%}
       .members_globe{z-index:0;pointer-events:none;width:66vw;height:66vw;position:absolute;bottom:-26vw;left:-12vw}
-      .members_layout{z-index:1;grid-column-gap:3rem;grid-row-gap:2rem;grid-template-columns:1fr 1fr;height:100vh;padding-top:0;display:grid;position:relative}
-      .members_copy{max-width:34.5rem;padding-top:8rem}
-      .members_heading{color:#002944;margin-top:0;margin-bottom:.75rem;font-family:Open Sans,Arial,sans-serif;font-size:3.5rem;font-weight:700;line-height:1.15}
-      .members_text{color:#002944;margin-top:0;margin-bottom:0;font-family:Archivo,Arial,sans-serif;font-size:1rem;line-height:1.5}
+      .members_layout{z-index:1;grid-column-gap:var(--_spacing---space--7-48px);grid-row-gap:var(--_spacing---space--5-32px);grid-template-columns:1fr 1fr;height:100vh;padding-top:0;display:grid;position:relative} /* Webflow: gaps = space/7 + space/5, padding-top = section-space/none */
+      .members_copy{max-width:34.5rem;padding-top:8rem;display:flex;flex-direction:column;row-gap:clamp(.625rem,.8vw,.75rem)} /* Webflow: row-gap = space/2 */
+      .members_heading{color:#002944;margin-top:0;margin-bottom:0;font-family:Open Sans,Arial,sans-serif;font-size:3.5rem;font-weight:700;line-height:1.15}
+      .members_text{color:var(--_primitives---brand--primary--navy-main);margin-top:0;margin-bottom:0;font-family:Archivo,Arial,sans-serif;font-size:clamp(.875rem,1.1vw,1rem);line-height:1.5} /* Webflow: font/secondary-family, font-size/text-medium, line-height/huge, Brand/Primary/navy-main */
       .members_list-wrap{height:100vh;position:relative;overflow:visible}
       .members_list{flex-direction:column;padding-top:8rem;padding-bottom:40vh;display:flex}
-      .members_item{box-sizing:border-box;color:#fff;background-color:#00b4ae;border-radius:10px;margin-bottom:1rem;padding:1.5rem 1.875rem;position:relative}
-      .members_item-toggle{grid-column-gap:.625rem;cursor:pointer;width:100%;color:inherit;align-items:center;text-decoration:none;display:flex}
+      .members_item{box-sizing:border-box;color:#fff;background-color:var(--_primitives---brand--secondary--teal-main);border-radius:.75rem;margin-bottom:1rem;padding:var(--_spacing---space--4-24px) var(--_spacing---space--5-32px);position:relative} /* Webflow: padding = space/4 + space/5, radius .75rem at every breakpoint */
+      .members_item-toggle{grid-column-gap:clamp(.625rem,.8vw,.75rem);cursor:pointer;width:100%;color:inherit;align-items:center;text-decoration:none;display:flex}
       .members_item-icon{flex:none;width:1.75rem;height:1.75rem;position:relative}
-      .members_item-title{font-family:Archivo,Arial,sans-serif;font-size:1.5rem;font-weight:500;line-height:1.2}
+      .members_item-title{font-family:Archivo,Arial,sans-serif;font-size:clamp(1.25rem,1.7vw,1.5rem);font-weight:500;line-height:1.3} /* Webflow: font/secondary-family + secondary-medium, font-size/text-xlarge, line-height/large */
       .members_item-bottom{overflow:hidden}
       .members_item-bottom-wrap{min-height:0}
-      .members_item-text{max-width:36rem;margin-top:0;margin-bottom:0;padding-top:.5rem;font-family:Archivo,Arial,sans-serif;font-size:1rem;line-height:1.5}
+      .members_item-text{max-width:36rem;margin-top:0;margin-bottom:0;padding-top:clamp(.375rem,.5vw,.5rem);font-family:Archivo,Arial,sans-serif;font-size:clamp(.875rem,1.1vw,1rem);line-height:1.5} /* Webflow: padding-top = space/1, type as .members_text */
       .section_testimonials{background-color:#f7f1ea;position:relative;overflow:clip;display:block;height:auto;margin-bottom:0;border:0;font-size:inherit} /* height/margin/border/font-size: undo the sandbox `section` rule, as .section_members does */
       .section_causes{position:relative;background-color:#f7f1ea;color:#002944;padding-top:clamp(4rem,7vw,7rem);padding-bottom:clamp(4rem,7vw,7rem);border-top:1px solid #d9d1b4} /* Webflow: padding = section-space/main, colours = Brand/Neutral/cream + Brand/Primary/navy-main; border is the raw Figma Decor/Line value (no variable) */
       .causes_layout{display:flex;flex-direction:column;row-gap:clamp(2.25rem,3.4vw,3rem)} /* Webflow: gap = space/7 */
@@ -1701,6 +1701,7 @@
         --_primitives---brand--primary--aqua-main: #91c7d6;
         --_primitives---brand--primary--red-light: #eb6054;
         --_primitives---brand--primary--navy-main: #002944;
+        --_primitives---brand--secondary--blue-main: #39627a;
         --_primitives---brand--primary--navy-light: #8aa5b2;
         --_spacing---space--4-24px: clamp(1.25rem,1.6vw,1.5rem);
         --_spacing---space--5-32px: clamp(1.75rem,2.2vw,2rem);
@@ -2794,7 +2795,7 @@
 
   .section_members {
     --members-content: 21rem;                      /* fixed measure of the row's contents; never reflows while the width scrubs */
-    --members-pad: 3.75rem;                        /* the row's own horizontal padding, 1.875rem each side */
+    --members-pad: calc(var(--_spacing---space--5-32px) * 2); /* the row's own horizontal padding, space/5 each side (members_item class) */
     /* The staircase is derived, not fixed: the deepest step the column can
        afford while the narrowest row still shows the whole content measure. At
        a 712px wrap that is ~4% per row, matching the reference's 5.5556% over 9
@@ -2806,12 +2807,13 @@
     container-type: inline-size;                   /* 100cqw = section width, scrollbar excluded (100vw is not) */
   }
 
-  /* Row colours, in Figma order. Text colour follows the card. */
-  .members_item[data-members-color="teal"]   { background-color: #00b4ae; color: #ffffff; }
-  .members_item[data-members-color="aqua"]   { background-color: #91c7d6; color: #131313; }
-  .members_item[data-members-color="orange"] { background-color: #f27c38; color: #ffffff; }
-  .members_item[data-members-color="yellow"] { background-color: #ffd552; color: #2c2c2c; }
-  .members_item[data-members-color="blue"]   { background-color: #39627a; color: #ffffff; }
+  /* Row colours, in Figma order. Text colour follows the card: white on the
+     dark cards, navy on the light ones. */
+  .members_item[data-members-color="teal"]   { background-color: var(--_primitives---brand--secondary--teal-main); color: var(--_primitives---colors--white); }
+  .members_item[data-members-color="aqua"]   { background-color: var(--_primitives---brand--primary--aqua-main); color: var(--_primitives---brand--primary--navy-main); }
+  .members_item[data-members-color="orange"] { background-color: var(--_primitives---brand--secondary--orange-main); color: var(--_primitives---colors--white); }
+  .members_item[data-members-color="yellow"] { background-color: var(--_primitives---brand--secondary--yellow-main); color: var(--_primitives---brand--primary--navy-main); }
+  .members_item[data-members-color="blue"]   { background-color: var(--_primitives---brand--secondary--blue-main); color: var(--_primitives---colors--white); }
 
   /* Staircase: every row's right edge is pinned in the same place, off past the
      viewport edge, and each row starts a step narrower than the row above — so

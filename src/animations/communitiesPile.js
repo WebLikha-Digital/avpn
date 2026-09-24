@@ -30,6 +30,8 @@ export function initCommunitiesPile() {
     const balls = [...section.querySelectorAll("[data-communities-ball]")];
     if (!pile || balls.length === 0) return;
 
+    sizeBallsByPercentage(balls);
+
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
 
     section.dataset.communitiesState = "physics";
@@ -339,6 +341,27 @@ function kill(instance) {
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
+}
+
+function sizeBallsByPercentage(balls) {
+  const values = balls.map((element) => {
+    element.style.removeProperty("--communities-t");
+    const value = Number.parseFloat(
+      element.querySelector(".communities_ball-value")?.textContent ?? "",
+    );
+    return Number.isFinite(value) ? value : null;
+  });
+  const parsedValues = values.filter((value) => value !== null);
+  if (parsedValues.length === 0) return;
+
+  const min = Math.min(...parsedValues);
+  const max = Math.max(...parsedValues);
+  balls.forEach((element, index) => {
+    const value = values[index];
+    if (value === null) return;
+    const t = max === min ? 0.5 : clamp((value - min) / (max - min), 0, 1);
+    element.style.setProperty("--communities-t", String(Math.round(t * 10000) / 10000));
+  });
 }
 
 export function teardownCommunitiesPile(section) {

@@ -176,6 +176,99 @@ test("reduced motion keeps the authored static layout", async ({ page }) => {
   await expect(page.locator(ball)).toHaveCount(11);
 });
 
+test("sizes balls linearly from their percentage values", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  const values = await page.locator(ball).evaluateAll((elements) => elements.map((element) => ({
+    label: element.querySelector(".communities_ball-label").textContent.trim(),
+    value: Number.parseFloat(element.querySelector(".communities_ball-value").textContent),
+    t: Number.parseFloat(element.style.getPropertyValue("--communities-t")),
+    diameter: element.offsetWidth,
+  })));
+  const sorted = [...values].sort((left, right) => left.value - right.value);
+  expect(sorted.map(({ diameter }) => diameter)).toEqual(
+    [...sorted].sort((left, right) => left.diameter - right.diameter).map(({ diameter }) => diameter),
+  );
+  expect(values.find(({ label }) => label === "Children and youths")).toMatchObject({ t: 1 });
+  expect(values.find(({ label }) => label === "Offenders and re-offenders")).toMatchObject({ t: 0 });
+});
+
+test("unparseable values use the middle-size fallback and equal values stay equal", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  const result = await page.locator(section).evaluate(async (root) => {
+    root.querySelectorAll(".communities_ball-value").forEach((element) => {
+      element.textContent = "5%";
+    });
+    const invalid = root.querySelector("[data-communities-ball]");
+    invalid.querySelector(".communities_ball-value").textContent = "unknown";
+    const { initCommunitiesPile } = await import("/src/animations/communitiesPile.js");
+    initCommunitiesPile();
+    return [...root.querySelectorAll("[data-communities-ball]")].map((element) => ({
+      property: element.style.getPropertyValue("--communities-t"),
+      diameter: element.offsetWidth,
+    }));
+  });
+  expect(result[0].property).toBe("");
+  expect(result.slice(1).every(({ property }) => property === "0.5")).toBe(true);
+  expect(new Set(result.map(({ diameter }) => diameter)).size).toBe(1);
+});
+
+for (const viewport of [
+  { width: 1440, height: 900 },
+  { width: 991, height: 768 },
+  { width: 820, height: 1180 },
+  { width: 390, height: 844 },
+]) {
+  test(`ball text stays inside its circle at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.setViewportSize(viewport);
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    // Reduced motion keeps the static layout (no tilt), so client rects are exact.
+    // Check every rendered line box: centred lines narrow toward the circle's poles.
+    const overflow = await page.locator(ball).evaluateAll((elements) => elements.map((element) => {
+      const box = element.getBoundingClientRect();
+      const radius = box.width / 2;
+      const range = document.createRange();
+      const worst = [...element.querySelectorAll(".communities_ball-label, .communities_ball-value")]
+        .flatMap((child) => {
+          range.selectNodeContents(child);
+          return [...range.getClientRects()];
+        })
+        .flatMap((line) => [[line.left, line.top], [line.right, line.top], [line.left, line.bottom], [line.right, line.bottom]])
+        .reduce((max, [x, y]) => Math.max(max, Math.hypot(x - box.left - radius, y - box.top - radius)), 0);
+      return worst > radius + 0.5 ? element.querySelector(".communities_ball-label").textContent.trim() : null;
+    }));
+    expect(overflow.filter(Boolean)).toEqual([]);
+  });
+}
+
+for (const viewport of [
+  { width: 991, height: 768 },
+  { width: 820, height: 1180 },
+]) {
+  test(`settles inside the tablet pile at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    await scrollIntoView(page);
+    await expect.poll(() => page.locator(section).evaluate((root) => ({
+      ceiling: Boolean(root._communitiesPile.ceiling),
+      tickerActive: root._communitiesPile.tickerActive,
+    })), { timeout: 15000 }).toEqual({ ceiling: true, tickerActive: false });
+    const positions = await snapshot(page);
+    positions.forEach(({ centre, radius, pile }) => {
+      expect(centre.x - radius).toBeGreaterThanOrEqual(pile.left - 1);
+      expect(centre.x + radius).toBeLessThanOrEqual(pile.right + 1);
+      expect(centre.y - radius).toBeGreaterThanOrEqual(pile.top - 8);
+      expect(centre.y + radius).toBeLessThanOrEqual(pile.bottom + 1);
+    });
+  });
+}
+
 test("re-init replaces one instance and teardown removes physics state", async ({ page }) => {
   await page.goto("/");
   await page.waitForLoadState("networkidle");

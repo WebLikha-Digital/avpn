@@ -49,6 +49,7 @@ import { initTextFitToWidth } from "./animations/textFitWidth.js";
 import { initFooterReveal } from "./animations/footerReveal.js";
 import { initFooterFountain } from "./animations/footerFountain.js";
 import { initImpactCollabAuto } from "./animations/impactCollabAuto.js";
+import { initImpactCollabReveal } from "./animations/impactCollabReveal.js";
 
 // Components that look up the band they sit in. The band has to exist before
 // any of them initialize, and they all have to rebuild when a resize tears it
@@ -106,6 +107,7 @@ function init() {
   initPartnersTestimonials();
   initFooterReveal();
   initFooterFountain();
+  initImpactCollabReveal();
   initImpactCollabAuto();
 }
 

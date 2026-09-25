@@ -5,6 +5,7 @@ const DEFAULTS = Object.freeze({
   hold: 1400,
   duration: 400,
 });
+const REVEAL_STATE_EVENT = "impact:reveal-state";
 
 /**
  * Auto-morph the ImpactCollab stat tiles while their grid is in view.
@@ -42,6 +43,11 @@ export function initImpactCollabAuto() {
     };
     document.addEventListener("visibilitychange", instance.visibilityHandler);
 
+    instance.revealHandler = () => {
+      setActive(instance, instance.trigger?.isActive === true);
+    };
+    grid.addEventListener(REVEAL_STATE_EVENT, instance.revealHandler);
+
     tiles.forEach((tile) => {
       const onEnter = () => {
         instance.hovered.add(tile);
@@ -73,6 +79,7 @@ function createInstance(grid, tiles) {
     timer: null,
     trigger: null,
     visibilityHandler: null,
+    revealHandler: null,
     listeners: [],
     hovered: new Set(),
     cleanupTimers: new Map(),
@@ -99,7 +106,11 @@ function readDelay(grid, attribute, fallback) {
 }
 
 function setActive(instance, active) {
-  if (active && !instance.reducedMotion && !document.hidden) {
+  const revealComplete =
+    !instance.grid.hasAttribute("data-impact-reveal") ||
+    instance.grid.hasAttribute("data-impact-reveal-complete");
+
+  if (active && revealComplete && !instance.reducedMotion && !document.hidden) {
     if (instance.active) return;
     instance.active = true;
     scheduleNext(instance, instance.interval);
@@ -179,6 +190,9 @@ function teardown(grid) {
   previous.trigger = null;
   if (previous.visibilityHandler) {
     document.removeEventListener("visibilitychange", previous.visibilityHandler);
+  }
+  if (previous.revealHandler) {
+    grid.removeEventListener(REVEAL_STATE_EVENT, previous.revealHandler);
   }
   previous.listeners.forEach(({ tile, onEnter, onLeave }) => {
     tile.removeEventListener("pointerenter", onEnter);

@@ -28,10 +28,14 @@ async function useShortTimings(page, timings = { interval: 220, hold: 80, durati
 // Locomotive drives the page, so ScrollTrigger reads window.scrollY rather than
 // whatever scrollIntoViewIfNeeded moves — every other spec jumps the same way.
 async function scrollToGrid(page) {
-  const top = await page.locator(grid).evaluate(
-    (node) => node.getBoundingClientRect().top + window.scrollY,
-  );
-  await page.evaluate((y) => window.scrollTo({ top: y - 200, behavior: "instant" }), top);
+  const target = await page.locator(grid).evaluate((node) => {
+    const rect = node.getBoundingClientRect();
+    const top = rect.top + window.scrollY;
+    return window.innerWidth <= 991
+      ? top + rect.height - window.innerHeight * 0.85 + 40
+      : top + rect.height / 2 - window.innerHeight * 0.55 + 40;
+  });
+  await page.evaluate((y) => window.scrollTo({ top: y, behavior: "instant" }), target);
 }
 
 async function waitForInit(page) {
@@ -56,7 +60,7 @@ test("cycles through different tiles while the grid is in view", async ({ page }
   const root = page.locator(grid);
   await scrollToGrid(page);
 
-  await expect.poll(() => root.evaluate((node) => node._impactCollabAuto.pickHistory.length), { timeout: 2500 })
+  await expect.poll(() => root.evaluate((node) => node._impactCollabAuto.pickHistory.length), { timeout: 4000 })
     .toBeGreaterThanOrEqual(4);
   const picks = await root.evaluate((node) => node._impactCollabAuto.pickHistory);
   expect(new Set(picks).size).toBeGreaterThanOrEqual(2);

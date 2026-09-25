@@ -1,8 +1,9 @@
-import { gsap } from "../lib/gsap.js";
+import { gsap, ScrollTrigger } from "../lib/gsap.js";
 
 const REVEAL_DURATION = 0.45;
 const REVEAL_EASE = "power2.out";
 const REVEAL_STAGGER = 0.04;
+const ENTRY_REVEAL_STAGGER = 0.06;
 const REVEAL_DISTANCE = 12;
 
 /**
@@ -23,6 +24,9 @@ export function initTeamTabs() {
     const subtabs = group?.querySelector("[data-team-subtabs]");
     let revealTween = null;
     let revealRows = [];
+    let entryTrigger = null;
+    let entryRows = [];
+    let entryPending = false;
 
     if (!tabs.length || !panels.length) return;
 
@@ -69,7 +73,15 @@ export function initTeamTabs() {
       revealRows = [];
     };
 
-    const revealPanel = (panel) => {
+    const cancelEntryReveal = () => {
+      entryTrigger?.kill();
+      entryTrigger = null;
+      if (entryRows.length) gsap.set(entryRows, { clearProps: "opacity,transform" });
+      entryRows = [];
+      entryPending = false;
+    };
+
+    const revealPanel = (panel, stagger = REVEAL_STAGGER) => {
       if (!panel) return;
       const rows = [...panel.querySelectorAll("[data-team-list] [data-team-row]")];
       revealRows = rows;
@@ -87,7 +99,7 @@ export function initTeamTabs() {
           y: 0,
           duration: REVEAL_DURATION,
           ease: REVEAL_EASE,
-          stagger: { each: Math.min(REVEAL_STAGGER, 0.55 / rows.length) },
+          stagger: { each: Math.min(stagger, 0.55 / rows.length) },
           clearProps: "opacity,transform",
           onComplete: () => {
             revealTween = null;
@@ -106,6 +118,7 @@ export function initTeamTabs() {
 
       if (isSubtab(tab)) setOpen(true);
       if (id === "board") setOpen(false);
+      if (announce && entryPending) cancelEntryReveal();
       if (alreadyActive && announce) return;
 
       clearReveal();
@@ -173,6 +186,7 @@ export function initTeamTabs() {
 
     root._teamTabsInstance = {
       destroy() {
+        cancelEntryReveal();
         clearReveal();
         tabs.forEach((tab) => {
           tab.removeEventListener("click", onTabClick);
@@ -183,7 +197,32 @@ export function initTeamTabs() {
       },
     };
 
-    activate(tabs.find((tab) => tab.dataset.teamTab === "board") || tabs[0], false);
+    const initialTab = tabs.find((tab) => tab.dataset.teamTab === "board") || tabs[0];
+    activate(initialTab, false);
     setOpen(group?.dataset.teamOpen === "true");
+
+    const activePanel = panels.find((panel) => panel.dataset.teamActive === "true");
+    const activeList = activePanel?.querySelector("[data-team-list]");
+    const reducedMotion = window.matchMedia?.(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+
+    if (!reducedMotion && activePanel && activeList) {
+      entryRows = [...activePanel.querySelectorAll("[data-team-list] [data-team-row]")];
+      if (entryRows.length) {
+        gsap.set(entryRows, { opacity: 0, y: REVEAL_DISTANCE });
+        entryPending = true;
+        entryTrigger = ScrollTrigger.create({
+          trigger: activeList,
+          start: "clamp(top 80%)",
+          once: true,
+          onEnter: () => {
+            entryPending = false;
+            entryRows = [];
+            revealPanel(activePanel, ENTRY_REVEAL_STAGGER);
+          },
+        });
+      }
+    }
   });
 }

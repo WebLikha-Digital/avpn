@@ -168,8 +168,11 @@ test("holds a row during continuous scroll, scales monotonically, and releases a
   reverseScales.forEach((scale) => expect(scale).toBeCloseTo(1, 1));
 });
 
-test("releases a pinned row when the next row reaches its shrunk content", async ({ page }) => {
+test("releases a pinned row with the row padding gap below its shrunk content", async ({ page }) => {
   await loadStories(page);
+  await page.locator(ITEM).first().evaluate((item) => {
+    item.style.paddingTop = "0px";
+  });
   await page.locator(ITEM).first().locator("p").evaluate((paragraph) => {
     paragraph.style.height = "320px";
   });
@@ -182,7 +185,11 @@ test("releases a pinned row when the next row reaches its shrunk content", async
     const items = [...list.querySelectorAll("[data-stories-item]")];
     const index = items.indexOf(item);
     const trigger = list._storiesPinTweens[index].scrollTrigger;
-    return { start: trigger.start, end: trigger.end };
+    return {
+      start: trigger.start,
+      end: trigger.end,
+      gap: Number.parseFloat(getComputedStyle(items[index + 1]).paddingTop),
+    };
   });
 
   const initialScroll = range.start - 40;
@@ -240,15 +247,78 @@ test("releases a pinned row when the next row reaches its shrunk content", async
   const motionFrames = frames.filter((frame) => frame.scrollY > frames[0].scrollY + 1);
   expect(motionFrames.length).toBeGreaterThan(10);
   motionFrames.forEach((frame) => {
-    expect(frame.nextTop).toBeGreaterThanOrEqual(frame.shrunkBottom - 2);
+    expect(frame.nextTop - frame.shrunkBottom).toBeGreaterThanOrEqual(range.gap - 2);
   });
   const release = frames.find((frame) => frame.scrollY >= range.end);
   expect(release).toBeDefined();
   expect(release.scrollY).toBeGreaterThan(range.start);
-  expect(release.nextTop - release.shrunkBottom).toBeGreaterThanOrEqual(-2);
-  expect(release.nextTop - release.shrunkBottom).toBeLessThanOrEqual(8);
+  expect(Math.abs(release.nextTop - release.shrunkBottom - range.gap)).toBeLessThanOrEqual(2);
   expect(release.headingScale).toBeCloseTo(0.5, 1);
   expect(release.bodyScale).toBeCloseTo(0.75, 1);
+});
+
+test("uses the list pin gap override when releasing a pinned row", async ({ page }) => {
+  await loadStories(page);
+  await page.locator(ITEM).first().locator("p").evaluate((paragraph) => {
+    paragraph.style.height = "320px";
+  });
+  await page.locator(ROOT).evaluate(async () => {
+    const list = document.querySelector("[data-stories-init]");
+    list.setAttribute("data-stories-pin-gap", "24");
+    const { initStoriesStack } = await import("/src/animations/storiesStack.js");
+    initStoriesStack();
+  });
+  const range = await page.locator(ITEM).first().evaluate((item) => {
+    const list = item.closest("[data-stories-init]");
+    const trigger = list._storiesPinTweens[0].scrollTrigger;
+    return { start: trigger.start, end: trigger.end };
+  });
+
+  await page.evaluate((start) => window.scrollTo({ top: start - 40, behavior: "instant" }), range.start);
+  await page.waitForFunction(() => {
+    const shape = document.querySelector('[data-testid="stories-stack"] [data-stories-item] .stories-community_shape');
+    if (!shape) return false;
+    const transform = getComputedStyle(shape).transform;
+    const translateY = transform === "none" ? 0 : new DOMMatrixReadOnly(transform).f;
+    return getComputedStyle(shape).opacity === "1" && Math.abs(translateY) < 0.5;
+  });
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await page.evaluate(() => {
+    window.__storiesPinFrames = [];
+    window.__storiesPinRecording = true;
+    const list = document.querySelector('[data-testid="stories-stack"] [data-stories-init]');
+    const items = list?.querySelectorAll("[data-stories-item]");
+    const item = items?.[0];
+    const next = items?.[1];
+    const parts = [
+      item.querySelector("h1, h2, h3, h4, h5, h6"),
+      item.querySelector(".stories-community_shape"),
+      item.querySelector("p"),
+    ];
+    const sample = () => {
+      if (!window.__storiesPinRecording) return;
+      window.__storiesPinFrames.push({
+        scrollY: window.scrollY,
+        nextTop: next.getBoundingClientRect().top,
+        shrunkBottom: Math.max(...parts.map((part) => part.getBoundingClientRect().bottom)),
+      });
+      requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  });
+  await page.mouse.move(600, 400);
+  for (let index = 0; index < 35; index += 1) {
+    await page.mouse.wheel(0, 40);
+    await page.waitForTimeout(35);
+  }
+
+  const frames = await page.evaluate(() => {
+    window.__storiesPinRecording = false;
+    return window.__storiesPinFrames;
+  });
+  const release = frames.find((frame) => frame.scrollY >= range.end);
+  expect(release).toBeDefined();
+  expect(Math.abs(release.nextTop - release.shrunkBottom - 24)).toBeLessThanOrEqual(2);
 });
 
 test("pins and scales the final row during continuous scroll, then releases at its runway", async ({ page }) => {

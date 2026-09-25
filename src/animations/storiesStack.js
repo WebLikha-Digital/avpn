@@ -39,6 +39,7 @@ const DEFAULT_BODY_SCALE = 0.75;
  *   [data-stories-start]      optional: override the trigger point
  *   [data-stories-pin]        optional: "off" disables desktop pins/scaling
  *   [data-stories-pin-offset] optional: top pin offset in pixels (default 0)
+ *   [data-stories-pin-gap]    optional: release gap in pixels (default row padding-top)
  *   [data-stories-heading-scale] optional: heading scale at the end (default 0.5)
  *   [data-stories-shape-scale] optional: shape scale at the end (default 0.5)
  *   [data-stories-body-scale] optional: paragraph scale at the end (default 0.75)
@@ -90,6 +91,7 @@ export function initStoriesStack() {
         if (list.getAttribute("data-stories-pin") === "off") return;
 
         const offset = readNumber(list, "data-stories-pin-offset", DEFAULT_PIN_OFFSET);
+        const pinGap = readNumber(list, "data-stories-pin-gap", null);
         const scales = {
           heading: readNumber(list, "data-stories-heading-scale", DEFAULT_HEADING_SCALE),
           shape: readNumber(list, "data-stories-shape-scale", DEFAULT_SHAPE_SCALE),
@@ -100,12 +102,12 @@ export function initStoriesStack() {
           item.style.zIndex = String(index + 1);
         });
 
-        list._storiesPinTweens = items.map((item) => {
+        list._storiesPinTweens = items.map((item, index) => {
           const parts = resolveScaleParts(item);
           const trigger = {
             trigger: item,
             start: `top ${offset}px`,
-            end: () => `+=${getPinDistance(item, scales)}`,
+            end: () => `+=${getPinDistance(item, scales, pinGap, items[index + 1])}`,
             pin: true,
             pinSpacing: false,
             scrub: true,
@@ -141,8 +143,9 @@ function readNumber(list, attribute, fallback) {
   return Number.isFinite(value) ? value : fallback;
 }
 
-// Pin until scaled content ends; layout offsets ignore entrance/pin transforms.
-function getPinDistance(item, scales) {
+// Pin until scaled content ends, leaving the configured gap below it; layout
+// offsets ignore entrance/pin transforms.
+function getPinDistance(item, scales, configuredGap, nextItem) {
   const content = item.querySelector(".stories-community_item-inner") || item.firstElementChild;
   if (!content || !item.offsetHeight) return 0;
 
@@ -161,7 +164,10 @@ function getPinDistance(item, scales) {
     contentBottom = Math.max(contentBottom, getLayoutTop(item, element) + element.offsetHeight);
   });
 
-  return Math.max(0, item.offsetHeight - contentBottom);
+  const gap = Number.isFinite(configuredGap)
+    ? configuredGap
+    : Number.parseFloat(getComputedStyle(nextItem || item).paddingTop) || 0;
+  return Math.max(0, item.offsetHeight - contentBottom - gap);
 }
 
 function getLayoutTop(item, element) {

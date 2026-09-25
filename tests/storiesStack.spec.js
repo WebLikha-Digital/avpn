@@ -72,6 +72,11 @@ async function sampleRowDuringContinuousScroll(page, itemIndex) {
           itemTop: item.getBoundingClientRect().top,
           nextTop: next?.getBoundingClientRect().top ?? null,
           contentBottom: content.getBoundingClientRect().bottom,
+          shrunkBottom: Math.max(
+            heading.getBoundingClientRect().bottom,
+            shape.getBoundingClientRect().bottom,
+            body.getBoundingClientRect().bottom,
+          ),
           headingScale: scale(heading),
           shapeScale: scale(shape),
           bodyScale: scale(body),
@@ -139,7 +144,7 @@ test("holds a row during continuous scroll, scales monotonically, and releases a
     expect(pinned[index].headingScale).toBeLessThanOrEqual(pinned[index - 1].headingScale + 0.02);
     expect(pinned[index].shapeScale).toBeLessThanOrEqual(pinned[index - 1].shapeScale + 0.02);
     expect(pinned[index].bodyScale).toBeLessThanOrEqual(pinned[index - 1].bodyScale + 0.02);
-    expect(pinned[index].nextTop).toBeGreaterThanOrEqual(pinned[index].contentBottom - 2);
+    expect(pinned[index].nextTop).toBeGreaterThanOrEqual(pinned[index].shrunkBottom - 2);
   }
   expect(samples.at(-1).headingScale).toBeLessThan(0.6);
   expect(samples.at(-1).shapeScale).toBeLessThan(0.6);
@@ -161,6 +166,89 @@ test("holds a row during continuous scroll, scales monotonically, and releases a
     return transform === "none" ? 1 : new DOMMatrixReadOnly(transform).a;
   }));
   reverseScales.forEach((scale) => expect(scale).toBeCloseTo(1, 1));
+});
+
+test("releases a pinned row when the next row reaches its shrunk content", async ({ page }) => {
+  await loadStories(page);
+  await page.locator(ITEM).first().locator("p").evaluate((paragraph) => {
+    paragraph.style.height = "320px";
+  });
+  await page.locator(ROOT).evaluate(async () => {
+    const { initStoriesStack } = await import("/src/animations/storiesStack.js");
+    initStoriesStack();
+  });
+  const range = await page.locator(ITEM).first().evaluate((item) => {
+    const list = item.closest("[data-stories-init]");
+    const items = [...list.querySelectorAll("[data-stories-item]")];
+    const index = items.indexOf(item);
+    const trigger = list._storiesPinTweens[index].scrollTrigger;
+    return { start: trigger.start, end: trigger.end };
+  });
+
+  const initialScroll = range.start - 40;
+  await page.evaluate((start) => window.scrollTo({ top: start, behavior: "instant" }), initialScroll);
+  await page.waitForFunction((target) => Math.abs(window.scrollY - target) < 1, initialScroll);
+  await page.waitForFunction(() => {
+    const shape = document.querySelector('[data-testid="stories-stack"] [data-stories-init] [data-stories-item] .stories-community_shape');
+    if (!shape) return false;
+    const transform = getComputedStyle(shape).transform;
+    const translateY = transform === "none" ? 0 : new DOMMatrixReadOnly(transform).f;
+    return getComputedStyle(shape).opacity === "1" && Math.abs(translateY) < 0.5;
+  });
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await page.evaluate(() => {
+    window.__storiesPinFrames = [];
+    window.__storiesPinRecording = true;
+    const list = document.querySelector('[data-testid="stories-stack"] [data-stories-init]');
+    const items = list?.querySelectorAll("[data-stories-item]");
+    const item = items?.[0];
+    const next = items?.[1];
+    const parts = [
+      item.querySelector("h1, h2, h3, h4, h5, h6"),
+      item.querySelector(".stories-community_shape"),
+      item.querySelector("p"),
+    ];
+    const scale = (part) => {
+      const transform = getComputedStyle(part).transform;
+      return transform === "none" ? 1 : new DOMMatrixReadOnly(transform).a;
+    };
+    const sample = () => {
+      if (!window.__storiesPinRecording) return;
+      window.__storiesPinFrames.push({
+        scrollY: window.scrollY,
+        nextTop: next.getBoundingClientRect().top,
+        shrunkBottom: Math.max(...parts.map((part) => part.getBoundingClientRect().bottom)),
+        headingScale: scale(parts[0]),
+        bodyScale: scale(parts[2]),
+      });
+      requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  });
+
+  await page.mouse.move(600, 400);
+  for (let index = 0; index < 35; index += 1) {
+    await page.mouse.wheel(0, 40);
+    await page.waitForTimeout(35);
+  }
+
+  const frames = await page.evaluate(() => {
+    window.__storiesPinRecording = false;
+    return window.__storiesPinFrames;
+  });
+  expect(frames.length).toBeGreaterThan(10);
+  const motionFrames = frames.filter((frame) => frame.scrollY > frames[0].scrollY + 1);
+  expect(motionFrames.length).toBeGreaterThan(10);
+  motionFrames.forEach((frame) => {
+    expect(frame.nextTop).toBeGreaterThanOrEqual(frame.shrunkBottom - 2);
+  });
+  const release = frames.find((frame) => frame.scrollY >= range.end);
+  expect(release).toBeDefined();
+  expect(release.scrollY).toBeGreaterThan(range.start);
+  expect(release.nextTop - release.shrunkBottom).toBeGreaterThanOrEqual(-2);
+  expect(release.nextTop - release.shrunkBottom).toBeLessThanOrEqual(8);
+  expect(release.headingScale).toBeCloseTo(0.5, 1);
+  expect(release.bodyScale).toBeCloseTo(0.75, 1);
 });
 
 test("pins and scales the final row during continuous scroll, then releases at its runway", async ({ page }) => {

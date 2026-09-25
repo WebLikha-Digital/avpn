@@ -93,6 +93,98 @@ test("pins the wheel panel inside the band and turns it", async ({ page }) => {
   expect(end).toBeCloseTo((itemCount - 1) * step, 0);
 });
 
+test("holds the last card and gates the in-stage line to that hold", async ({ page }) => {
+  const geometry = await page.locator("[data-rotary-wheel-init]").evaluate((el) => {
+    const wrap = el.closest("[data-hscroll-init]");
+    const track = wrap.querySelector("[data-hscroll-track]");
+    const stage = el.querySelector("[data-rotary-wheel-stage]");
+    return {
+      top: wrap.getBoundingClientRect().top + window.scrollY,
+      panelLeft: el.getBoundingClientRect().left - track.getBoundingClientRect().left,
+      pinDistance: el.offsetWidth - stage.offsetWidth,
+      turnProgress: el._rotaryWheelState.turnProgress,
+    };
+  });
+  const wheel = page.locator("[data-rotary-wheel-init]");
+  const line = page.locator("[data-draw-scroll-wheel-hold]");
+
+  const state = () => wheel.evaluate((panel) => ({
+    triggerProgress: panel._rotaryWheelTrigger.progress,
+    active: panel.querySelector('[data-rotary-wheel-state="active"]')?.textContent,
+    lineProgress: panel.querySelector("[data-draw-scroll-wheel-hold]")._drawTl.progress(),
+    lastScale: (() => {
+      const items = panel.querySelectorAll("[data-rotary-wheel-item]");
+      const last = items[items.length - 1];
+      const matrix = new DOMMatrix(getComputedStyle(last).transform);
+      return Math.hypot(matrix.a, matrix.b);
+    })(),
+  }));
+
+  await scrollTo(page, geometry.top + geometry.panelLeft + geometry.pinDistance * 0.6);
+  expect((await state()).lineProgress).toBeCloseTo(0, 2);
+
+  await scrollTo(page, geometry.top + geometry.panelLeft + geometry.pinDistance * 0.875);
+  const hold = await state();
+  expect(hold.triggerProgress).toBeGreaterThan(geometry.turnProgress);
+  expect(hold.active).toBe("Economic Inclusion");
+  expect(hold.lastScale).toBeCloseTo(1, 2);
+  expect(hold.lineProgress).toBeCloseTo(0.5, 1);
+
+  await scrollTo(page, geometry.top + geometry.panelLeft + geometry.pinDistance);
+  expect(await line.evaluate((wrap) => wrap._drawTl.progress())).toBeCloseTo(1, 2);
+  await scrollTo(page, geometry.top + geometry.panelLeft + geometry.pinDistance * 0.6);
+  expect(await line.evaluate((wrap) => wrap._drawTl.progress())).toBeCloseTo(0, 2);
+
+  // Sample while the band is moving, not only at settled endpoints. The line
+  // must remain closed before the hold and increase monotonically inside it.
+  await scrollTo(page, geometry.top + geometry.panelLeft);
+  await page.evaluate(() => {
+    window.__wheelHoldSamples = [];
+    const sample = () => {
+      const panel = document.querySelector("[data-rotary-wheel-init]");
+      const wrap = document.querySelector("[data-draw-scroll-wheel-hold]");
+      const wheel = panel._rotaryWheelTrigger.progress;
+      window.__wheelHoldSamples.push({
+        wheel,
+        line: wrap._drawTl.progress(),
+      });
+      if (wheel < 0.999 && window.__wheelHoldSamples.length < 600) {
+        requestAnimationFrame(sample);
+      }
+    };
+    requestAnimationFrame(sample);
+  });
+  for (let index = 0; index < 36; index += 1) {
+    await page.mouse.wheel(0, (geometry.pinDistance * 1.1) / 36);
+    await page.waitForTimeout(16);
+  }
+  await expect.poll(
+    () => page.locator("[data-rotary-wheel-init]").evaluate(
+      (panel) => panel._rotaryWheelTrigger.progress,
+    ),
+    { timeout: 10_000 },
+  ).toBeGreaterThanOrEqual(0.999);
+  await page.waitForFunction(
+    () => {
+      const samples = window.__wheelHoldSamples;
+      return samples?.length > 0 && samples.at(-1).wheel >= 0.999;
+    },
+    null,
+    { timeout: 10_000 },
+  );
+  const samples = await page.evaluate(() => window.__wheelHoldSamples);
+  const holdSamples = samples.filter(({ wheel }) => wheel > 0 && wheel < 1);
+  expect(holdSamples.length).toBeGreaterThan(10);
+  expect(holdSamples.filter(({ wheel, line }) => wheel <= 0.74 && line > 0.02)).toHaveLength(0);
+  const drawn = holdSamples.filter(({ wheel }) => wheel >= 0.76);
+  expect(drawn.length).toBeGreaterThan(0);
+  for (let index = 1; index < drawn.length; index += 1) {
+    expect(drawn[index].line).toBeGreaterThanOrEqual(drawn[index - 1].line - 0.02);
+  }
+  expect(drawn.at(-1).line).toBeGreaterThan(drawn[0].line);
+  expect(drawn.at(-1).line).toBeCloseTo(1, 1);
+});
+
 test("holds the stage still while the wheel turns", async ({ page }) => {
   const { top, panelLeft, pinDistance } = await page.locator("[data-rotary-wheel-init]").evaluate((el) => {
     const wrap = el.closest("[data-hscroll-init]");

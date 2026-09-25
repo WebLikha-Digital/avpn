@@ -33,6 +33,12 @@ import {
  *   data-draw-scroll-once      set to "false" to replay a reveal on re-entry
  *   data-draw-scroll-after     selector for a reveal wrapper that must complete
  *                              before a scrub wrapper starts drawing
+ *   data-draw-scroll-wheel-hold presence opts a wrapper inside a rotary wheel
+ *                              stage into the wheel's hold mapping: it stays
+ *                              at 0 through arrival and all card turns, then
+ *                              scrubs to 100% across the wheel hold. The
+ *                              wheel's --rotary-wheel-hold must be > 0;
+ *                              otherwise normal draw-path behaviour applies.
  *
  * Despite the attribute name, [data-draw-scroll-path] works on anything
  * DrawSVGPlugin accepts: path, line, polyline, polygon, rect, ellipse, circle.
@@ -197,6 +203,22 @@ export function initDrawPathScroll() {
           return;
         }
 
+        const wheelState = wrap.closest("[data-rotary-wheel-init]")
+          ?._rotaryWheelState;
+        if (
+          wrap.hasAttribute("data-draw-scroll-wheel-hold") &&
+          wheelState?.trigger &&
+          wheelState.hold > 0
+        ) {
+          createWheelHoldScrubTimeline(
+            wrap,
+            paths,
+            wheelState,
+            stagger,
+          );
+          return;
+        }
+
         createScrubTimeline(wrap, paths, scrollTrigger, stagger);
       });
 
@@ -235,6 +257,45 @@ function createScrubTimeline(wrap, paths, scrollTrigger, stagger) {
   tl.to(paths, { drawSVG: "100%", duration: 1, stagger }, 0);
 
   // Keep a reference so we can kill it on breakpoint change
+  wrap._drawTl = tl;
+  return tl;
+}
+
+function createWheelHoldScrubTimeline(wrap, paths, wheelState, stagger) {
+  const panel = wrap.closest("[data-rotary-wheel-init]");
+  const stage = panel?.querySelector("[data-rotary-wheel-stage]");
+  const scroller = wheelState.trigger.scroller;
+  if (!panel || !stage || !scroller) return;
+
+  const tl = gsap.timeline({ defaults: { ease: "linear" } });
+  tl.to(paths, { drawSVG: "100%", duration: 1, stagger }, 0);
+
+  const mapHoldProgress = (self) => {
+    const holdProgress = gsap.utils.clamp(
+      0,
+      1,
+      (self.progress - wheelState.turnProgress) /
+        (1 - wheelState.turnProgress),
+    );
+    tl.progress(holdProgress);
+  };
+  const trigger = ScrollTrigger.create({
+    animation: tl,
+    trigger: panel,
+    scroller,
+    horizontal: true,
+    start: "left left",
+    end: () => `+=${Math.max(1, panel.offsetWidth - stage.offsetWidth)}`,
+    scrub: true,
+    invalidateOnRefresh: true,
+    onUpdate: mapHoldProgress,
+    onRefresh: mapHoldProgress,
+  });
+  // ScrollTrigger normally adds this back-reference when `animation` is
+  // supplied. Keep the contract explicit for teardown and diagnostics if a
+  // GSAP version ever omits it.
+  tl.scrollTrigger ||= trigger;
+
   wrap._drawTl = tl;
   return tl;
 }

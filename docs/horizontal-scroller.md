@@ -142,6 +142,15 @@ component reads them from the panel, and custom properties don't inherit upward.
 | `--rotary-wheel-step` | `14` (degrees) | Angle between cards. Larger = further apart on the rim = more travel between slots. |
 | `--rotary-wheel-radius` | `3.2 × stage height` | Rim distance in px. Shrink it and cards visibly swing in from the side instead of rising. |
 | `--rotary-wheel-scale` | `0.85` | Size a card keeps per step away from the slot. `1` disables the depth cue. |
+| `--rotary-wheel-hold` | `0` (card steps) | Optional parked tail after the last card. `1` reserves one card-turn distance for the last card to remain active. |
+
+An in-stage draw wrapper can use `data-draw-scroll-wheel-hold` to stay undrawn
+through wheel arrival and all card turns, then scrub from 0% to 100% across the
+hold. The attribute is ignored when the wheel has no positive hold, and on
+mobile (where the horizontal band is inactive) the wrapper uses its normal
+draw-path range. Its authored `data-draw-scroll-start` and
+`data-draw-scroll-end` are not used while this opt-in is active; the wheel pin's
+`left left` to `panel width - stage width` range is the source of truth.
 
 ### Where the defaults come from
 

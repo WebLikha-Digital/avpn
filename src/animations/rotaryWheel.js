@@ -73,7 +73,12 @@ const SCALE_FALLOFF = 0.85;
  * them: --rotary-wheel-step (degrees between cards), --rotary-wheel-radius
  * (rim distance in px; defaults to a multiple of the stage height) and
  * --rotary-wheel-scale (size a card keeps per step away from the slot; 1
- * disables the depth cue).
+ * disables the depth cue), and --rotary-wheel-hold (extra parked card steps
+ * after the last card; defaults to 0). A hold keeps the panel's pin distance
+ * unchanged and consumes the final hold/(lastIndex + hold) share of it.
+ * Draw-path wrappers inside this panel may opt into that phase with
+ * data-draw-scroll-wheel-hold; the panel exposes the live mapping on
+ * _rotaryWheelState for that component.
  * The card nearest the slot carries [data-rotary-wheel-state="active"], so CSS
  * owns how the focused card differs from the ones queued behind it.
  */
@@ -83,6 +88,7 @@ export function initRotaryWheel() {
     // a live pin-spacer is part of the width this reads back.
     panel._rotaryWheelTrigger?.kill();
     panel._rotaryWheelTrigger = null;
+    panel._rotaryWheelState = null;
 
     const stage = panel.querySelector("[data-rotary-wheel-stage]");
     const hub = panel.querySelector("[data-rotary-wheel-hub]");
@@ -116,9 +122,15 @@ export function initRotaryWheel() {
     const scaleFalloff = Number.isFinite(authoredScale)
       ? authoredScale
       : SCALE_FALLOFF;
+    const authoredHold = Number.parseFloat(
+      styles.getPropertyValue("--rotary-wheel-hold"),
+    );
+    const hold = Number.isFinite(authoredHold) ? Math.max(0, authoredHold) : 0;
 
     const origin = `${radius}px 0px`;
     const lastIndex = items.length - 1;
+    const totalSteps = lastIndex + hold;
+    const turnProgress = totalSteps ? lastIndex / totalSteps : 1;
 
     gsap.set(hub, { transformOrigin: origin, rotation: 0 });
     items.forEach((item, i) => {
@@ -147,8 +159,15 @@ export function initRotaryWheel() {
 
     const render = (progress) => {
       // Position on the rim, in card units: 0 parks the first card in the
-      // slot, lastIndex parks the last one there.
-      const position = progress * lastIndex;
+      // slot, lastIndex parks the last one there. When a hold is authored,
+      // progress reaches lastIndex at the start of the parked tail and stays
+      // there for its remainder.
+      const position =
+        hold > 0
+          ? progress > turnProgress
+            ? lastIndex
+            : (progress / turnProgress) * lastIndex
+          : progress * lastIndex;
       setRotation(position * step);
 
       // Continuous, not stepped. A card is only full size at the exact moment
@@ -181,6 +200,7 @@ export function initRotaryWheel() {
     });
 
     panel._rotaryWheelTrigger = trigger;
+    panel._rotaryWheelState = { trigger, hold, turnProgress };
     render(trigger.progress);
   });
 }

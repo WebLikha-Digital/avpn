@@ -1128,10 +1128,11 @@
          degrees between cards on a rim 5x the stage height, each step 85% the
          size of the last. */
       .hband__wheel {
-        width: 340vw;
+        width: 440vw;
         display: block;
         --rotary-wheel-step: 14;
         --rotary-wheel-scale: 0.85;
+        --rotary-wheel-hold: 1;
       }
       .hband__stage {
         width: 100vw;
@@ -2310,7 +2311,7 @@
               <div class="hband__copy">
                 <h3>Strengthening engagements in thematic areas</h3>
                 <p>Our product portfolio covers four thematic areas:</p>
-                <div data-draw-scroll-wrap>
+                <div data-draw-scroll-wrap data-draw-scroll-wheel-hold>
                   <svg data-draw-scroll-desktop viewBox="0 0 400 200" aria-hidden="true"
                        fill="none" stroke="#0b3b4d" stroke-width="3"
                        stroke-dasharray="1 10" stroke-linecap="round">

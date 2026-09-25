@@ -11,6 +11,10 @@ async function showSection(page) {
   const root = page.locator(rootSelector);
   await root.evaluate((node) => node.scrollIntoView({ block: "center", behavior: "instant" }));
   await expect(root.locator(activeItem)).toHaveCount(1);
+  await expect.poll(() => root.evaluate((node) => {
+    const instance = node._membersTestimonialsInstance;
+    return Boolean(instance?.introComplete && !instance.introTimeline?.isActive());
+  })).toBe(true);
   return root;
 }
 
@@ -26,6 +30,70 @@ test.beforeEach(async ({ page }) => {
     };
   });
   await page.goto("/");
+});
+
+test("starts hidden two orbit slots back and follows the orbit during its one-time intro", async ({ page }) => {
+  const root = page.locator(rootSelector);
+  const initial = await root.evaluate((node) => {
+    const instance = node._membersTestimonialsInstance;
+    return {
+      top: node.getBoundingClientRect().top,
+      threshold: window.innerHeight * 0.7,
+      opacity: [...node.querySelectorAll("[data-testimonials-item]")].map((item) => getComputedStyle(item).opacity),
+      angles: instance.states.map((state) => state.angle),
+      step: instance.step,
+      activeIndex: instance.activeIndex,
+    };
+  });
+  expect(initial.top).toBeGreaterThan(initial.threshold);
+  expect(initial.opacity).toEqual(["0", "0", "0"]);
+  expect(initial.angles).toEqual(initial.angles.map((angle, index) => {
+    const offset = ((index - initial.activeIndex + 1 + 3) % 3) - 1;
+    return (offset - 2) * initial.step;
+  }));
+
+  const samples = await root.evaluate((node) => new Promise((resolve) => {
+    const start = node.getBoundingClientRect();
+    window.scrollTo(0, window.scrollY + start.top - window.innerHeight * 0.7 + 40);
+    const wheel = node.querySelector("[data-testimonials-wheel]").getBoundingClientRect();
+    const radius = node.querySelector(".testimonials_orbit").offsetWidth / 2;
+    const frames = [];
+    const sample = () => {
+      const instance = node._membersTestimonialsInstance;
+      const origin = node.querySelector("[data-testimonials-wheel]").getBoundingClientRect();
+      const item = node.querySelectorAll("[data-testimonials-item]")[0].getBoundingClientRect();
+      frames.push({
+        radius: Math.hypot(
+          item.left + item.width / 2 - (origin.left + wheel.width / 2),
+          item.top + item.height / 2 - (origin.top + wheel.height / 2),
+        ),
+        opacity: getComputedStyle(node.querySelectorAll("[data-testimonials-item]")[0]).opacity,
+      });
+      if (!instance?.isAnimating) resolve({ frames, radius });
+      else requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  }));
+  expect(samples.frames.length).toBeGreaterThan(5);
+  expect(samples.frames.some((frame) => frame.opacity > 0 && frame.opacity < 1)).toBe(true);
+  expect(samples.frames.slice(1).every((frame) => Math.abs(frame.radius - samples.radius) < 2)).toBe(true);
+  await settle(root);
+  await expect(root.locator("[data-testimonials-item]")).toHaveCount(3);
+  expect(await root.evaluate((node) => node._membersTestimonialsInstance.introComplete)).toBe(true);
+});
+
+test("does not replay after scrolling away or resizing", async ({ page }) => {
+  const root = await showSection(page);
+  const before = await root.evaluate((node) => ({
+    angles: node._membersTestimonialsInstance.states.map((state) => state.angle),
+  }));
+  await root.evaluate((node) => window.scrollTo(0, node.offsetTop + node.offsetHeight + window.innerHeight));
+  await page.waitForTimeout(100);
+  await root.evaluate((node) => node.scrollIntoView({ block: "center", behavior: "instant" }));
+  await page.setViewportSize({ width: 1279, height: 900 });
+  await expect.poll(() => root.evaluate((node) => node._membersTestimonialsInstance?.introComplete)).toBe(true);
+  expect(await root.evaluate((node) => node._membersTestimonialsIntroPlayed)).toBe(true);
+  expect(await root.evaluate((node) => node._membersTestimonialsInstance.states.map((state) => state.angle))).toEqual(before.angles);
 });
 
 test("places the active visual at three o'clock and the thumbs at the orbit slots", async ({ page }) => {
@@ -230,6 +298,10 @@ test("crossfades quote slides without SplitText motion under reduced motion", as
   await page.reload();
   const root = await showSection(page);
   await expect(root.locator(".text-line")).toHaveCount(0);
+  expect(await root.evaluate((node) => ({
+    complete: node._membersTestimonialsInstance.introComplete,
+    opacities: [...node.querySelectorAll("[data-testimonials-item]")].map((item) => getComputedStyle(item).opacity),
+  }))).toEqual({ complete: true, opacities: ["1", "1", "1"] });
   await root.locator("[data-testimonials-next]").click();
   await settle(root);
   await expect(root.locator("[data-testimonials-slide-status=active] [data-testimonials-text]")).toContainText("Through AVPN");

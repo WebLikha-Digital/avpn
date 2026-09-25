@@ -3,6 +3,10 @@ import { gsap, ScrollTrigger, SplitText } from "../lib/gsap.js";
 const ITEM_COUNT = 3;
 const MOTION_DURATION = 1;
 const WRAP_FADE_DURATION = 0.35;
+const INTRO_OFFSET_SLOTS = 2;
+const INTRO_DURATION = 1.2;
+const INTRO_STAGGER = 0.12;
+const INTRO_START = "top 70%";
 const mod = (value, total) => ((value % total) + total) % total;
 
 function isReducedMotion() {
@@ -52,10 +56,13 @@ function initMembersTestimonials(scope = document) {
       states: items.map(() => ({ angle: 0 })),
       listeners: [],
       scrollTrigger: null,
+      introTrigger: null,
+      introTimeline: null,
       master: null,
       autoplayCall: null,
       activeIndex: Math.max(0, items.findIndex((item) => item.dataset.testimonialsItemStatus === "active")),
       isAnimating: false,
+      introComplete: false,
       isInView: false,
       reduced,
       radius: 0,
@@ -95,6 +102,15 @@ function initMembersTestimonials(scope = document) {
       item.setAttribute("data-testimonials-item-status", slotStatus(activeOffset));
     };
 
+    const setRestingState = () => {
+      instance.items.forEach((item, index) => {
+        const offset = offsetFor(index, instance.activeIndex);
+        instance.states[index].angle = offset * instance.step;
+        renderItem(index, instance.states[index].angle);
+        gsap.set(item, { autoAlpha: 1 });
+      });
+    };
+
     const setSlideState = (slide, active) => {
       slide.setAttribute("data-testimonials-slide-status", active ? "active" : "not-active");
       slide.setAttribute("aria-current", active ? "true" : "false");
@@ -102,19 +118,48 @@ function initMembersTestimonials(scope = document) {
       gsap.set(slide, { autoAlpha: active ? 1 : 0 });
     };
 
-    const setInitialState = () => {
+    const setInitialState = (introPending) => {
       readGeometry();
       instance.items.forEach((item, index) => {
         const offset = offsetFor(index, instance.activeIndex);
-        instance.states[index].angle = offset * instance.step;
+        instance.states[index].angle = (offset - (introPending ? INTRO_OFFSET_SLOTS : 0)) * instance.step;
         item.setAttribute("aria-label", `Slide ${index + 1} of ${ITEM_COUNT}`);
         item.setAttribute("aria-current", offset === 0 ? "true" : "false");
         renderItem(index, instance.states[index].angle);
-        gsap.set(item, { autoAlpha: 1 });
+        gsap.set(item, { autoAlpha: introPending ? 0 : 1 });
       });
       instance.slides.forEach((slide, index) => {
         slide.setAttribute("aria-label", `Slide ${index + 1} of ${ITEM_COUNT}`);
         setSlideState(slide, index === instance.activeIndex);
+      });
+    };
+
+    const playIntro = () => {
+      if (instance.introComplete || instance.reduced) return;
+      instance.introComplete = true;
+      instance.isAnimating = true;
+      root._membersTestimonialsIntroPlayed = true;
+      const timeline = gsap.timeline({
+        defaults: { ease: "radial" },
+        onComplete: () => {
+          setRestingState();
+          instance.isAnimating = false;
+          scheduleAutoplay();
+        },
+      });
+      instance.introTimeline = timeline;
+      instance.states.forEach((state, index) => {
+        const offset = offsetFor(index, instance.activeIndex);
+        const target = offset * instance.step;
+        timeline.to(state, {
+          angle: target,
+          duration: INTRO_DURATION,
+          onUpdate: () => renderItem(index, state.angle),
+        }, index * INTRO_STAGGER);
+        timeline.to(items[index], {
+          autoAlpha: 1,
+          duration: INTRO_DURATION * 0.45,
+        }, index * INTRO_STAGGER);
       });
     };
 
@@ -172,7 +217,7 @@ function initMembersTestimonials(scope = document) {
     };
 
     function goTo(targetIndex, automatic = false) {
-      if (instance.isAnimating) return;
+      if (instance.isAnimating || !instance.introComplete) return;
       const newIndex = mod(targetIndex, ITEM_COUNT);
       if (newIndex === instance.activeIndex) return;
       const oldIndex = instance.activeIndex;
@@ -247,8 +292,24 @@ function initMembersTestimonials(scope = document) {
     root.setAttribute("role", "region");
     root.setAttribute("aria-roledescription", "carousel");
     root.setAttribute("aria-label", root.getAttribute("aria-label") || "Hear from Our Members");
-    setInitialState();
+    const introStart = root.dataset.testimonialsIntroStart || INTRO_START;
+    const initialRect = root.getBoundingClientRect();
+    const introThreshold = introStart.match(/^top\s+(\d+(?:\.\d+)?)%$/)?.[1];
+    const introPast = initialRect.top <= window.innerHeight * (Number(introThreshold || 70) / 100);
+    const introPending = !instance.reduced
+      && !root._membersTestimonialsIntroPlayed
+      && !introPast;
+    instance.introComplete = !introPending;
+    setInitialState(introPending);
+    if (instance.introComplete) root._membersTestimonialsIntroPlayed = true;
     setupSplits();
+
+    instance.introTrigger = ScrollTrigger.create({
+      trigger: root,
+      start: introStart,
+      once: true,
+      onEnter: playIntro,
+    });
 
     instance.scrollTrigger = ScrollTrigger.create({
       trigger: root,
@@ -259,7 +320,6 @@ function initMembersTestimonials(scope = document) {
         scheduleAutoplay();
       },
     });
-    const initialRect = root.getBoundingClientRect();
     instance.isInView = initialRect.top < window.innerHeight && initialRect.bottom > 0;
     scheduleAutoplay();
 
@@ -304,7 +364,9 @@ function initMembersTestimonials(scope = document) {
     instance.kill = () => {
       instance.autoplayCall?.kill();
       instance.master?.kill();
+      instance.introTimeline?.kill();
       instance.scrollTrigger?.kill();
+      instance.introTrigger?.kill();
       instance.listeners.forEach((remove) => remove());
       instance.splits.forEach((split) => split.revert());
       pauseVideos();

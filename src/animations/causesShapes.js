@@ -113,7 +113,7 @@ export function initCausesShapes() {
       start: "top 80%",
       once: true,
       onEnter: () => {
-        if (!document.hidden) instance.revealTimeline.play();
+        instance.revealTimeline.play();
       },
     });
 
@@ -140,9 +140,6 @@ export function initCausesShapes() {
     instance.visibilityHandler = () => {
       if (document.hidden) {
         pause();
-        instance.revealTimeline.pause();
-      } else if (!instance.revealed && instance.revealTrigger.isActive) {
-        instance.revealTimeline.play();
       } else if (instance.trigger.isActive) {
         play();
       }

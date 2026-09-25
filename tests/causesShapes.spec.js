@@ -73,6 +73,16 @@ async function waitForReveal(page) {
   ).toBe(true);
 }
 
+async function setDocumentHidden(page, hidden) {
+  await page.evaluate((nextHidden) => {
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      get: () => nextHidden,
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  }, hidden);
+}
+
 function fitsBoxes(boxes, radii, tolerance = fitTolerance) {
   const centers = [
     (radius) => [radius, radius],
@@ -311,6 +321,26 @@ test("does not morph before the one-shot reveal completes or replay it", async (
     patternIndex: afterReveal.patternIndex,
     progress: 1,
   });
+});
+
+test("completes the reveal when visibility changes before and during entry", async ({ page }) => {
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+
+  await setDocumentHidden(page, true);
+  await scrollIntoView(page);
+
+  await setDocumentHidden(page, false);
+  await page.waitForTimeout(100);
+  await setDocumentHidden(page, true);
+  await page.waitForTimeout(100);
+  await setDocumentHidden(page, false);
+  await waitForReveal(page);
+
+  expect((await revealState(page)).every(({ opacity, visibility, transform }) =>
+    opacity === "1" && visibility === "visible" && transform === "none",
+  )).toBe(true);
+  expect(await page.locator(section).evaluate((root) => root._causesShapes.revealed)).toBe(true);
 });
 
 test("reveal leaves every tile border radius unchanged", async ({ page }) => {

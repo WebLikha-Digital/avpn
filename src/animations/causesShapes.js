@@ -44,6 +44,10 @@ const SHAPE_NAMES = Object.keys(SHAPES);
 // the arc on published tiles. Authored start shapes are not validated by this
 // morph-decision rule.
 const FIT_TOLERANCE = 0.02;
+const REVEAL_DURATION = 0.8;
+const REVEAL_STAGGER = 0.06;
+const REVEAL_DISTANCE = "2em";
+const REVEAL_EASE = "power4.inOut";
 
 export function initCausesShapes() {
   document.querySelectorAll("[data-causes-init]").forEach((section) => {
@@ -51,6 +55,7 @@ export function initCausesShapes() {
 
     const tiles = [...section.querySelectorAll("[data-causes-tile]")];
     if (tiles.length === 0) return;
+    const grid = section.querySelector("[data-causes-grid]") || section;
 
     const reducedMotion = window.matchMedia?.(
       "(prefers-reduced-motion: reduce)",
@@ -65,6 +70,9 @@ export function initCausesShapes() {
       patternIndex: 0,
       currentTween: null,
       timeline: null,
+      revealTimeline: null,
+      revealTrigger: null,
+      revealed: false,
       trigger: null,
       visibilityHandler: null,
       swapNext: null,
@@ -74,11 +82,41 @@ export function initCausesShapes() {
     tiles.forEach((tile) => {
       const shape = tile.dataset.causesShape;
       gsap.set(tile, { borderRadius: SHAPES[shape] || SHAPES.square });
+      gsap.set(tile, { y: REVEAL_DISTANCE, autoAlpha: 0 });
     });
 
     instance.swapNext = () => swapNext(instance);
     instance.fitsShape = (tileIndex, shapeName) =>
       fitsShape(instance.tiles[tileIndex], shapeName);
+    instance.revealTimeline = gsap.timeline({
+      paused: true,
+      onComplete: () => {
+        instance.revealed = true;
+        if (instance.trigger?.isActive) play();
+      },
+    });
+    tiles.forEach((tile, index) => {
+      instance.revealTimeline.to(
+        tile,
+        {
+          y: 0,
+          autoAlpha: 1,
+          duration: REVEAL_DURATION,
+          ease: REVEAL_EASE,
+          clearProps: "y,autoAlpha",
+        },
+        index * REVEAL_STAGGER,
+      );
+    });
+    instance.revealTrigger = ScrollTrigger.create({
+      trigger: grid,
+      start: "top 80%",
+      once: true,
+      onEnter: () => {
+        if (!document.hidden) instance.revealTimeline.play();
+      },
+    });
+
     instance.timeline = gsap.timeline({
       repeat: -1,
       repeatDelay: 4,
@@ -87,7 +125,7 @@ export function initCausesShapes() {
     }).call(instance.swapNext);
 
     const play = () => {
-      if (!document.hidden) instance.timeline.play();
+      if (!document.hidden && instance.revealed) instance.timeline.play();
     };
     const pause = () => instance.timeline.pause();
     instance.trigger = ScrollTrigger.create({
@@ -100,8 +138,14 @@ export function initCausesShapes() {
       onLeaveBack: pause,
     });
     instance.visibilityHandler = () => {
-      if (document.hidden) pause();
-      else if (instance.trigger.isActive) play();
+      if (document.hidden) {
+        pause();
+        instance.revealTimeline.pause();
+      } else if (!instance.revealed && instance.revealTrigger.isActive) {
+        instance.revealTimeline.play();
+      } else if (instance.trigger.isActive) {
+        play();
+      }
     };
     document.addEventListener("visibilitychange", instance.visibilityHandler);
     section._causesShapes = instance;
@@ -221,10 +265,13 @@ function teardown(section) {
 
   previous.currentTween?.kill();
   previous.timeline?.kill();
+  previous.revealTrigger?.kill();
+  previous.revealTimeline?.revert();
+  previous.revealTimeline?.kill();
   previous.trigger?.kill();
   if (previous.visibilityHandler) {
     document.removeEventListener("visibilitychange", previous.visibilityHandler);
   }
-  gsap.set(previous.tiles, { clearProps: "borderRadius" });
+  gsap.set(previous.tiles, { clearProps: "y,autoAlpha,borderRadius" });
   section._causesShapes = null;
 }

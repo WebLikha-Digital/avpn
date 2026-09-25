@@ -147,20 +147,17 @@ function getPinDistance(item, scales) {
   if (!content || !item.offsetHeight) return 0;
 
   const scaleParts = resolveScaleParts(item);
-  const scaled = [
-    [scaleParts.heading, scales.heading],
-    [scaleParts.shape, scales.shape],
-    [scaleParts.body, scales.body],
-  ].filter(([part]) => part);
-  const scaledParts = scaled.map(([part]) => part);
+  const scaled = Object.entries(scales)
+    .map(([name, scale]) => [scaleParts[name], scale])
+    .filter(([part]) => part);
   let contentBottom = 0;
 
   scaled.forEach(([part, scale]) => {
     contentBottom = Math.max(contentBottom, getLayoutTop(item, part) + part.offsetHeight * scale);
   });
   content.querySelectorAll("*").forEach((element) => {
-    if (scaledParts.some((part) => part === element || part.contains(element))) return;
-    if (scaledParts.some((part) => element.contains(part))) return;
+    if (scaled.some(([part]) => part === element || part.contains(element))) return;
+    if (scaled.some(([part]) => element.contains(part))) return;
     contentBottom = Math.max(contentBottom, getLayoutTop(item, element) + element.offsetHeight);
   });
 
@@ -179,7 +176,9 @@ function getLayoutTop(item, element) {
 }
 
 function getOffsetPath(element) {
-  const path = []; for (let node = element; node; node = node.offsetParent) path.push(node); return path;
+  const path = [];
+  for (let node = element; node; node = node.offsetParent) path.push(node);
+  return path;
 }
 
 // The tagged parts if the markup has them, else the row's own three pieces in

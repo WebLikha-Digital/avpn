@@ -281,7 +281,7 @@ because the fix "looks obviously right".
 | 1 | CI is green on the PR | `gh pr checks <pr>` — GitHub's status, not your own test run. `main` has no branch protection, so nothing enforces this gate for you: check it, and never merge past a red or pending run. |
 | 2 | A regression spec fails on `main` and passes on the branch | Both results recorded in the PR, from step 7. |
 | 3 | The diff touches only `src/`, `tests/`, `dist/animations.min.js`, and the `index.html` mirror of a Webflow change | `git diff --name-only main...HEAD`. `dist/` is allowed *only* as the rebuilt output of the source change in the same diff — never hand-edited. `index.html` is allowed *only* when every changed line there reproduces a Webflow markup, attribute, or style change made for this fix (step 7 **Mixed fixes**); any other `index.html` edit disqualifies. Any change to `package.json`, `vite.config.js`, either Playwright config, `.github/`, `skills/`, or `docs/` disqualifies. |
-| 4 | The diff is at most 50 changed lines, excluding `dist/` | `git diff --shortstat main...HEAD -- src tests`. The bundle is one minified line and would swamp the count. |
+| 4 | The source diff is at most 50 changed lines, excluding `dist/` and `tests/` | `git diff --shortstat main...HEAD -- src`. The bundle is one minified line and would swamp the count. Tests are not counted: a per-frame regression spec alone often runs past 50 lines, and it is the evidence for the fix, not its risk. |
 | 5 | The acceptance criteria came from the user | Criteria you inferred yourself do not count — ask the user to confirm them, or hand off. |
 | 6 | Every acceptance criterion is met by a measured check | A committed spec, or — for a criterion no committed spec can reach, such as the published page's rendered geometry — a live measurement recorded in the PR body with the command, viewport, and the numbers read back (step 7 **Mixed fixes**). A criterion that can only be confirmed by eye, with no number behind it, means hand off. |
 | 7 | Every part of the root cause is fixed and verified | A repo root cause is fixed by the diff. A Webflow root cause is fixed by Claude in the Designer or via MCP, published to the `webflow.io` staging subdomain, mirrored in `index.html`, and verified on the published page with this branch's bundle — all recorded in the PR body. A root cause in hosting, or a Webflow change the task did not ask Claude to make, always hands off. |
@@ -290,7 +290,8 @@ Rationale, so these are not treated as red tape: gates 1 and 2 are the only chec
 this workflow that are not self-attested. Gate 6 exists because most bugs in this repo
 are visual, and "I looked at it and it seemed fixed" is not evidence — a number read
 back from the published page is. Gates 3, 4 and 5 keep the blast radius small and stop
-a mis-framed problem statement from auto-shipping. Gate 7 exists because a bug on this
+a mis-framed problem statement from auto-shipping; gate 4 caps the runtime change, not
+the size of the spec that proves it. Gate 7 exists because a bug on this
 site is usually half Webflow; a repo patch that papers over a Webflow defect is not a
 fix, and a Webflow change nobody verified on the published page is not one either.
 

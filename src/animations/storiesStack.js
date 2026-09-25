@@ -105,11 +105,10 @@ export function initStoriesStack() {
           const trigger = {
             trigger: item,
             start: `top ${offset}px`,
-            end: () => `+=${getPinDistance(item)}`,
+            end: () => `+=${getPinDistance(item, scales)}`,
             pin: true,
             pinSpacing: false,
             scrub: true,
-            anticipatePin: 1,
             invalidateOnRefresh: true,
           };
 
@@ -142,16 +141,45 @@ function readNumber(list, attribute, fallback) {
   return Number.isFinite(value) ? value : fallback;
 }
 
-function getPinDistance(item) {
+// Pin until scaled content ends; layout offsets ignore entrance/pin transforms.
+function getPinDistance(item, scales) {
   const content = item.querySelector(".stories-community_item-inner") || item.firstElementChild;
-  if (!content) return 0;
+  if (!content || !item.offsetHeight) return 0;
 
-  // Only the space below the content is the runway. Measuring the two boxes
-  // avoids counting the row's top padding, which would let the next row cross
-  // the pinned copy before the pin releases.
-  const itemRect = item.getBoundingClientRect();
-  const contentRect = content.getBoundingClientRect();
-  return Math.max(0, itemRect.bottom - contentRect.bottom);
+  const scaleParts = resolveScaleParts(item);
+  const scaled = [
+    [scaleParts.heading, scales.heading],
+    [scaleParts.shape, scales.shape],
+    [scaleParts.body, scales.body],
+  ].filter(([part]) => part);
+  const scaledParts = scaled.map(([part]) => part);
+  let contentBottom = 0;
+
+  scaled.forEach(([part, scale]) => {
+    contentBottom = Math.max(contentBottom, getLayoutTop(item, part) + part.offsetHeight * scale);
+  });
+  content.querySelectorAll("*").forEach((element) => {
+    if (scaledParts.some((part) => part === element || part.contains(element))) return;
+    if (scaledParts.some((part) => element.contains(part))) return;
+    contentBottom = Math.max(contentBottom, getLayoutTop(item, element) + element.offsetHeight);
+  });
+
+  return Math.max(0, item.offsetHeight - contentBottom);
+}
+
+function getLayoutTop(item, element) {
+  const elementPath = getOffsetPath(element);
+  const itemPath = getOffsetPath(item);
+  const common = elementPath.find((ancestor) => itemPath.includes(ancestor));
+  if (!common) return element.offsetTop - item.offsetTop;
+
+  const sumBefore = (path) => path.slice(0, path.indexOf(common))
+    .reduce((total, node) => total + node.offsetTop, 0);
+  return sumBefore(elementPath) - sumBefore(itemPath);
+}
+
+function getOffsetPath(element) {
+  const path = []; for (let node = element; node; node = node.offsetParent) path.push(node); return path;
 }
 
 // The tagged parts if the markup has them, else the row's own three pieces in

@@ -105,6 +105,41 @@ test("tracks scroll continuously rather than snapping at the ends", async ({ pag
   expect(Math.min(...deltas)).toBeGreaterThan(-1);
   expect(deltas.filter((delta) => delta > 1).length).toBeGreaterThanOrEqual(3);
   expect(Math.max(...deltas)).toBeLessThan(travelled * 0.6);
+
+  // The first row has to be showing by the time the paragraph's last line is
+  // in the top quarter, and never above that line, sampled every frame.
+  await scrollTo(page, top);
+  await page.evaluate(({ sectionSelector, rowSelector }) => {
+    window.__progFrames = [];
+    const paragraph = document.querySelector(`${sectionSelector} .prog-overview_paragraph`);
+    const row = document.querySelector(`${sectionSelector} ${rowSelector}`);
+    const sample = () => {
+      const paragraphBox = paragraph.getBoundingClientRect();
+      const rowBox = row.getBoundingClientRect();
+      window.__progFrames.push({
+        bottom: paragraphBox.bottom,
+        top: rowBox.top,
+        opacity: Number.parseFloat(getComputedStyle(row).opacity),
+        vh: innerHeight,
+      });
+      window.__progFrameId = requestAnimationFrame(sample);
+    };
+    sample();
+  }, { sectionSelector: section, rowSelector: reveals });
+  for (let i = 0; i < 12; i += 1) {
+    await page.mouse.wheel(0, 80);
+  }
+  const frames = await page.evaluate(() => {
+    cancelAnimationFrame(window.__progFrameId);
+    return window.__progFrames;
+  });
+  const handoff = frames.filter((frame) => frame.bottom <= frame.vh * 0.25 && frame.bottom > -frame.vh);
+  const noContent = frames.filter((frame) => frame.bottom <= 0 && frame.opacity <= 0.05);
+  const visibleRows = frames.filter((frame) => frame.opacity > 0.05);
+  expect(handoff.length).toBeGreaterThan(0);
+  expect(handoff.every((frame) => frame.opacity > 0.5)).toBe(true);
+  expect(noContent).toHaveLength(0);
+  expect(visibleRows.every((frame) => frame.top >= frame.bottom - 1)).toBe(true);
 });
 
 // A staggered `from` holds its start values on the first target only, which
@@ -131,6 +166,19 @@ test("fills one row on hover and dims the rest", async ({ page }) => {
   // The rows are hidden until the sequence has played, so hover at the end of
   // the scrub, which is where a visitor meets them.
   const { top, distance } = await geometry(page);
+  await scrollTo(page, top);
+  const box = await page.locator(rows).first().boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  // A hidden row must leave both hover systems at their resting state.
+  const hiddenState = await page.evaluate(
+    (listSelector) => ({
+      list: document.querySelector(listSelector).getAttribute("data-hover-state"),
+      clones: document.querySelectorAll("[data-follower-cursor] [data-follower-visual]").length,
+      bar: new DOMMatrixReadOnly(getComputedStyle(document.querySelector("[data-hover-bar]")).transform).d,
+    }),
+    list,
+  );
+  expect(hiddenState).toEqual({ list: "idle", clones: 0, bar: 0 });
   await scrollTo(page, top + distance);
 
   const row = page.locator(rows).nth(1);

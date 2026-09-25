@@ -59,6 +59,11 @@ const ROW_RISE = 40;
  * component dims the other rows with — one element for both hooks means the
  * dimming quietly never happens.
  *
+ * The same split keeps a hidden row from being hovered: the outer link is set
+ * `pointer-events: none` and the inner wrapper `auto`, so the row can only be
+ * hit through the wrapper, and autoAlpha's `visibility: hidden` takes it out
+ * of hit testing until it is revealed.
+ *
  * Required CSS — the sticky and the resting positions are structural:
  *
  *   [data-prog-overview-init]   { min-height: calc(100vh + var(--prog-overview-pin, 120vh)); }
@@ -145,7 +150,7 @@ export function initProgrammesOverview() {
       parts.list,
       { y: () => LIST_TRAVEL * vh() },
       { y: 0, duration: 0.65 },
-      0.35
+      0.05
     );
 
     // The hidden state is written once, up front, and the tween is told not to
@@ -159,10 +164,17 @@ export function initProgrammesOverview() {
     // wherever the row happens to be at that moment, which mid-scroll is not
     // the resting state.
     //
-    // The last row lands before the scrub does: 0.35 + 0.3 + six steps of 0.05
-    // is 0.95, just inside the section rather than cut off at its bottom edge.
+    // The list starts at 0.05, while the paragraph is still leaving, so the
+    // first row is showing by the time the paragraph's last line nears the top
+    // — no empty frame between them. The last row lands well before the scrub
+    // does: 0.05 + 0.3 + six steps of 0.05 is 0.65.
     if (parts.rows.length) {
       gsap.set(parts.rows, { autoAlpha: 0, y: ROW_RISE });
+      parts.rows.forEach((row) => {
+        row.style.pointerEvents = "auto";
+        const link = row.closest("[data-hover-row]");
+        if (link) link.style.pointerEvents = "none";
+      });
 
       timeline.fromTo(
         parts.rows,
@@ -175,7 +187,7 @@ export function initProgrammesOverview() {
           ease: "power2.out",
           immediateRender: false,
         },
-        0.35
+        0.05
       );
     }
 
@@ -195,7 +207,7 @@ function teardown(section) {
     "[data-prog-overview-intro], [data-prog-overview-line], " +
       "[data-prog-overview-bg], [data-prog-overview-path], " +
       "[data-prog-overview-warp], [data-prog-overview-list], " +
-      "[data-prog-overview-row]"
+      "[data-prog-overview-row], [data-hover-row]"
   );
-  gsap.set(targets, { clearProps: "opacity,visibility,transform" });
+  gsap.set(targets, { clearProps: "opacity,visibility,transform,pointerEvents" });
 }

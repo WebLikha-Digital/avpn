@@ -5,6 +5,7 @@ import {
 } from "./horizontalScroller.js";
 import {
   measureScreenPath,
+  pathGeometryChanged,
   restoreScreenPathVisibility,
   setScreenPathProgress,
   usesScreenPathLength,
@@ -414,8 +415,9 @@ function refreshDrawMeasurements(paths) {
   paths.forEach((path) => {
     const state = path._screenPathDrawState;
     if (state) {
-      state.measurement = measureScreenPath(path);
-      state.screenPath = usesScreenPathLength(path);
+      if (pathGeometryChanged(path, state.measurement)) {
+        state.measurement = measureScreenPath(path);
+      }
     }
   });
 }
@@ -437,7 +439,6 @@ function addDrawTweens(timeline, paths, stagger, duration = 1) {
     const state = {
       value: 0,
       measurement: measureScreenPath(path),
-      screenPath: true,
       dasharray: path.style.strokeDasharray,
       dashoffset: path.style.strokeDashoffset,
     };

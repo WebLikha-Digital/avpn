@@ -1,4 +1,4 @@
-const SAMPLE_COUNT = 512;
+const SAMPLE_COUNT = 128;
 
 export function usesScreenPathLength(path) {
   const matrix = path.getScreenCTM?.();
@@ -17,10 +17,10 @@ export function measureScreenPath(path) {
   const localLength = path.getTotalLength?.() || 0;
   const matrix = path.getScreenCTM?.();
   if (!localLength || !matrix) {
-    return { localLength, screenLength: 0, points: [] };
+    return { localLength, screenLength: 0, points: [], scaleX: 1, scaleY: 1 };
   }
 
-  const count = Math.max(SAMPLE_COUNT, Math.ceil(localLength / 8));
+  const count = SAMPLE_COUNT;
   const points = [];
   let previous = transformPoint(matrix, path.getPointAtLength(0));
   let screenLength = 0;
@@ -34,7 +34,29 @@ export function measureScreenPath(path) {
     previous = point;
   }
 
-  return { localLength, screenLength, points };
+  return {
+    localLength,
+    screenLength,
+    points,
+    scaleX: Math.hypot(matrix.a, matrix.b),
+    scaleY: Math.hypot(matrix.c, matrix.d),
+  };
+}
+
+export function pathGeometry(path) {
+  const matrix = path.getScreenCTM?.();
+  return {
+    localLength: path.getTotalLength?.() || 0,
+    scaleX: matrix ? Math.hypot(matrix.a, matrix.b) : 1,
+    scaleY: matrix ? Math.hypot(matrix.c, matrix.d) : 1,
+  };
+}
+
+export function pathGeometryChanged(path, measurement) {
+  const geometry = pathGeometry(path);
+  return Math.abs(geometry.localLength - measurement.localLength) > 0.0001
+    || Math.abs(geometry.scaleX - measurement.scaleX) > 0.0001
+    || Math.abs(geometry.scaleY - measurement.scaleY) > 0.0001;
 }
 
 export function setScreenPathProgress(path, progress, measurement = measureScreenPath(path)) {

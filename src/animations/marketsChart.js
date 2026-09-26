@@ -2,6 +2,8 @@ import { DrawSVGPlugin, gsap, ScrollTrigger } from "../lib/gsap.js";
 import { bandContext } from "./horizontalScroller.js";
 import {
   measureScreenPath,
+  pathGeometry,
+  pathGeometryChanged,
   pathScreenScale,
   restoreScreenPathVisibility,
   setScreenPathProgress,
@@ -178,20 +180,28 @@ function initSectionTrigger(instance) {
 
 function measureLine(instance) {
   const { line, path, viewport } = instance;
+  const previous = instance.lineMeasurements;
+  const geometry = pathGeometry(path);
+  const screenPath = previous?.screenPath ?? usesScreenPathLength(path);
+  const overflow = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
+  if (previous
+    && !pathGeometryChanged(path, previous)
+    && previous.screenPath === screenPath) {
+    previous.maxBudget = previous.leadPx + overflow;
+    return;
+  }
   const scale = pathScreenScale(path);
-  const localTotalLength = path.getTotalLength();
-  const screenMeasurement = measureScreenPath(path);
-  const screenPath = usesScreenPathLength(path);
+  const localTotalLength = geometry.localLength;
+  const screenMeasurement = screenPath ? measureScreenPath(path) : null;
   const totalLength = screenPath
     ? screenMeasurement.screenLength
     : localTotalLength * scale;
-  const firstPoint = screenMeasurement.points[0];
-  const endPoint = screenMeasurement.points.at(-1);
+  const firstPoint = screenMeasurement?.points[0];
+  const endPoint = screenMeasurement?.points.at(-1);
   const endX = screenPath
     ? endPoint.x - firstPoint.x
     : path.getPointAtLength(localTotalLength).x * scale;
   const leadPx = (Number.parseFloat(line.dataset.marketsLineLead) || 900) * scale;
-  const overflow = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
   const steps = LINE_LOOKUP_STEPS;
   const lookup = Array.from({ length: steps + 1 }, (_, index) => {
     const localLength = localTotalLength * index / steps;
@@ -217,6 +227,9 @@ function measureLine(instance) {
     lookup,
     screenMeasurement,
     screenPath,
+    localLength: geometry.localLength,
+    scaleX: geometry.scaleX,
+    scaleY: geometry.scaleY,
   };
 }
 

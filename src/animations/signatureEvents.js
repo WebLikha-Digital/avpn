@@ -2,6 +2,8 @@ import { DrawSVGPlugin, SplitText, gsap, ScrollTrigger } from "../lib/gsap.js";
 import { bandContext } from "./horizontalScroller.js";
 import {
   measureScreenPath,
+  pathGeometry,
+  pathGeometryChanged,
   pathScreenScale,
   restoreScreenPathVisibility,
   setScreenPathProgress,
@@ -260,9 +262,22 @@ function measureLine(instance) {
   // length multiplied by the uniform SVG scale. The lead is authored in the
   // same viewBox units, so convert it with that scale before sharing one
   // budget between the path and cards.
+  const previous = instance.measurements;
+  const geometry = pathGeometry(instance.path);
+  const screenPath = previous?.screenPath ?? usesScreenPathLength(instance.path);
+  const overflow = Math.max(
+    0,
+    instance.viewport.scrollWidth - instance.viewport.clientWidth,
+  );
+  if (previous
+    && !pathGeometryChanged(instance.path, previous)
+    && previous.screenPath === screenPath) {
+    previous.maxBudget = previous.leadPx + overflow;
+    updateCardPinCoordinates(instance, lineRect);
+    return;
+  }
   const scale = Math.abs(instance.path.getScreenCTM()?.a || 1);
-  const screenMeasurement = measureScreenPath(instance.path);
-  const screenPath = usesScreenPathLength(instance.path);
+  const screenMeasurement = screenPath ? measureScreenPath(instance.path) : null;
   const screenPathLength = screenPath
     ? screenMeasurement.screenLength
     : instance.path.getTotalLength() * scale;
@@ -284,7 +299,14 @@ function measureLine(instance) {
     maxBudget,
     screenMeasurement,
     screenPath,
+    localLength: geometry.localLength,
+    scaleX: geometry.scaleX,
+    scaleY: geometry.scaleY,
   };
+  updateCardPinCoordinates(instance, lineRect);
+}
+
+function updateCardPinCoordinates(instance, lineRect) {
   instance.cards?.forEach((card) => {
     if (!card.pin) return;
     const pinRect = card.pin.getBoundingClientRect();

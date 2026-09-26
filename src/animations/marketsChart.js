@@ -1,5 +1,14 @@
 import { DrawSVGPlugin, gsap, ScrollTrigger } from "../lib/gsap.js";
 import { bandContext } from "./horizontalScroller.js";
+import {
+  measureScreenPath,
+  pathGeometry,
+  pathGeometryChanged,
+  pathScreenScale,
+  restoreScreenPathVisibility,
+  setScreenPathProgress,
+  usesScreenPathLength,
+} from "./screenPath.js";
 
 const LINE_REVEAL_DURATION = 0.8;
 const LINE_REVEAL_EASE = "power2.out";
@@ -123,12 +132,13 @@ function initLine(instance, reducedMotion) {
   gsap.registerPlugin(DrawSVGPlugin);
 
   if (reducedMotion) {
-    gsap.set(path, { drawSVG: "100%" });
+    measureLine(instance);
+    setLineProgress(instance, 1);
     return true;
   }
 
   measureLine(instance);
-  gsap.set(path, { drawSVG: "0%" });
+  setLineProgress(instance, 0);
 
   instance.lineRender = () => renderLine(instance);
   gsap.ticker.add(instance.lineRender, false, true);
@@ -170,19 +180,41 @@ function initSectionTrigger(instance) {
 
 function measureLine(instance) {
   const { line, path, viewport } = instance;
-  const scale = Math.abs(path.getScreenCTM()?.a || 1);
-  const localTotalLength = path.getTotalLength();
-  const totalLength = localTotalLength * scale;
-  const endX = path.getPointAtLength(localTotalLength).x * scale;
-  const leadPx = (Number.parseFloat(line.dataset.marketsLineLead) || 900) * scale;
+  const previous = instance.lineMeasurements;
+  const geometry = pathGeometry(path);
+  const screenPath = previous?.screenPath ?? usesScreenPathLength(path);
   const overflow = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
+  if (previous
+    && !pathGeometryChanged(path, previous)
+    && previous.screenPath === screenPath) {
+    previous.maxBudget = previous.leadPx + overflow;
+    return;
+  }
+  const scale = pathScreenScale(path);
+  const localTotalLength = geometry.localLength;
+  const screenMeasurement = screenPath ? measureScreenPath(path) : null;
+  const totalLength = screenPath
+    ? screenMeasurement.screenLength
+    : localTotalLength * scale;
+  const firstPoint = screenMeasurement?.points[0];
+  const endPoint = screenMeasurement?.points.at(-1);
+  const endX = screenPath
+    ? endPoint.x - firstPoint.x
+    : path.getPointAtLength(localTotalLength).x * scale;
+  const leadPx = (Number.parseFloat(line.dataset.marketsLineLead) || 900) * scale;
   const steps = LINE_LOOKUP_STEPS;
   const lookup = Array.from({ length: steps + 1 }, (_, index) => {
     const localLength = localTotalLength * index / steps;
-    return {
-      x: path.getPointAtLength(localLength).x * scale,
-      length: totalLength * index / steps,
-    };
+    if (!screenPath) {
+      return {
+        x: path.getPointAtLength(localLength).x * scale,
+        length: totalLength * index / steps,
+      };
+    }
+    const sample = screenMeasurement.points[
+      Math.round(index * (screenMeasurement.points.length - 1) / steps)
+    ];
+    return { x: sample.x - firstPoint.x, length: sample.screenLength };
   });
 
   instance.lead = instance.lead || { value: 0 };
@@ -193,6 +225,11 @@ function measureLine(instance) {
     leadPx,
     maxBudget: leadPx + overflow,
     lookup,
+    screenMeasurement,
+    screenPath,
+    localLength: geometry.localLength,
+    scaleX: geometry.scaleX,
+    scaleY: geometry.scaleY,
   };
 }
 
@@ -206,7 +243,19 @@ function renderLine(instance) {
     + scrollLeft * ((endX - leadPx) / scrollRange);
   const length = lengthAtX(lookup, tipX);
   const progress = totalLength ? clamp(length / totalLength, 0, 1) : 0;
-  gsap.set(instance.path, { drawSVG: `${progress * 100}%` });
+  setLineProgress(instance, progress);
+}
+
+function setLineProgress(instance, progress) {
+  const visibility = progress <= 0 ? "hidden" : "visible";
+  if (instance.path.style.visibility !== visibility) {
+    instance.path.style.visibility = visibility;
+  }
+  if (instance.lineMeasurements?.screenPath) {
+    setScreenPathProgress(instance.path, progress, instance.lineMeasurements?.screenMeasurement);
+  } else {
+    gsap.set(instance.path, { drawSVG: `${progress * 100}%` });
+  }
 }
 
 function lengthAtX(lookup, x) {
@@ -243,7 +292,10 @@ function teardown(section) {
   previous.lineTween?.kill();
   previous.entryTween?.kill();
   if (previous.lineRender) gsap.ticker.remove(previous.lineRender);
-  if (previous.path) gsap.set(previous.path, { clearProps: "all" });
+  if (previous.path) {
+    restoreScreenPathVisibility(previous.path);
+    gsap.set(previous.path, { clearProps: "all" });
+  }
   gsap.set(section.querySelectorAll("[data-markets-bar]"), {
     clearProps: "clipPath",
   });

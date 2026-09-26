@@ -1,5 +1,14 @@
 import { DrawSVGPlugin, SplitText, gsap, ScrollTrigger } from "../lib/gsap.js";
 import { bandContext } from "./horizontalScroller.js";
+import {
+  measureScreenPath,
+  pathGeometry,
+  pathGeometryChanged,
+  pathScreenScale,
+  restoreScreenPathVisibility,
+  setScreenPathProgress,
+  usesScreenPathLength,
+} from "./screenPath.js";
 
 const LINE_REVEAL_DURATION = 0.8;
 const PIN_DURATION = 0.6;
@@ -83,7 +92,7 @@ export function initSignatureEvents() {
 
     if (!small) {
       gsap.registerPlugin(DrawSVGPlugin);
-      gsap.set(path, { drawSVG: "0%" });
+      setLineProgress(instance, 0);
 
       instance.pin = { value: 0 };
       instance.render = () => render(instance);
@@ -116,7 +125,7 @@ export function initSignatureEvents() {
     }
 
     if (small) {
-      gsap.set(path, { drawSVG: "100%" });
+      setLineProgress(instance, 1);
     }
   });
 }
@@ -240,7 +249,7 @@ function render(instance) {
   const progress = screenPathLength
     ? clamp(drawnPx / screenPathLength, 0, 1)
     : 0;
-  gsap.set(instance.path, { drawSVG: `${progress * 100}%` });
+  setLineProgress(instance, progress);
 
   instance.cards.forEach((card) => {
     if (!card.played && budget >= card.pinCentreX) playCard(card);
@@ -253,8 +262,25 @@ function measureLine(instance) {
   // length multiplied by the uniform SVG scale. The lead is authored in the
   // same viewBox units, so convert it with that scale before sharing one
   // budget between the path and cards.
+  const previous = instance.measurements;
+  const geometry = pathGeometry(instance.path);
+  const screenPath = previous?.screenPath ?? usesScreenPathLength(instance.path);
+  const overflow = Math.max(
+    0,
+    instance.viewport.scrollWidth - instance.viewport.clientWidth,
+  );
+  if (previous
+    && !pathGeometryChanged(instance.path, previous)
+    && previous.screenPath === screenPath) {
+    previous.maxBudget = previous.leadPx + overflow;
+    updateCardPinCoordinates(instance, lineRect);
+    return;
+  }
   const scale = Math.abs(instance.path.getScreenCTM()?.a || 1);
-  const screenPathLength = instance.path.getTotalLength() * scale;
+  const screenMeasurement = screenPath ? measureScreenPath(instance.path) : null;
+  const screenPathLength = screenPath
+    ? screenMeasurement.screenLength
+    : instance.path.getTotalLength() * scale;
   const lead = Number.parseFloat(instance.line.dataset.sigEventsLineLead) || 0;
   const curve = Number.parseFloat(instance.line.dataset.sigEventsLineCurve) || 0;
   const leadPx = lead * scale;
@@ -271,7 +297,16 @@ function measureLine(instance) {
     leadPx,
     curvePx,
     maxBudget,
+    screenMeasurement,
+    screenPath,
+    localLength: geometry.localLength,
+    scaleX: geometry.scaleX,
+    scaleY: geometry.scaleY,
   };
+  updateCardPinCoordinates(instance, lineRect);
+}
+
+function updateCardPinCoordinates(instance, lineRect) {
   instance.cards?.forEach((card) => {
     if (!card.pin) return;
     const pinRect = card.pin.getBoundingClientRect();
@@ -283,7 +318,7 @@ function measureLine(instance) {
 }
 
 function setReducedMotionState(instance, cards) {
-  gsap.set(instance.path, { drawSVG: "100%" });
+  setLineProgress(instance, 1);
   cards.forEach((card) => {
     const pin = card.querySelector("[data-sig-events-pin]");
     const image = card.querySelector(".signature-events_image");
@@ -294,6 +329,18 @@ function setReducedMotionState(instance, cards) {
     if (image) gsap.set(image, { clearProps: "clipPath" });
     gsap.set(content, { clearProps: "transform,opacity" });
   });
+}
+
+function setLineProgress(instance, progress) {
+  const visibility = progress <= 0 ? "hidden" : "visible";
+  if (instance.path.style.visibility !== visibility) {
+    instance.path.style.visibility = visibility;
+  }
+  if (instance.measurements.screenPath) {
+    setScreenPathProgress(instance.path, progress, instance.measurements.screenMeasurement);
+  } else {
+    gsap.set(instance.path, { drawSVG: `${progress * 100}%` });
+  }
 }
 
 function isLineHidden(line) {
@@ -318,7 +365,10 @@ function teardown(section) {
     card.splits?.forEach((split) => split.revert());
     gsap.set(card.card, { clearProps: "all" });
   });
-  if (previous.path) gsap.set(previous.path, { clearProps: "all" });
+  if (previous.path) {
+    restoreScreenPathVisibility(previous.path);
+    gsap.set(previous.path, { clearProps: "all" });
+  }
   section._signatureEvents = null;
 }
 

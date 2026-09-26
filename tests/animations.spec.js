@@ -316,6 +316,100 @@ test("draws every marked line in each draw-path wrapper", async ({ page }) => {
   ]);
 });
 
+test("keeps non-scaling stretched lines screen-accurate during continuous scroll", async ({ page }) => {
+  const warnings = [];
+  page.on("console", (message) => {
+    if (message.type() === "warning" && message.text().includes("non-scaling-stroke")) {
+      warnings.push(message.text());
+    }
+  });
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+
+  const line = page.locator(".stories-stack-demo__line [data-draw-scroll-path]");
+  const initial = await line.evaluate((path) => {
+    const style = getComputedStyle(path);
+    return {
+      vectorEffect: style.vectorEffect,
+      strokeWidth: style.strokeWidth,
+      zeroDash: path.style.strokeDasharray,
+      visibility: path.style.visibility,
+      scaleX: Math.hypot(path.getScreenCTM().a, path.getScreenCTM().b),
+      scaleY: Math.hypot(path.getScreenCTM().c, path.getScreenCTM().d),
+    };
+  });
+  expect(initial.vectorEffect).toBe("non-scaling-stroke");
+  expect(initial.strokeWidth).toBe("4.5px");
+  expect(initial.zeroDash).toMatch(/^0(px|,)/);
+  expect(initial.visibility).toBe("hidden");
+  expect(Math.abs(initial.scaleX - initial.scaleY)).toBeGreaterThan(0.01);
+  await expect(page.locator("[data-markets-line-path]")).toHaveCSS("stroke-width", "4.5px");
+  await expect(page.locator("[data-markets-line-path]")).toHaveCSS("vector-effect", "non-scaling-stroke");
+
+  const samples = await line.evaluate(async (path) => {
+    const wrap = path.closest("[data-draw-scroll-wrap]");
+    const values = [];
+    const trigger = wrap._drawTl.scrollTrigger;
+    const start = trigger.start;
+    const end = trigger.end;
+    const screenLength = () => {
+      const matrix = path.getScreenCTM();
+      const total = path.getTotalLength();
+      const steps = 256;
+      let previous = path.getPointAtLength(0);
+      let length = 0;
+      for (let index = 1; index <= steps; index += 1) {
+        const local = total * index / steps;
+        const point = path.getPointAtLength(local);
+        const x = matrix.a * point.x + matrix.c * point.y + matrix.e;
+        const y = matrix.b * point.x + matrix.d * point.y + matrix.f;
+        const px = matrix.a * previous.x + matrix.c * previous.y + matrix.e;
+        const py = matrix.b * previous.x + matrix.d * previous.y + matrix.f;
+        length += Math.hypot(x - px, y - py);
+        previous = point;
+      }
+      return length;
+    };
+    const totalScreenLength = screenLength();
+    let frame = 0;
+    return new Promise((resolve) => {
+      const read = () => {
+        const dash = Number.parseFloat(path.style.strokeDasharray) || 0;
+        values.push({
+          scrollY: window.scrollY,
+          dash,
+          fraction: totalScreenLength ? dash / totalScreenLength : 0,
+          state: path._screenPathDrawState?.value ?? null,
+          visibility: path.style.visibility,
+        });
+      };
+      // Scroll, then read on the next frame: ScrollTrigger applies a scroll
+      // position on its own tick, so a same-frame read sees the previous one.
+      const sample = () => {
+        if (frame > 0) read();
+        if (frame === 45) {
+          resolve(values);
+          return;
+        }
+        window.scrollTo({
+          top: start + (end - start) * frame / 44,
+          behavior: "instant",
+        });
+        frame += 1;
+        requestAnimationFrame(() => requestAnimationFrame(sample));
+      };
+      sample();
+    });
+  });
+  const mid = samples.find((sample) => sample.state > 0.35 && sample.state < 0.65);
+  expect(mid).toBeTruthy();
+  expect(Math.abs(mid.fraction - mid.state)).toBeLessThan(0.01);
+  expect(mid.visibility).toBe("visible");
+  expect(samples.some((sample) => sample.state > 0)).toBe(true);
+  expect(samples.at(-1).fraction).toBeGreaterThan(0.99);
+  expect(warnings).toEqual([]);
+});
+
 test("tolerates missing image manifests", async ({ page }) => {
   await page.addInitScript(() => {
     document.addEventListener("DOMContentLoaded", () => {

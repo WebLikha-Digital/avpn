@@ -85,6 +85,65 @@ test("keeps member rows inside the wrap during continuous scroll", async ({ page
   })).toBeLessThanOrEqual(1);
 });
 
+test("scrubs member rows without layout shifts during continuous scroll", async ({ page }) => {
+  const section = page.locator("[data-members-init]");
+  const sectionTop = await section.evaluate((node) => node.getBoundingClientRect().top + window.scrollY);
+  await page.evaluate((top) => window.scrollTo({ top, behavior: "instant" }), sectionTop);
+  await nextFrame(page);
+
+  await page.evaluate(() => {
+    const sectionNode = document.querySelector("[data-members-init]");
+    const rows = [...document.querySelectorAll("[data-members-list] > [data-accordion-status]")];
+    const startLefts = rows.map((row) => row.getBoundingClientRect().left);
+    const sectionTop = sectionNode.getBoundingClientRect().top + window.scrollY;
+    const sectionEnd = sectionNode.getBoundingClientRect().bottom + window.scrollY - window.innerHeight;
+    window.__membersLayoutShifts = [];
+    window.__membersRowFrames = [];
+    window.__membersLayoutShiftObserver = new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        if (entry.sources.some(({ node }) => node?.closest?.("[data-members-init]") === sectionNode)) {
+          window.__membersLayoutShifts.push(entry);
+        }
+      }
+    });
+    window.__membersLayoutShiftObserver.observe({ type: "layout-shift", buffered: false });
+    let frameCount = 0;
+    const sample = () => {
+      const progress = Math.min(1, Math.max(0, (window.scrollY - sectionTop) / (sectionEnd - sectionTop)));
+      const expectedLefts = startLefts.map((left, index) => left - (startLefts[index] - startLefts[0]) * progress);
+      const actualLefts = rows.map((row) => row.getBoundingClientRect().left);
+      window.__membersRowFrames.push(Math.max(...actualLefts.map((left, index) => Math.abs(left - expectedLefts[index]))));
+      frameCount += 1;
+      if (frameCount < 600) requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  });
+
+  const wheelSteps = await section.evaluate((node) => {
+    const top = node.getBoundingClientRect().top + window.scrollY;
+    const bottom = node.getBoundingClientRect().bottom + window.scrollY;
+    return Math.max(1, Math.ceil((bottom - top) / 80));
+  });
+  await page.mouse.move(600, 450);
+  for (const direction of [1, -1]) {
+    for (let index = 0; index < wheelSteps; index += 1) {
+      await page.mouse.wheel(0, direction * 80);
+      await page.waitForTimeout(20);
+    }
+  }
+  await page.waitForTimeout(100);
+
+  const { layoutShiftCount, maxRowError } = await page.evaluate(() => {
+    window.__membersLayoutShiftObserver.disconnect();
+    return {
+      layoutShiftCount: window.__membersLayoutShifts.length,
+      maxRowError: Math.max(...window.__membersRowFrames),
+    };
+  });
+  expect(layoutShiftCount).toBe(0);
+  expect(maxRowError).toBeLessThanOrEqual(1);
+});
+
 test("members accordion opens one row and closes its active sibling", async ({ page }) => {
   const section = page.locator("[data-members-init]");
   const list = page.locator("[data-members-list]");

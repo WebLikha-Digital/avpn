@@ -3,6 +3,12 @@ import {
   bandContext,
   verticalScrollPosition,
 } from "./horizontalScroller.js";
+import {
+  measureScreenPath,
+  restoreScreenPathVisibility,
+  setScreenPathProgress,
+  usesScreenPathLength,
+} from "./screenPath.js";
 
 /**
  * Draw Path on Scroll — based on the Osmo Supply resource, wired into this
@@ -120,7 +126,7 @@ export function initDrawPathScroll() {
           : svgToUse;
 
         if (reveal && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-          gsap.set(paths, { drawSVG: "100%" });
+          setDrawProgress(paths, 1);
           return;
         }
 
@@ -179,16 +185,22 @@ export function initDrawPathScroll() {
 
         // Set every target immediately so paths stay invisible until the
         // reveal fires, and so delayed scrub targets do not flash at load.
-        gsap.set(paths, { drawSVG: 0 });
+        setDrawProgress(paths, 0);
 
         if (reveal) {
-          wrap._drawTl = gsap.to(paths, {
-            drawSVG: "100%",
-            duration: 0.8,
-            ease: "expo.out",
-            stagger,
-            scrollTrigger,
+          const authoredRefresh = scrollTrigger.onRefresh;
+          const tl = gsap.timeline({
+            defaults: { ease: "expo.out" },
+            scrollTrigger: {
+              ...scrollTrigger,
+              onRefresh: (self) => {
+                refreshDrawMeasurements(paths);
+                authoredRefresh?.(self);
+              },
+            },
           });
+          addDrawTweens(tl, paths, stagger, 0.8);
+          wrap._drawTl = tl;
           return;
         }
 
@@ -241,12 +253,17 @@ export function initDrawPathScroll() {
 }
 
 function createScrubTimeline(wrap, paths, scrollTrigger, stagger) {
+  const authoredRefresh = scrollTrigger.onRefresh;
   const tl = gsap.timeline({
     defaults: {
       ease: "linear", // scroll speed controls easing
     },
     scrollTrigger: {
       ...scrollTrigger,
+      onRefresh: (self) => {
+        refreshDrawMeasurements(paths);
+        authoredRefresh?.(self);
+      },
     },
   });
 
@@ -254,7 +271,7 @@ function createScrubTimeline(wrap, paths, scrollTrigger, stagger) {
   // timeline is 1 unit long; with a stagger it grows to
   // 1 + (count - 1) * stagger, and scrub maps whatever that is across the
   // full scroll range, so the drawing still finishes exactly at `end`.
-  tl.to(paths, { drawSVG: "100%", duration: 1, stagger }, 0);
+  addDrawTweens(tl, paths, stagger);
 
   // Keep a reference so we can kill it on breakpoint change
   wrap._drawTl = tl;
@@ -268,7 +285,7 @@ function createWheelHoldScrubTimeline(wrap, paths, wheelState, stagger) {
   if (!panel || !stage || !scroller) return;
 
   const tl = gsap.timeline({ defaults: { ease: "linear" } });
-  tl.to(paths, { drawSVG: "100%", duration: 1, stagger }, 0);
+  addDrawTweens(tl, paths, stagger);
 
   const mapHoldProgress = (self) => {
     const holdProgress = gsap.utils.clamp(
@@ -289,7 +306,10 @@ function createWheelHoldScrubTimeline(wrap, paths, wheelState, stagger) {
     scrub: true,
     invalidateOnRefresh: true,
     onUpdate: mapHoldProgress,
-    onRefresh: mapHoldProgress,
+    onRefresh: (self) => {
+      refreshDrawMeasurements(paths);
+      mapHoldProgress(self);
+    },
   });
   // ScrollTrigger normally adds this back-reference when `animation` is
   // supplied. Keep the contract explicit for teardown and diagnostics if a
@@ -369,13 +389,86 @@ function teardownDrawWrapper(wrap) {
     wrap._drawScrollCatchup = null;
   }
 
-  if (!wrap._drawTl) return;
-
-  if (wrap._drawTl.scrollTrigger) {
-    wrap._drawTl.scrollTrigger.kill();
+  if (wrap._drawTl) {
+    if (wrap._drawTl.scrollTrigger) {
+      wrap._drawTl.scrollTrigger.kill();
+    }
+    wrap._drawTl.kill();
+    wrap._drawTl = null;
   }
-  wrap._drawTl.kill();
-  wrap._drawTl = null;
+  wrap.querySelectorAll("[data-draw-scroll-path]").forEach((path) => {
+    if (!path._screenPathDrawState) return;
+    path.style.strokeDasharray = path._screenPathDrawState.dasharray;
+    path.style.strokeDashoffset = path._screenPathDrawState.dashoffset;
+    delete path._screenPathDrawState;
+  });
+  wrap.querySelectorAll("[data-draw-scroll-path]").forEach((path) => {
+    restoreScreenPathVisibility(path);
+    if (path._drawVisibilityState === undefined) return;
+    path.style.visibility = path._drawVisibilityState;
+    delete path._drawVisibilityState;
+  });
+}
+
+function refreshDrawMeasurements(paths) {
+  paths.forEach((path) => {
+    const state = path._screenPathDrawState;
+    if (state) state.measurement = measureScreenPath(path);
+  });
+}
+
+function addDrawTweens(timeline, paths, stagger, duration = 1) {
+  paths.forEach((path, index) => {
+    const position = index * stagger;
+    if (!usesScreenPathLength(path)) {
+      timeline.to(path, {
+        drawSVG: "100%",
+        duration,
+        onUpdate() {
+          setPathVisibility(path, this.progress() > 0);
+        },
+      }, position);
+      return;
+    }
+
+    const state = {
+      value: 0,
+      measurement: measureScreenPath(path),
+      dasharray: path.style.strokeDasharray,
+      dashoffset: path.style.strokeDashoffset,
+    };
+    path._screenPathDrawState = state;
+    timeline.to(state, {
+      value: 1,
+      duration,
+      onUpdate: () => setScreenPathProgress(path, state.value, state.measurement),
+    }, position);
+  });
+}
+
+function setDrawProgress(paths, progress) {
+  paths.forEach((path) => {
+    setPathVisibility(path, progress > 0);
+    if (usesScreenPathLength(path)) {
+      const state = path._screenPathDrawState || {
+        measurement: measureScreenPath(path),
+        dasharray: path.style.strokeDasharray,
+        dashoffset: path.style.strokeDashoffset,
+      };
+      path._screenPathDrawState = state;
+      state.value = progress;
+      setScreenPathProgress(path, progress, state.measurement);
+    } else {
+      gsap.set(path, { drawSVG: `${progress * 100}%` });
+    }
+  });
+}
+
+function setPathVisibility(path, visible) {
+  if (path._drawVisibilityState === undefined) {
+    path._drawVisibilityState = path.style.visibility;
+  }
+  path.style.visibility = visible ? "visible" : "hidden";
 }
 
 function resolveDrawTrigger(wrap, selector, fallback) {

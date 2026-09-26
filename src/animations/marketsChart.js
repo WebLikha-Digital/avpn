@@ -1,5 +1,12 @@
 import { DrawSVGPlugin, gsap, ScrollTrigger } from "../lib/gsap.js";
 import { bandContext } from "./horizontalScroller.js";
+import {
+  measureScreenPath,
+  pathScreenScale,
+  restoreScreenPathVisibility,
+  setScreenPathProgress,
+  usesScreenPathLength,
+} from "./screenPath.js";
 
 const LINE_REVEAL_DURATION = 0.8;
 const LINE_REVEAL_EASE = "power2.out";
@@ -123,12 +130,13 @@ function initLine(instance, reducedMotion) {
   gsap.registerPlugin(DrawSVGPlugin);
 
   if (reducedMotion) {
-    gsap.set(path, { drawSVG: "100%" });
+    measureLine(instance);
+    setLineProgress(instance, 1);
     return true;
   }
 
   measureLine(instance);
-  gsap.set(path, { drawSVG: "0%" });
+  setLineProgress(instance, 0);
 
   instance.lineRender = () => renderLine(instance);
   gsap.ticker.add(instance.lineRender, false, true);
@@ -170,19 +178,32 @@ function initSectionTrigger(instance) {
 
 function measureLine(instance) {
   const { line, path, viewport } = instance;
-  const scale = Math.abs(path.getScreenCTM()?.a || 1);
+  const scale = pathScreenScale(path);
   const localTotalLength = path.getTotalLength();
-  const totalLength = localTotalLength * scale;
-  const endX = path.getPointAtLength(localTotalLength).x * scale;
+  const screenMeasurement = measureScreenPath(path);
+  const totalLength = usesScreenPathLength(path)
+    ? screenMeasurement.screenLength
+    : localTotalLength * scale;
+  const firstPoint = screenMeasurement.points[0];
+  const endPoint = screenMeasurement.points.at(-1);
+  const endX = usesScreenPathLength(path)
+    ? endPoint.x - firstPoint.x
+    : path.getPointAtLength(localTotalLength).x * scale;
   const leadPx = (Number.parseFloat(line.dataset.marketsLineLead) || 900) * scale;
   const overflow = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
   const steps = LINE_LOOKUP_STEPS;
   const lookup = Array.from({ length: steps + 1 }, (_, index) => {
     const localLength = localTotalLength * index / steps;
-    return {
-      x: path.getPointAtLength(localLength).x * scale,
-      length: totalLength * index / steps,
-    };
+    if (!usesScreenPathLength(path)) {
+      return {
+        x: path.getPointAtLength(localLength).x * scale,
+        length: totalLength * index / steps,
+      };
+    }
+    const sample = screenMeasurement.points[
+      Math.round(index * (screenMeasurement.points.length - 1) / steps)
+    ];
+    return { x: sample.x - firstPoint.x, length: sample.screenLength };
   });
 
   instance.lead = instance.lead || { value: 0 };
@@ -193,6 +214,7 @@ function measureLine(instance) {
     leadPx,
     maxBudget: leadPx + overflow,
     lookup,
+    screenMeasurement,
   };
 }
 
@@ -206,7 +228,16 @@ function renderLine(instance) {
     + scrollLeft * ((endX - leadPx) / scrollRange);
   const length = lengthAtX(lookup, tipX);
   const progress = totalLength ? clamp(length / totalLength, 0, 1) : 0;
-  gsap.set(instance.path, { drawSVG: `${progress * 100}%` });
+  setLineProgress(instance, progress);
+}
+
+function setLineProgress(instance, progress) {
+  instance.path.style.visibility = progress <= 0 ? "hidden" : "visible";
+  if (usesScreenPathLength(instance.path)) {
+    setScreenPathProgress(instance.path, progress, instance.lineMeasurements?.screenMeasurement);
+  } else {
+    gsap.set(instance.path, { drawSVG: `${progress * 100}%` });
+  }
 }
 
 function lengthAtX(lookup, x) {
@@ -243,7 +274,10 @@ function teardown(section) {
   previous.lineTween?.kill();
   previous.entryTween?.kill();
   if (previous.lineRender) gsap.ticker.remove(previous.lineRender);
-  if (previous.path) gsap.set(previous.path, { clearProps: "all" });
+  if (previous.path) {
+    restoreScreenPathVisibility(previous.path);
+    gsap.set(previous.path, { clearProps: "all" });
+  }
   gsap.set(section.querySelectorAll("[data-markets-bar]"), {
     clearProps: "clipPath",
   });

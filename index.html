@@ -17,6 +17,18 @@
       })();
     </script>
     <style>
+      /* Decorative drawn lines: one on-screen thickness and round ends everywhere.
+         non-scaling-stroke keeps the width in CSS px however the SVG stretches;
+         the signature mask stroke (inside <mask>) is artwork, not a line. */
+      :root { --line-stroke: 4.5px; }
+      [data-draw-scroll-path]:not(mask *),
+      [data-sig-events-line-path],
+      [data-markets-line-path] {
+        stroke-width: var(--line-stroke);
+        stroke-linecap: round;
+        vector-effect: non-scaling-stroke;
+      }
+
       .preloader {
         --preloader-year-width: clamp(9rem, 18vw, 22rem);
         --preloader-inset: clamp(1.5rem, 4vw, 5rem);

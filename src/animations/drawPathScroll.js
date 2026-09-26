@@ -413,7 +413,10 @@ function teardownDrawWrapper(wrap) {
 function refreshDrawMeasurements(paths) {
   paths.forEach((path) => {
     const state = path._screenPathDrawState;
-    if (state) state.measurement = measureScreenPath(path);
+    if (state) {
+      state.measurement = measureScreenPath(path);
+      state.screenPath = usesScreenPathLength(path);
+    }
   });
 }
 
@@ -434,6 +437,7 @@ function addDrawTweens(timeline, paths, stagger, duration = 1) {
     const state = {
       value: 0,
       measurement: measureScreenPath(path),
+      screenPath: true,
       dasharray: path.style.strokeDasharray,
       dashoffset: path.style.strokeDashoffset,
     };
@@ -468,7 +472,8 @@ function setPathVisibility(path, visible) {
   if (path._drawVisibilityState === undefined) {
     path._drawVisibilityState = path.style.visibility;
   }
-  path.style.visibility = visible ? "visible" : "hidden";
+  const visibility = visible ? "visible" : "hidden";
+  if (path.style.visibility !== visibility) path.style.visibility = visibility;
 }
 
 function resolveDrawTrigger(wrap, selector, fallback) {

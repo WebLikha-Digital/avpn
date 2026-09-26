@@ -42,7 +42,8 @@ export function setScreenPathProgress(path, progress, measurement = measureScree
   if (path._screenPathVisibilityState === undefined) {
     path._screenPathVisibilityState = path.style.visibility;
   }
-  path.style.visibility = clampedProgress <= 0 ? "hidden" : "visible";
+  const visibility = clampedProgress <= 0 ? "hidden" : "visible";
+  if (path.style.visibility !== visibility) path.style.visibility = visibility;
   path.style.strokeDasharray = clampedProgress <= 0
     ? "0px, 999999px"
     : `${clampedProgress * measurement.screenLength}px, 999999px`;

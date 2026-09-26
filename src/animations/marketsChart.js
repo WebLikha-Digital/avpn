@@ -181,12 +181,13 @@ function measureLine(instance) {
   const scale = pathScreenScale(path);
   const localTotalLength = path.getTotalLength();
   const screenMeasurement = measureScreenPath(path);
-  const totalLength = usesScreenPathLength(path)
+  const screenPath = usesScreenPathLength(path);
+  const totalLength = screenPath
     ? screenMeasurement.screenLength
     : localTotalLength * scale;
   const firstPoint = screenMeasurement.points[0];
   const endPoint = screenMeasurement.points.at(-1);
-  const endX = usesScreenPathLength(path)
+  const endX = screenPath
     ? endPoint.x - firstPoint.x
     : path.getPointAtLength(localTotalLength).x * scale;
   const leadPx = (Number.parseFloat(line.dataset.marketsLineLead) || 900) * scale;
@@ -194,7 +195,7 @@ function measureLine(instance) {
   const steps = LINE_LOOKUP_STEPS;
   const lookup = Array.from({ length: steps + 1 }, (_, index) => {
     const localLength = localTotalLength * index / steps;
-    if (!usesScreenPathLength(path)) {
+    if (!screenPath) {
       return {
         x: path.getPointAtLength(localLength).x * scale,
         length: totalLength * index / steps,
@@ -215,6 +216,7 @@ function measureLine(instance) {
     maxBudget: leadPx + overflow,
     lookup,
     screenMeasurement,
+    screenPath,
   };
 }
 
@@ -232,8 +234,11 @@ function renderLine(instance) {
 }
 
 function setLineProgress(instance, progress) {
-  instance.path.style.visibility = progress <= 0 ? "hidden" : "visible";
-  if (usesScreenPathLength(instance.path)) {
+  const visibility = progress <= 0 ? "hidden" : "visible";
+  if (instance.path.style.visibility !== visibility) {
+    instance.path.style.visibility = visibility;
+  }
+  if (instance.lineMeasurements?.screenPath) {
     setScreenPathProgress(instance.path, progress, instance.lineMeasurements?.screenMeasurement);
   } else {
     gsap.set(instance.path, { drawSVG: `${progress * 100}%` });

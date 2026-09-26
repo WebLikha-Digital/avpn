@@ -262,7 +262,8 @@ function measureLine(instance) {
   // budget between the path and cards.
   const scale = Math.abs(instance.path.getScreenCTM()?.a || 1);
   const screenMeasurement = measureScreenPath(instance.path);
-  const screenPathLength = usesScreenPathLength(instance.path)
+  const screenPath = usesScreenPathLength(instance.path);
+  const screenPathLength = screenPath
     ? screenMeasurement.screenLength
     : instance.path.getTotalLength() * scale;
   const lead = Number.parseFloat(instance.line.dataset.sigEventsLineLead) || 0;
@@ -282,6 +283,7 @@ function measureLine(instance) {
     curvePx,
     maxBudget,
     screenMeasurement,
+    screenPath,
   };
   instance.cards?.forEach((card) => {
     if (!card.pin) return;
@@ -308,8 +310,11 @@ function setReducedMotionState(instance, cards) {
 }
 
 function setLineProgress(instance, progress) {
-  instance.path.style.visibility = progress <= 0 ? "hidden" : "visible";
-  if (usesScreenPathLength(instance.path)) {
+  const visibility = progress <= 0 ? "hidden" : "visible";
+  if (instance.path.style.visibility !== visibility) {
+    instance.path.style.visibility = visibility;
+  }
+  if (instance.measurements.screenPath) {
     setScreenPathProgress(instance.path, progress, instance.measurements.screenMeasurement);
   } else {
     gsap.set(instance.path, { drawSVG: `${progress * 100}%` });

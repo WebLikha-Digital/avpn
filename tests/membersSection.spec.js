@@ -86,6 +86,10 @@ test("keeps member rows inside the wrap during continuous scroll", async ({ page
 });
 
 test("scrubs member rows without layout shifts during continuous scroll", async ({ page }) => {
+  // ~50 wheel steps each way through the whole section. Headless Chromium
+  // rasterizes vector-effect: non-scaling-stroke lines in software, which
+  // puts this near the 30s default on CI; real GPU Chrome shows no frame cost.
+  test.setTimeout(60_000);
   const section = page.locator("[data-members-init]");
   const sectionTop = await section.evaluate((node) => node.getBoundingClientRect().top + window.scrollY);
   await page.evaluate((top) => window.scrollTo({ top, behavior: "instant" }), sectionTop);

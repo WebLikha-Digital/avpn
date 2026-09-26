@@ -16,10 +16,15 @@ export function initMembersScroll() {
 
       gsap.set(list, { y: 0 });
       let startWidths;
+      let maxWidth;
       const captureRowWidths = () => {
-        gsap.set(rows, { clearProps: "width" });
+        gsap.set(rows, { clearProps: "width,transform" });
         startWidths = rows.map((row) => row.getBoundingClientRect().width);
-        gsap.set(rows, { width: (index) => startWidths[index] });
+        maxWidth = Math.max(...startWidths);
+        gsap.set(rows, {
+          width: maxWidth,
+          x: (index) => maxWidth - startWidths[index],
+        });
       };
       captureRowWidths();
 
@@ -39,7 +44,7 @@ export function initMembersScroll() {
         duration: 1,
       }, 0);
       timeline.to(rows, {
-        width: () => Math.max(...startWidths),
+        x: 0,
         ease: "none",
         duration: 1,
       }, 0);

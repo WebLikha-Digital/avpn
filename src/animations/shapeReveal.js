@@ -5,18 +5,20 @@ import {
 } from "./horizontalScroller.js";
 
 const DEFAULT_ORIGIN = "50% 50%";
-const DEFAULT_DURATION = 0.65;
+const SWEEP_DURATION = 0.8;
+const SWEEP_EASE = "power4.inOut";
 
 /**
  * Reveals inline brand shapes and circular photographs with the SplitText
- * heading in the same line, or with an explicitly authored trigger. The
- * authored state stays visible; gsap.from() supplies the hidden state only
- * after the bundle initializes.
+ * heading in the same line, or with an explicitly authored trigger. Sweep
+ * shapes stay opaque while a conic mask supplies their hidden state.
  *
  * Webflow contract (all attributes live on the shape itself):
  *   [data-shape-reveal]  circle (default), quarter, half, photo, disc, or fade
- *   [data-shape-origin]  transform origin (default "50% 50%"; ignored by fade)
- *   [data-shape-pair]    left or right entry for a paired half
+ *   [data-shape-origin]  legacy transform origin (default "50% 50%"; ignored by fade)
+ *   [data-shape-sweep]   optional conic-gradient origin, e.g. "from 0deg at 0% 100%";
+ *                        paired with the preset's sweep arc
+ *   [data-shape-pair]    left or right marker for a paired half (motion-neutral)
  *   [data-shape-trigger] optional CSS selector for the ScrollTrigger trigger;
  *                        resolves the nearest matching ancestor, then the first
  *                        page match, then the shape; bypasses heading lookup
@@ -65,7 +67,7 @@ export function initShapeReveal() {
     const preset = shape.getAttribute("data-shape-reveal");
     let originalTransformOrigin;
 
-    if (preset !== "fade") {
+    if (preset !== "fade" && !isSweepPreset(preset)) {
       const origin = shape.getAttribute("data-shape-origin") || DEFAULT_ORIGIN;
       originalTransformOrigin = shape.style.transformOrigin;
 
@@ -101,24 +103,9 @@ export function initShapeReveal() {
         ...common,
       });
     } else if (preset === "quarter") {
-      tween = gsap.from(shape, {
-        scale: 0.65,
-        rotation: -45,
-        autoAlpha: 0,
-        duration: DEFAULT_DURATION,
-        ease: "expo.out",
-        ...common,
-      });
+      tween = createSweep(shape, 90, common);
     } else if (preset === "half") {
-      const pair = shape.getAttribute("data-shape-pair");
-      const isPaired = pair === "left" || pair === "right";
-      tween = gsap.from(shape, {
-        xPercent: pair === "right" ? 60 : -60,
-        autoAlpha: 0,
-        duration: DEFAULT_DURATION,
-        ease: isPaired ? "back.out(1.4)" : "expo.out",
-        ...common,
-      });
+      tween = createSweep(shape, 180, common);
     } else if (preset === "photo") {
       tween = gsap.fromTo(
         shape,
@@ -137,16 +124,10 @@ export function initShapeReveal() {
         },
       );
     } else {
-      tween = gsap.from(shape, {
-        scale: 0.4,
-        autoAlpha: 0,
-        duration: DEFAULT_DURATION,
-        ease: "expo.out",
-        ...common,
-      });
+      tween = createSweep(shape, 360, common);
     }
 
-    if (preset !== "fade") {
+    if (preset !== "fade" && !isSweepPreset(preset)) {
       tween._shapeRevealOriginalTransformOrigin = originalTransformOrigin;
     }
     shape._shapeRevealTween = tween;
@@ -160,6 +141,101 @@ function defaultStart(band) {
 function readNumber(element, attribute, fallback) {
   const value = Number.parseFloat(element.getAttribute(attribute));
   return Number.isFinite(value) ? value : fallback;
+}
+
+function isSweepPreset(preset) {
+  return !["disc", "fade", "photo"].includes(preset);
+}
+
+function createSweep(shape, arc, common) {
+  const geometry = sweepGeometry(shape);
+  const originalMaskImage = shape.style.maskImage;
+  const originalWebkitMaskImage = shape.style.webkitMaskImage;
+  const originalSweep = shape.style.getPropertyValue("--shape-sweep");
+  const originalSweepPriority = shape.style.getPropertyPriority("--shape-sweep");
+  const state = {
+    originalMaskImage,
+    originalWebkitMaskImage,
+    originalSweep,
+    originalSweepPriority,
+  };
+
+  shape._shapeRevealSweepState = state;
+  shape.style.setProperty("--shape-sweep", "0deg");
+  setSweepMask(shape, geometry.origin);
+
+  return gsap.fromTo(
+    shape,
+    { "--shape-sweep": "0deg" },
+    {
+      "--shape-sweep": `${arc}deg`,
+      duration: SWEEP_DURATION,
+      ease: SWEEP_EASE,
+      onStart: () => {
+        setSweepMask(shape, geometry.origin);
+      },
+      onComplete: () => {
+        shape.style.setProperty("--shape-sweep", `${arc}deg`);
+        shape.style.removeProperty("mask-image");
+        shape.style.removeProperty("-webkit-mask-image");
+      },
+      ...common,
+    },
+  );
+}
+
+function setSweepMask(shape, origin) {
+  const value = `conic-gradient(${origin}, #000 0 var(--shape-sweep), transparent var(--shape-sweep))`;
+  shape.style.setProperty("mask-image", value);
+  shape.style.setProperty("-webkit-mask-image", value);
+}
+
+function sweepGeometry(shape) {
+  const override = shape.getAttribute("data-shape-sweep");
+  if (override) return { origin: override };
+
+  if (shape.getAttribute("data-shape-reveal") === "quarter") {
+    const corners = roundedCorners(shape);
+    if (corners.topRight && !corners.topLeft && !corners.bottomRight && !corners.bottomLeft) {
+      return { origin: "from 0deg at 0% 100%" };
+    }
+    if (corners.topLeft && !corners.topRight && !corners.bottomRight && !corners.bottomLeft) {
+      return { origin: "from 270deg at 100% 100%" };
+    }
+    if (corners.bottomRight && !corners.topLeft && !corners.topRight && !corners.bottomLeft) {
+      return { origin: "from 90deg at 0% 0%" };
+    }
+    if (corners.bottomLeft && !corners.topLeft && !corners.topRight && !corners.bottomRight) {
+      return { origin: "from 180deg at 100% 0%" };
+    }
+  }
+
+  if (shape.getAttribute("data-shape-reveal") === "half") {
+    const corners = roundedCorners(shape);
+    const right = corners.topRight || corners.bottomRight;
+    const left = corners.topLeft || corners.bottomLeft;
+    if (right && !left) return { origin: "from 0deg at 0% 50%" };
+    if (left && !right) return { origin: "from 180deg at 100% 50%" };
+  }
+
+  return { origin: `from 0deg at 50% 50%` };
+}
+
+function roundedCorners(element) {
+  const styles = getComputedStyle(element);
+  return {
+    topLeft: hasRadius(styles.borderTopLeftRadius),
+    topRight: hasRadius(styles.borderTopRightRadius),
+    bottomRight: hasRadius(styles.borderBottomRightRadius),
+    bottomLeft: hasRadius(styles.borderBottomLeftRadius),
+  };
+}
+
+function hasRadius(value) {
+  return value.split(/\s+/).some((part) => {
+    const number = Number.parseFloat(part);
+    return Number.isFinite(number) && number !== 0;
+  });
 }
 
 // The first ancestor containing a split heading is the heading line. This
@@ -202,14 +278,26 @@ function resolveShapeTrigger(shape) {
 
 function teardown(shape) {
   const tween = shape._shapeRevealTween;
-  if (!tween) return;
+  if (tween) {
+    const originalTransformOrigin = tween._shapeRevealOriginalTransformOrigin;
+    tween.scrollTrigger?.kill();
+    tween.revert();
+    tween.kill();
+    if (originalTransformOrigin !== undefined) {
+      shape.style.transformOrigin = originalTransformOrigin;
+    }
+  }
 
-  const originalTransformOrigin = tween._shapeRevealOriginalTransformOrigin;
-  tween.scrollTrigger?.kill();
-  tween.revert();
-  tween.kill();
-  if (originalTransformOrigin !== undefined) {
-    shape.style.transformOrigin = originalTransformOrigin;
+  const state = shape._shapeRevealSweepState;
+  if (state) {
+    shape.style.maskImage = state.originalMaskImage;
+    shape.style.webkitMaskImage = state.originalWebkitMaskImage;
+    if (state.originalSweep) {
+      shape.style.setProperty("--shape-sweep", state.originalSweep, state.originalSweepPriority);
+    } else {
+      shape.style.removeProperty("--shape-sweep");
+    }
+    shape._shapeRevealSweepState = null;
   }
   shape._shapeRevealTween = null;
 }

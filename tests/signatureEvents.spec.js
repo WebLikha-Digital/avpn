@@ -175,6 +175,85 @@ test("draws the reachable tail to its full path length at scroll end", async ({ 
   expect(progress).toBeGreaterThanOrEqual(99);
 });
 
+test("fully draws a short-band line at the tablet scroll end", async ({ page }) => {
+  await page.setViewportSize({ width: 820, height: 1180 });
+  const tabletStyles = `
+    /* Mirrors the Webflow Tablet styles documented in docs/signature-events.md. */
+    @media (max-width: 991px) {
+      /* Force maxBudget < curvePx: the published tablet band is about 30px
+         short, but the local sandbox needs a narrower card to reproduce it. */
+      .sig-events_card { width: 70vw; }
+      .sig-events_card-inner {
+        flex-wrap: wrap;
+        align-items: flex-start;
+        row-gap: 1.5rem;
+        column-gap: 4vw;
+      }
+      .sig-events_card-media {
+        flex-basis: 100%;
+        width: 100%;
+        height: auto;
+        aspect-ratio: 16 / 9;
+      }
+      .sig-events_card-title-col,
+      .sig-events_card-body-col {
+        flex-basis: auto;
+        width: 40vw;
+      }
+      .sig-events_track {
+        align-items: flex-start;
+        column-gap: 10.4vw;
+        padding: calc(6vh + 12.58vw + 6.5rem) 5vw 0;
+      }
+      .sig-events_line {
+        left: 0;
+        right: 0;
+        width: auto;
+        top: calc(6vh + 12.58vw + 2.5rem);
+      }
+    }
+  `;
+  await page.addInitScript((styles) => {
+    const style = document.createElement("style");
+    style.textContent = styles;
+    document.addEventListener("DOMContentLoaded", () => {
+      document.head.append(style);
+    }, { once: true });
+  }, tabletStyles);
+  await page.goto("/");
+  await page.waitForLoadState("load");
+  await expect(page.locator(`${band}[data-hscroll-active]`)).toHaveCount(1);
+
+  const { top, distance } = await geometry(page);
+  const measurements = await page.locator(band).evaluate((section) => {
+    const { leadPx, curvePx, maxBudget } = section._signatureEvents.measurements;
+    return { leadPx, curvePx, maxBudget };
+  });
+  expect(measurements.maxBudget).toBeLessThan(measurements.curvePx);
+
+  await scrollTo(page, top);
+  const samples = [];
+  for (let step = 0; step < 80; step += 1) {
+    await page.mouse.wheel(0, 100);
+    await page.waitForTimeout(50);
+    samples.push(await page.locator(band).evaluate((section) => {
+      const instance = section._signatureEvents;
+      const dasharray = instance.path.style.strokeDasharray.trim();
+      return {
+        left: instance.viewport.scrollLeft,
+        progress: Number.parseFloat(dasharray) / instance.measurements.screenPathLength,
+      };
+    }));
+    if (samples.at(-1).left >= distance - 1) break;
+  }
+
+  expect(samples.at(-1).left).toBeGreaterThanOrEqual(distance - 1);
+  for (let index = 1; index < samples.length; index += 1) {
+    expect(samples[index].progress).toBeGreaterThanOrEqual(samples[index - 1].progress - 0.001);
+  }
+  expect(samples.at(-1).progress).toBeGreaterThanOrEqual(0.99);
+});
+
 test("keeps pin coordinates stable when refreshed at non-zero band scroll", async ({ page }) => {
   const initial = await page.locator(band).evaluate((section) =>
     section._signatureEvents.cards.map((card) => card.pinCentreX));

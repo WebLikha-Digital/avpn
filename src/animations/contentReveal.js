@@ -134,7 +134,7 @@ function addReveal(timeline, target, distance, duration, position) {
       autoAlpha: 0,
       duration,
       ease: EASE,
-      clearProps: "all",
+      clearProps: "transform,opacity,visibility",
     },
     position,
   );

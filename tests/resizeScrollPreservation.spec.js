@@ -14,6 +14,8 @@ async function assertResizeKeepsSection(page, from, to) {
 
   await expect.poll(() => page.evaluate(() => scrollY), { timeout: 3_000 })
     .toBeGreaterThan(200);
+  // Allow the throttled trailing anchor capture to run before resizing.
+  await page.waitForTimeout(250);
   const beforeTop = await page.locator("[data-testid=stories-stack]").evaluate((element) =>
     element.getBoundingClientRect().top,
   );

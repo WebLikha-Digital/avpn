@@ -3,6 +3,7 @@ import { ScrollTrigger } from "./gsap.js";
 import { getLocomotiveScroll } from "./locomotive.js";
 
 const QUIET_DELAY = 500;
+const CAPTURE_INTERVAL = 200;
 const ANCHOR_STYLE_ID = "avpn-disable-scroll-anchoring";
 
 function disableScrollAnchoring() {
@@ -83,6 +84,8 @@ export function initResizeScrollPreservation() {
   let lastWidth = window.innerWidth;
   let lastAnchor = null;
   let captureFrame = 0;
+  let captureTimer;
+  let lastCaptureTime = -Infinity;
   let fallbackFrame = 0;
   let quietTimer;
   let resizeState = null;
@@ -91,11 +94,21 @@ export function initResizeScrollPreservation() {
     captureFrame = 0;
     if (resizeState) return;
 
+    lastCaptureTime = performance.now();
     const next = findAnchor();
     if (next) lastAnchor = next;
   };
 
   const scheduleCapture = () => {
+    if (resizeState) return;
+
+    const elapsed = performance.now() - lastCaptureTime;
+    if (elapsed < CAPTURE_INTERVAL) {
+      clearTimeout(captureTimer);
+      captureTimer = setTimeout(scheduleCapture, CAPTURE_INTERVAL - elapsed);
+      return;
+    }
+
     if (captureFrame) return;
     captureFrame = requestAnimationFrame(captureAnchor);
   };
@@ -103,7 +116,7 @@ export function initResizeScrollPreservation() {
   const finishResize = () => {
     if (!resizeState) return;
     resizeState = null;
-    scheduleCapture();
+    captureAnchor();
   };
 
   const noteLayoutActivity = () => {
@@ -122,6 +135,7 @@ export function initResizeScrollPreservation() {
     // the already-reflowed layout on a single large viewport jump.
     if (!lastAnchor) return;
     clearTimeout(quietTimer);
+    clearTimeout(captureTimer);
     resizeState = { anchor: lastAnchor, interrupted: false };
 
     // Refresh normally fires during this resize event. This frame is a
@@ -151,6 +165,7 @@ export function initResizeScrollPreservation() {
   window.addEventListener("scroll", scheduleCapture, { passive: true });
   window.addEventListener("wheel", onUserInput, { passive: true });
   window.addEventListener("touchstart", onUserInput, { passive: true });
+  window.addEventListener("keydown", onUserInput, { passive: true });
   ScrollTrigger.addEventListener("refresh", noteLayoutActivity);
   window.addEventListener(HSCROLL_REBUILT, noteLayoutActivity);
 

@@ -144,3 +144,21 @@ has enough height to create a non-zero `"top top"` to `"bottom bottom"` range.
 **Old movement or inline sizing remains.** The current component writes only an
 inline `clip-path`. Inline transform, width, or height indicates an outdated
 bundle or another animation targeting the frame.
+
+## Video breakers share the sticky wrapper
+
+The three Home `section_video-breaker` sections reuse `.image-breaker_sticky`
+(`height: 100vh`) but no longer pin or clip-reveal (removed 2026-09-25). Since
+2026-09-28 their sticky wrapper carries the combo class
+`image-breaker_sticky is-video`, so the video breakers can be resized without
+touching the image breaker that still runs the clip reveal.
+
+| Class | Tablet (cascades to both mobile breakpoints) |
+|---|---|
+| `.image-breaker_sticky.is-video` | `height: auto` |
+| `.video-breaker_frame` | `height: auto; aspect-ratio: 16/9` |
+
+Desktop stays one viewport tall. Measured on staging: 991 → 991×557,
+820 → 820×461, 768 → 768×432, 390 → 390×219; the video (`object-fit: cover`)
+fills the frame and the marquee stays centred. The image breaker's height is
+unchanged.

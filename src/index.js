@@ -51,6 +51,7 @@ import { initFooterFountain } from "./animations/footerFountain.js";
 import { initImpactCollabAuto } from "./animations/impactCollabAuto.js";
 import { initImpactCollabReveal } from "./animations/impactCollabReveal.js";
 import { prepareScrollRestoration } from "./lib/scrollRestoration.js";
+import { initResizeScrollPreservation } from "./lib/resizeScrollPreservation.js";
 
 const restoreScrollPosition = prepareScrollRestoration();
 
@@ -71,6 +72,7 @@ function initBandAware() {
 }
 
 function init() {
+  initResizeScrollPreservation();
   initLocomotiveScroll();
   initAccordion();
   initHamburgerNav();

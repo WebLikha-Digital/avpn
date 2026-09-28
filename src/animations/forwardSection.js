@@ -162,6 +162,7 @@ export function initForwardSection() {
     let cursor = DEFAULT_REVEAL_DURATION * 0.72 + DEFAULT_ZOOM_DURATION;
     timeline.to({}, { duration: contentDwell }, cursor);
     cursor += contentDwell;
+    const isPhone = window.matchMedia("(max-width: 767px)").matches;
     panels.slice(0, 2).forEach((panel, index) => {
       const media = panel.querySelector("[data-forward-media]");
       const image = panel.querySelector("[data-forward-media] img");
@@ -169,7 +170,14 @@ export function initForwardSection() {
       const scroll = panel.querySelector("[data-forward-scroll]");
       if (!media || !body || !scroll) return;
 
-      const overflow = Math.max(0, scroll.scrollHeight - body.clientHeight);
+      const measureOverflow = () => {
+        const bodyStyle = getComputedStyle(body);
+        const bodyPadding = isPhone
+          ? Number.parseFloat(bodyStyle.paddingTop) + Number.parseFloat(bodyStyle.paddingBottom)
+          : 0;
+        return Math.max(0, scroll.scrollHeight - body.clientHeight + bodyPadding);
+      };
+      const overflow = measureOverflow();
       const panelLabel = `panel${index + 1}`;
       gsap.set(image || media, { scale: 1.3, transformOrigin: "50% 50%" });
       timeline.addLabel(panelLabel, cursor);
@@ -182,8 +190,8 @@ export function initForwardSection() {
       cursor += DEFAULT_PANEL_DURATION;
       timeline.to({}, { duration: DEFAULT_DWELL }, cursor);
       cursor += DEFAULT_DWELL;
-      if (overflow > 0) {
-        timeline.to(scroll, { y: -overflow, duration: 1, ease: "none" }, cursor);
+      if (overflow > 0 || isPhone) {
+        timeline.to(scroll, { y: () => -measureOverflow(), duration: 1, ease: "none" }, cursor);
         cursor += 1;
       }
     });

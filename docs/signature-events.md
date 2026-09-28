@@ -197,7 +197,7 @@ The band stays. Set on the **Tablet** breakpoint:
 |---|---|
 | `.sig-events_card` | `width: 84vw` |
 | `.sig-events_card-inner` | `flex-wrap: wrap; align-items: flex-start; row-gap: 1.5rem; column-gap: 4vw` — still row direction |
-| `.sig-events_card-media` | `flex-basis: 100%; height: 34vw` — first row, full card width |
+| `.sig-events_card-media` | `flex-basis: 100%; width: 100%; height: auto; aspect-ratio: 16/9; border-top-right-radius: 10rem` — first row, full card width. Was `height: 34vw` (≈2.5:1) until 2026-09-28, which letterboxed the photo and stretched the `25%` corner into a flat curve; mobile landscape resets to `aspect-ratio: 1` |
 | `.sig-events_card-title-col`, `.sig-events_card-body-col` | `flex-basis: auto; width: 40vw` — second row, side by side |
 | `.sig-events_bg.is-top` height, `.is-bottom` top | `calc(6vh + 9.5vw + 2.5rem)` — the cream is sized by the wordmark (its `top` + font size + clearance), the same inequality as desktop's `25vh` |
 | `.sig-events_line` | `top: calc(6vh + 12.58vw + 2.5rem)` — cream + `3.08vw`, desktop's own offset |

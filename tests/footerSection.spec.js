@@ -89,6 +89,28 @@ test("uses the mobile preset without exceeding its apex", async ({ page }) => {
   expect(Math.min(...translations)).toBeGreaterThan(-844 * 0.2 - 2);
 });
 
+test("keeps fountain shapes below the footer top on a tall wide viewport", async ({ page }) => {
+  await loadFooter(page, 2560, 1440);
+  await page.locator(reveal).scrollIntoViewIfNeeded();
+
+  const violations = await page.evaluate(() => new Promise((resolve) => {
+    const footer = document.querySelector(".section_footer");
+    const fountainItems = [...document.querySelectorAll("[data-footer-fountain] [data-footer-fountain-item]")];
+    const samples = [];
+    let frames = 0;
+    const sample = () => {
+      const footerTop = footer.getBoundingClientRect().top;
+      samples.push(...fountainItems.map((item) => item.getBoundingClientRect().top - footerTop));
+      frames += 1;
+      if (frames === 240) return resolve(samples.filter((top) => top < 1));
+      requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  }));
+
+  expect(violations).toEqual([]);
+});
+
 test("settles both footer effects for reduced motion", async ({ page }) => {
   await loadFooter(page, 1440, 900, "reduce");
   await page.locator(reveal).scrollIntoViewIfNeeded();

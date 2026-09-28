@@ -54,6 +54,17 @@ function clearItems(items) {
   gsap.set(items, { clearProps: "transform,opacity" });
 }
 
+function getApexLimit(root, item) {
+  const footer = root.closest(".section_footer") || root.parentElement;
+  const footerRect = footer.getBoundingClientRect();
+  const itemTop = root.getBoundingClientRect().top + item.offsetTop;
+  const available = itemTop - footerRect.top;
+  const height = item.offsetHeight;
+  const diagonal = Math.hypot(item.offsetWidth, item.offsetHeight);
+  const overhang = (diagonal - height) / 2;
+  return Math.max(0, available - overhang - 24);
+}
+
 export function initFooterFountain() {
   document.querySelectorAll("[data-footer-fountain]").forEach((root) => {
     root._footerFountain?.destroy();
@@ -119,13 +130,17 @@ export function initFooterFountain() {
             const mobilePose = desktop
               ? pose
               : { ...pose, y: pose.y / 2 };
+            const y = Math.min(
+              Math.abs(mobilePose.y) * window.innerHeight / 100,
+              getApexLimit(root, item),
+            );
             state.staticTweens.push(
               gsap.fromTo(
                 item,
                 { opacity: 0, scale: 0.85 },
                 {
                   ...mobilePose,
-                  y: `${mobilePose.y}vh`,
+                  y: -y,
                   x: `${mobilePose.x}vw`,
                   opacity: 1,
                   scale: 1,
@@ -167,7 +182,10 @@ export function initFooterFountain() {
           const direction = Math.random() < 0.5 ? -1 : 1;
           const startX = -randomBetween(preset.driftStart) * direction;
           const endX = randomBetween(preset.driftEnd) * direction;
-          const apex = randomBetween(preset.apex);
+          const apex = Math.min(
+            randomBetween(preset.apex) * window.innerHeight / 100,
+            getApexLimit(root, item),
+          );
           const up = randomBetween(preset.upDur);
           const down = up * randomBetween(preset.gravityRatio);
           const total = up + down;
@@ -199,7 +217,7 @@ export function initFooterFountain() {
           state.live.add(timeline);
           timeline
             .to(item, { opacity: 1, scale: 1, duration: 0.18, ease: "power1.out" }, 0)
-            .to(item, { y: `${-apex}vh`, duration: up, ease: "power2.out" }, 0)
+            .to(item, { y: -apex, duration: up, ease: "power2.out" }, 0)
             .to(item, { y: `${preset.restVH}vh`, duration: down, ease: "power2.in" }, up)
             .to(item, { x: `${endX}vw`, duration: total, ease: "sine.inOut" }, 0)
             .to(item, { rotation: spin, duration: total, ease: "none" }, 0)

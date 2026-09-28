@@ -17,6 +17,35 @@ test.beforeEach(async ({ page }) => {
   await page.goto("/");
 });
 
+test("footer reveal preserves the active tooltip position", async ({ page }) => {
+  const result = await page.locator(rootSelector).evaluate((root) => {
+    const footer = root.querySelector(".engagements_footer");
+    const reveal = footer._contentRevealInstance;
+    reveal.timeline.play();
+
+    return new Promise((resolve) => {
+      reveal.timeline.eventCallback("onComplete", () => {
+        const navWrap = root.querySelector(".engagements_nav-wrap");
+        const marker = root.querySelector('[data-engagements-tick-status="active"]');
+        const tooltip = root.querySelector('[data-engagements-tooltip-status="active"]');
+        const markerRect = marker.getBoundingClientRect();
+        const tooltipRect = tooltip.getBoundingClientRect();
+        resolve({
+          navX: navWrap.style.getPropertyValue("--eng-nav-x"),
+          tipX: navWrap.style.getPropertyValue("--eng-tip-x"),
+          centerDelta: Math.abs(
+            markerRect.left + markerRect.width / 2 - tooltipRect.left - tooltipRect.width / 2,
+          ),
+        });
+      });
+    });
+  });
+
+  expect(result.navX).not.toBe("");
+  expect(result.tipX).not.toBe("");
+  expect(result.centerDelta).toBeLessThanOrEqual(1);
+});
+
 test("builds ticks, wraps controls, updates palette, drum, and nav", async ({ page }) => {
   const root = await showSection(page);
   await expect(root.locator(".engagements_tick")).toHaveCount(20);

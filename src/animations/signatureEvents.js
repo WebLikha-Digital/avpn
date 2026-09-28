@@ -23,6 +23,11 @@ const IMAGE_EASE = "expo.out";
 // splitReveal lines on the "smooth" CustomEase from src/lib/gsap.js.
 const CONTENT_EASE = "power4.inOut";
 const TEXT_EASE = "smooth";
+// Keep a visible amount of horizontal travel for the short-band tail remap.
+// Tablet bands are only a few pixels shorter than the authored straight run,
+// so remapping the whole tail from the curve start would leave no budget for
+// the remaining arc.
+const SHORT_BAND_TAIL_BUDGET = 160;
 
 const STEP_OFFSETS = {
   pin: 0,
@@ -235,15 +240,20 @@ function render(instance) {
   const budget = leadPx * instance.pin.value + instance.viewport.scrollLeft;
   // The horizontal run is already measured in screen pixels, so keep its tip
   // 1:1 with the budget. Only remap the curve's remaining budget onto its
-  // remaining arc length; when the whole path is reachable, no remap is needed.
+  // remaining arc length. When the band ends before the authored curve starts,
+  // preserve as much of that 1:1 run as possible, then remap a short tail so
+  // the line still reaches the end of the path.
+  const remapStart = maxBudget < curvePx
+    ? Math.min(curvePx, Math.max(0, maxBudget - SHORT_BAND_TAIL_BUDGET))
+    : curvePx;
   let drawnPx;
-  if (budget <= curvePx) {
+  if (budget <= remapStart) {
     drawnPx = budget;
   } else if (maxBudget >= screenPathLength) {
     drawnPx = Math.min(budget, screenPathLength);
   } else {
-    drawnPx = curvePx + (budget - curvePx) / Math.max(1, maxBudget - curvePx)
-      * (screenPathLength - curvePx);
+    drawnPx = remapStart + (budget - remapStart) / Math.max(1, maxBudget - remapStart)
+      * (screenPathLength - remapStart);
   }
   drawnPx = clamp(drawnPx, 0, screenPathLength);
   const progress = screenPathLength

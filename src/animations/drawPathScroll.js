@@ -416,7 +416,7 @@ function refreshDrawMeasurements(paths) {
     const state = path._screenPathDrawState;
     if (state) {
       if (pathGeometryChanged(path, state.measurement)) {
-        state.measurement = measureScreenPath(path);
+        state.measurement = measureScreenPath(path, false);
       }
     }
   });
@@ -438,7 +438,7 @@ function addDrawTweens(timeline, paths, stagger, duration = 1) {
 
     const state = {
       value: 0,
-      measurement: measureScreenPath(path),
+      measurement: measureScreenPath(path, false),
       dasharray: path.style.strokeDasharray,
       dashoffset: path.style.strokeDashoffset,
     };
@@ -456,7 +456,7 @@ function setDrawProgress(paths, progress) {
     setPathVisibility(path, progress > 0);
     if (usesScreenPathLength(path)) {
       const state = path._screenPathDrawState || {
-        measurement: measureScreenPath(path),
+        measurement: measureScreenPath(path, false),
         dasharray: path.style.strokeDasharray,
         dashoffset: path.style.strokeDashoffset,
       };

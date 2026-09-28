@@ -156,9 +156,11 @@ touching the image breaker that still runs the clip reveal.
 | Class | Tablet (cascades to both mobile breakpoints) |
 |---|---|
 | `.image-breaker_sticky.is-video` | `height: auto` |
-| `.video-breaker_frame` | `height: auto; aspect-ratio: 16/9` |
+| `.video-breaker_frame` | `height: auto; aspect-ratio: 16/9; min-height: 24rem` |
 
-Desktop stays one viewport tall. Measured on staging: 991 → 991×557,
-820 → 820×461, 768 → 768×432, 390 → 390×219; the video (`object-fit: cover`)
-fills the frame and the marquee stays centred. The image breaker's height is
+Desktop stays one viewport tall. The `24rem` floor (added the same day) keeps
+phones from shrinking to a strip: 16:9 governs from about 683px up, below that
+the frame holds 384px and the video crops wider. Measured on staging: 991 →
+991×557, 820 → 820×461, 768 → 768×432, 600 → 600×384, 390 → 390×384; the video
+(`object-fit: cover`) fills the frame and the marquee stays centred. The image breaker's height is
 unchanged.

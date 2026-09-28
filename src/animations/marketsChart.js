@@ -196,10 +196,10 @@ function measureLine(instance) {
   const totalLength = screenPath
     ? screenMeasurement.screenLength
     : localTotalLength * scale;
-  const firstPoint = screenMeasurement?.points[0];
+  const originX = path.getScreenCTM()?.e || 0;
   const endPoint = screenMeasurement?.points.at(-1);
   const endX = screenPath
-    ? endPoint.x - firstPoint.x
+    ? endPoint.x - originX
     : path.getPointAtLength(localTotalLength).x * scale;
   const leadPx = (Number.parseFloat(line.dataset.marketsLineLead) || 900) * scale;
   const steps = LINE_LOOKUP_STEPS;
@@ -214,7 +214,7 @@ function measureLine(instance) {
     const sample = screenMeasurement.points[
       Math.round(index * (screenMeasurement.points.length - 1) / steps)
     ];
-    return { x: sample.x - firstPoint.x, length: sample.screenLength };
+    return { x: sample.x - originX, length: sample.screenLength };
   });
 
   instance.lead = instance.lead || { value: 0 };

@@ -410,6 +410,38 @@ test("keeps non-scaling stretched lines screen-accurate during continuous scroll
   expect(warnings).toEqual([]);
 });
 
+test("keeps uniformly scaled non-scaling lines in screen units on wide viewports", async ({ page }) => {
+  await page.setViewportSize({ width: 2200, height: 900 });
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+
+  const path = page.locator("#our-members [data-draw-scroll-path]");
+  const values = await path.evaluate((element) => {
+    const wrap = element.closest("[data-draw-scroll-wrap]");
+    const matrix = element.getScreenCTM();
+    const total = element.getTotalLength();
+    const steps = 128;
+    let previous = element.getPointAtLength(0);
+    let screenLength = 0;
+    for (let index = 1; index <= steps; index += 1) {
+      const point = element.getPointAtLength(total * index / steps);
+      screenLength += Math.hypot(
+        matrix.a * (point.x - previous.x) + matrix.c * (point.y - previous.y),
+        matrix.b * (point.x - previous.x) + matrix.d * (point.y - previous.y),
+      );
+      previous = point;
+    }
+    wrap._drawTl.progress(0.5);
+    const [dash, gap] = element.style.strokeDasharray.split(",").map(parseFloat);
+    return { dash, gap, screenLength, scaleX: Math.hypot(matrix.a, matrix.b), scaleY: Math.hypot(matrix.c, matrix.d) };
+  });
+
+  expect(Math.abs(values.scaleX - values.scaleY)).toBeLessThan(0.001);
+  expect(values.dash).toBeGreaterThan(values.screenLength * 0.45);
+  expect(values.dash).toBeLessThan(values.screenLength * 0.55);
+  expect(values.dash + values.gap).toBeGreaterThanOrEqual(values.screenLength);
+});
+
 test("tolerates missing image manifests", async ({ page }) => {
   await page.addInitScript(() => {
     document.addEventListener("DOMContentLoaded", () => {

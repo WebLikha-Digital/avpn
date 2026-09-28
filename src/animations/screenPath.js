@@ -8,16 +8,26 @@ export function usesScreenPathLength(path) {
     || path.getAttribute("vector-effect");
   if (vectorEffect !== "non-scaling-stroke") return false;
 
-  const scaleX = Math.hypot(matrix.a, matrix.b);
-  const scaleY = Math.hypot(matrix.c, matrix.d);
-  return Math.abs(scaleX - scaleY) > 0.0001;
+  return true;
 }
 
-export function measureScreenPath(path) {
+export function measureScreenPath(path, sample = true) {
   const localLength = path.getTotalLength?.() || 0;
   const matrix = path.getScreenCTM?.();
   if (!localLength || !matrix) {
     return { localLength, screenLength: 0, points: [], scaleX: 1, scaleY: 1 };
+  }
+
+  const scaleX = Math.hypot(matrix.a, matrix.b);
+  const scaleY = Math.hypot(matrix.c, matrix.d);
+  if (!sample && Math.abs(scaleX - scaleY) <= 0.0001) {
+    return {
+      localLength,
+      screenLength: localLength * scaleX,
+      points: [],
+      scaleX,
+      scaleY,
+    };
   }
 
   const count = SAMPLE_COUNT;
@@ -38,8 +48,8 @@ export function measureScreenPath(path) {
     localLength,
     screenLength,
     points,
-    scaleX: Math.hypot(matrix.a, matrix.b),
-    scaleY: Math.hypot(matrix.c, matrix.d),
+    scaleX,
+    scaleY,
   };
 }
 

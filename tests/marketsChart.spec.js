@@ -35,7 +35,12 @@ async function lineState(page) {
   return page.locator(linePath).evaluate((path) => {
     const total = path.getTotalLength();
     const raw = path.style.strokeDasharray.trim();
-    const drawn = !raw || raw === "none" ? total : Number.parseFloat(raw);
+    let drawn = !raw || raw === "none" ? total : Number.parseFloat(raw);
+    const vectorEffect = getComputedStyle(path).vectorEffect;
+    const matrix = path.getScreenCTM();
+    if (vectorEffect === "non-scaling-stroke" && matrix) {
+      drawn /= Math.hypot(matrix.a, matrix.b);
+    }
     return {
       drawn,
       total,

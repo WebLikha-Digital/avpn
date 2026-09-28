@@ -90,25 +90,50 @@ test("uses the mobile preset without exceeding its apex", async ({ page }) => {
 });
 
 test("keeps fountain shapes below the footer top on a tall wide viewport", async ({ page }) => {
+  test.setTimeout(15_000);
   await loadFooter(page, 2560, 1440);
   await page.locator(reveal).scrollIntoViewIfNeeded();
 
-  const violations = await page.evaluate(() => new Promise((resolve) => {
+  const result = await page.evaluate(() => new Promise((resolve) => {
     const footer = document.querySelector(".section_footer");
     const fountainItems = [...document.querySelectorAll("[data-footer-fountain] [data-footer-fountain-item]")];
-    const samples = [];
-    let frames = 0;
+    const violations = [];
+    const peaks = [];
+    const tracking = fountainItems.map(() => ({ previousY: null, descending: false }));
+    const start = performance.now();
     const sample = () => {
       const footerTop = footer.getBoundingClientRect().top;
-      samples.push(...fountainItems.map((item) => item.getBoundingClientRect().top - footerTop));
-      frames += 1;
-      if (frames === 240) return resolve(samples.filter((top) => top < 1));
+      fountainItems.forEach((item, index) => {
+        const top = item.getBoundingClientRect().top - footerTop;
+        if (top < 1) violations.push(top);
+
+        const state = tracking[index];
+        if (Number.parseFloat(getComputedStyle(item).opacity) <= 0.5) {
+          state.previousY = null;
+          state.descending = false;
+          return;
+        }
+        const translateY = new DOMMatrix(getComputedStyle(item).transform).m42;
+        if (state.previousY !== null) {
+          if (translateY < state.previousY) {
+            state.descending = true;
+          } else if (state.descending && translateY > state.previousY) {
+            peaks.push(state.previousY);
+            state.descending = false;
+          }
+        }
+        state.previousY = translateY;
+      });
+      if (performance.now() - start >= 9000) return resolve({ violations, peaks });
       requestAnimationFrame(sample);
     };
     requestAnimationFrame(sample);
   }));
 
-  expect(violations).toEqual([]);
+  expect(result.violations).toEqual([]);
+  expect(result.peaks.length).toBeGreaterThanOrEqual(6);
+  // Main clamps every apex, so its spread is ~31px from shape-size differences alone.
+  expect(Math.max(...result.peaks) - Math.min(...result.peaks)).toBeGreaterThanOrEqual(60);
 });
 
 test("settles both footer effects for reduced motion", async ({ page }) => {

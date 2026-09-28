@@ -182,9 +182,10 @@ export function initFooterFountain() {
           const direction = Math.random() < 0.5 ? -1 : 1;
           const startX = -randomBetween(preset.driftStart) * direction;
           const endX = randomBetween(preset.driftEnd) * direction;
-          const apex = Math.min(
-            randomBetween(preset.apex) * window.innerHeight / 100,
-            getApexLimit(root, item),
+          const limit = getApexLimit(root, item);
+          const apex = randomBetween(preset.apex) * window.innerHeight / 100 * Math.min(
+            1,
+            limit / (preset.apex[1] * window.innerHeight / 100),
           );
           const up = randomBetween(preset.upDur);
           const down = up * randomBetween(preset.gravityRatio);

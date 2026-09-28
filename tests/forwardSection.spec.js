@@ -2,8 +2,8 @@ import { test, expect } from "@playwright/test";
 
 const ROOT = "[data-forward-init]";
 
-async function loadForward(page, reducedMotion) {
-  await page.setViewportSize({ width: 1440, height: 900 });
+async function loadForward(page, reducedMotion, viewport = { width: 1440, height: 900 }) {
+  await page.setViewportSize(viewport);
   if (reducedMotion) await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
   await page.waitForLoadState("networkidle");
@@ -94,4 +94,38 @@ test("keeps the section static under reduced motion", async ({ page }) => {
   expect(state.copyOpacity).toBe("1");
   expect(state.panelTransforms).toEqual(["none", "none"]);
   expect(state.columnTransforms).toEqual(["none", "none", "none"]);
+});
+
+test("scrolls phone panel copy through the body's content box", async ({ page }) => {
+  await loadForward(page, false, { width: 390, height: 844 });
+
+  await page.locator(ROOT).evaluate((section) => {
+    const scroll = section.querySelector("[data-forward-panel] [data-forward-scroll]");
+    const extraCopy = document.createElement("p");
+    extraCopy.className = "forward_panel-copy";
+    extraCopy.textContent = "Additional engagement pathway detail added after initialization. ".repeat(12);
+    scroll.append(extraCopy);
+    section._forwardInstance.timeline.scrollTrigger.refresh();
+  });
+
+  const triggerEnd = await page.locator(ROOT).evaluate((section) => section._forwardInstance.timeline.scrollTrigger.end);
+  await page.evaluate((y) => window.scrollTo({ top: y, behavior: "instant" }), triggerEnd);
+  await page.waitForTimeout(100);
+
+  const panels = await page.locator(ROOT).evaluate((section) => [...section.querySelectorAll("[data-forward-panel]")].map((panel) => {
+    const body = panel.querySelector("[data-forward-body]");
+    const scroll = panel.querySelector("[data-forward-scroll]");
+    const lastChild = scroll.lastElementChild;
+    const bodyStyle = getComputedStyle(body);
+    const bodyRect = body.getBoundingClientRect();
+    const lastChildRect = lastChild.getBoundingClientRect();
+    return {
+      lastChildBottom: lastChildRect.bottom,
+      contentBoxBottom: bodyRect.bottom - Number.parseFloat(bodyStyle.paddingBottom),
+    };
+  }));
+
+  for (const panel of panels) {
+    expect(panel.lastChildBottom).toBeLessThanOrEqual(panel.contentBoxBottom + 1);
+  }
 });

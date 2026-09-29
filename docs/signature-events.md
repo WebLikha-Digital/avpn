@@ -126,16 +126,18 @@ vertical flow. Webflow supplies the following structure and values:
 
 | Element / rule | Value |
 | --- | --- |
-| `[data-sig-events-vline]` | `display:block; position:absolute; left:calc(10vw - 5px); top:0; bottom:4rem; z-index:1; width:10px; pointer-events:none; color:#fff` |
+| `[data-sig-events-vline]` | `display:block; position:absolute; left:calc(10vw - 5px); top:25vh; bottom:4rem; z-index:1; width:10px; pointer-events:none; color:#fff` |
 | `[data-sig-events-vline] svg` | `display:block; overflow:visible; width:100%; height:100%` |
 | `[data-sig-events-vline-path]` | `M5 0V100`, non-scaling `4.5px` round stroke |
-| `.sig-events_track` | `width:100%; height:auto; flex-direction:column; align-items:stretch; column-gap:0; row-gap:3rem; padding-left:20vw; padding-top:2rem; padding-bottom:4rem` |
+| `.sig-events_word` | `min-height:25vh; flex-wrap:wrap; align-content:flex-start` — every card starts below the cream/blue edge, so card 1's pin sits under the line start |
+| `.sig-events_track` | `position:static; width:100%; height:auto; flex-direction:column; align-items:stretch; column-gap:0; row-gap:3rem; padding-left:20vw; padding-top:2rem; padding-bottom:4rem` |
 | `.sig-events_card` | `display:flex; flex-direction:column; align-items:flex-start; row-gap:1.5rem; width:100%` |
 | `.sig-events_card-inner` | `display:contents` |
-| `.sig-events_card-media` | `order:-1` |
-| `.sig-events_pin` | `display:block; position:relative; left:0; top:0; width:3rem; height:3rem; margin-top:1.5rem` |
+| `.sig-events_pin` | `display:block; position:relative; left:0; top:0; width:3rem; height:3rem` — DOM order leads: pin, image, title column, body |
 
-The vline uses screen-pixel path measurement because its SVG is
+The track is static so the vline positions against the section, the same box
+as the cream band: `top: 25vh` starts the line exactly where the blue begins
+(PR #219). The vline uses screen-pixel path measurement because its SVG is
 `preserveAspectRatio="none"`. On every window-scroll update its tip is
 
 ```text

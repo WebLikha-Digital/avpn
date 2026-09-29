@@ -336,25 +336,89 @@ test("reduced motion reveals the line and cards without creating tweens", async 
   expect(state.visible).toBe(true);
 });
 
-test("reveals cards individually on the small breakpoint", async ({ page }) => {
-  await page.setViewportSize({ width: 375, height: 844 });
+test("draws the mobile vline with the viewport tip during continuous scroll", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+
+  const { top } = await geometry(page);
+  await scrollTo(page, Math.max(0, top - 200));
+  const samplesPromise = page.locator(band).evaluate((section) => {
+    const values = [];
+    const vline = section.querySelector("[data-sig-events-vline]");
+    const path = section.querySelector("[data-sig-events-vline-path]");
+    const sample = () => {
+      const rect = vline.getBoundingClientRect();
+      const dash = Number.parseFloat(path.style.strokeDasharray) || 0;
+      values.push({
+        scrollY: window.scrollY,
+        progress: dash / section._signatureEvents.vlineMeasurements.screenPathLength,
+        expected: Math.min(1, Math.max(0, (window.innerHeight * 0.7 - rect.top) / rect.height)),
+      });
+      if (values.length < 45) requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+    return new Promise((resolve) => setTimeout(() => resolve(values), 900));
+  });
+
+  for (let step = 0; step < 35; step += 1) {
+    await page.mouse.wheel(0, 45);
+    await page.waitForTimeout(25);
+  }
+  const samples = await samplesPromise;
+  expect(samples.length).toBeGreaterThan(20);
+  const moving = samples.filter((sample) => sample.scrollY > samples[0].scrollY + 5);
+  expect(moving.length).toBeGreaterThan(5);
+  moving.forEach((sample) => expect(Math.abs(sample.progress - sample.expected)).toBeLessThan(0.03));
+  for (let index = 1; index < moving.length; index += 1) {
+    expect(moving[index].progress).toBeGreaterThanOrEqual(moving[index - 1].progress - 0.01);
+  }
+});
+
+test("reveals mobile cards from the vline pin threshold only once", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
   await page.waitForLoadState("networkidle");
 
   const cards = page.locator(`${band} .sig-events_card`);
-  await expect.poll(() => cards.evaluateAll((elements) =>
-    elements.map((card) => card.closest("[data-sig-events]")._signatureEvents.cards
-      .find((entry) => entry.card === card).played))).toEqual([false, false, false]);
+  const target = await cards.nth(1).evaluate((card) => {
+    const section = card.closest("[data-sig-events]");
+    const pin = card.querySelector("[data-sig-events-pin]").getBoundingClientRect();
+    return pin.top + pin.height / 2 + window.scrollY - window.innerHeight * 0.7;
+  });
+  await scrollTo(page, Math.max(0, target - 30));
+  await expect.poll(() => cards.nth(1).evaluate((card) => {
+    const entry = card.closest("[data-sig-events]")._signatureEvents.cards
+      .find((item) => item.card === card);
+    return { played: entry.played, opacity: getComputedStyle(card.querySelector("[data-sig-events-pin]")).opacity };
+  })).toEqual({ played: false, opacity: "0" });
 
-  for (let index = 0; index < await cards.count(); index += 1) {
-    await cards.nth(index).scrollIntoViewIfNeeded();
-    await expect.poll(() => cards.nth(index).evaluate((card) =>
-      card.closest("[data-sig-events]")._signatureEvents.cards
-        .find((entry) => entry.card === card).played)).toBe(true);
-    for (let prior = 0; prior < index; prior += 1) {
-      expect(await cards.nth(prior).evaluate((card) =>
-        card.closest("[data-sig-events]")._signatureEvents.cards
-          .find((entry) => entry.card === card).played)).toBe(true);
-    }
-  }
+  await scrollTo(page, target + 30);
+  await expect.poll(() => cards.nth(1).evaluate((card) =>
+    card.closest("[data-sig-events]")._signatureEvents.cards
+      .find((entry) => entry.card === card).played)).toBe(true);
+  await scrollTo(page, Math.max(0, target - 30));
+  await expect.poll(() => cards.nth(1).evaluate((card) => ({
+    played: card.closest("[data-sig-events]")._signatureEvents.cards
+      .find((entry) => entry.card === card).played,
+    opacity: getComputedStyle(card.querySelector("[data-sig-events-pin]")).opacity,
+  }))).toEqual({ played: true, opacity: "1" });
+});
+
+test("shows the full mobile vline and card content under reduced motion", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+
+  const state = await page.locator(band).evaluate((section) => ({
+    path: section.querySelector("[data-sig-events-vline-path]").style.strokeDasharray,
+    length: section._signatureEvents.vlineMeasurements.screenPathLength,
+    pins: [...section.querySelectorAll("[data-sig-events-pin]")].map((pin) => getComputedStyle(pin).opacity),
+    content: [...section.querySelectorAll("[data-sig-events-pill], [data-sig-events-desc], [data-button]")]
+      .map((el) => getComputedStyle(el).visibility),
+  }));
+  expect(Number.parseFloat(state.path)).toBeGreaterThanOrEqual(state.length * 0.99);
+  expect(state.pins).toEqual(["1", "1", "1"]);
+  expect(state.content.every((value) => value === "visible")).toBe(true);
 });

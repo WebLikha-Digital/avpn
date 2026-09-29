@@ -129,3 +129,66 @@ test("scrolls phone panel copy through the body's content box", async ({ page })
     expect(panel.lastChildBottom).toBeLessThanOrEqual(panel.contentBoxBottom + 1);
   }
 });
+
+test("clears the intro copy from the zoomed tablet tiles", async ({ page }) => {
+  for (const viewport of [
+    { width: 768, height: 1024 },
+    { width: 820, height: 1180 },
+    { width: 991, height: 1200 },
+  ]) {
+    await test.step(`${viewport.width}x${viewport.height}`, async () => {
+      await loadForward(page, false, viewport);
+
+      const triggerRange = await page.locator(ROOT).evaluate((section) => {
+        const trigger = section._forwardInstance.timeline.scrollTrigger;
+        return { start: trigger.start, end: trigger.end };
+      });
+      const phasePosition = triggerRange.start + (triggerRange.end - triggerRange.start) * 0.45;
+      await page.evaluate((y) => window.scrollTo({ top: y, behavior: "instant" }), phasePosition);
+      await page.waitForTimeout(100);
+
+      const layout = await page.locator(ROOT).evaluate((section) => {
+        const title = section.querySelector("[data-forward-title]").getBoundingClientRect();
+        const copy = section.querySelector("[data-forward-copy]").getBoundingClientRect();
+        const columns = [...section.querySelectorAll("[data-forward-col]")];
+        const tileRects = columns.map((column) => [...column.querySelectorAll("[data-forward-tile]")]
+          .map((tile) => tile.getBoundingClientRect()));
+        const overlaps = (tile, band) => tile.bottom > band.top && tile.top < band.bottom;
+        const relevantSideTiles = (columnIndex) => tileRects[columnIndex]
+          .map((tile, index) => ({ tile, index }))
+          .filter(({ tile }) => overlaps(tile, title) || overlaps(tile, copy));
+
+        return {
+          title: { top: title.top, bottom: title.bottom },
+          copy: { left: copy.left, right: copy.right, top: copy.top, bottom: copy.bottom },
+          copyOpacity: Number.parseFloat(getComputedStyle(section.querySelector("[data-forward-copy]")).opacity),
+          firstColumn: relevantSideTiles(0).map(({ tile, index }) => ({
+            index,
+            right: tile.right,
+            top: tile.top,
+            bottom: tile.bottom,
+          })),
+          thirdColumn: relevantSideTiles(2).map(({ tile, index }) => ({
+            index,
+            left: tile.left,
+            top: tile.top,
+            bottom: tile.bottom,
+          })),
+          middleSecond: { bottom: tileRects[1][1].bottom },
+          middleLast: { top: tileRects[1].at(-1).top },
+        };
+      });
+
+      expect(layout.copyOpacity).toBeGreaterThan(0.99);
+      expect(layout.firstColumn.length).toBeGreaterThan(0);
+      expect(layout.thirdColumn.length).toBeGreaterThan(0);
+
+      const maxFirstRight = Math.max(...layout.firstColumn.map((tile) => tile.right));
+      const minThirdLeft = Math.min(...layout.thirdColumn.map((tile) => tile.left));
+      expect(layout.copy.left - maxFirstRight).toBeGreaterThanOrEqual(24);
+      expect(minThirdLeft - layout.copy.right).toBeGreaterThanOrEqual(24);
+      expect(layout.copy.bottom).toBeLessThan(layout.middleLast.top);
+      expect(layout.title.top).toBeGreaterThan(layout.middleSecond.bottom);
+    });
+  }
+});

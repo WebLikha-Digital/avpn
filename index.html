@@ -317,6 +317,7 @@
       .forward_item-icon svg{width:100%;height:100%;fill:currentColor}
       .forward_item-title{margin:0;color:#252828;font-family:Open Sans,Arial,sans-serif;font-size:clamp(1.125rem,2.2vw,2rem);line-height:1.1;font-weight:700} /* Webflow: Text Style mode H6 */
       @media (max-width:991px){.section_forward{--forward-middle-shift:-120,-150,40}} /* --forward-middle-shift = yPercent per middle-column tile after the zoom; tile 2 must clear the title, tile 3 the copy */
+      @media (min-width:768px) and (max-width:991px){.forward_content{max-width:none;padding-inline:calc(12vw + 1.5rem)}} /* tablet: the zoomed side tiles reach about 11.3vw in from each edge, so the intro copy is inset past them with 1.5rem to spare (forward-css embed) */
       @media (max-width:767px){.forward_item{--forward-item-bleed:1rem}.section_forward{--forward-tile:26vw;--forward-middle-shift:-170,-170,40}.forward_panel{grid-template-columns:1fr;grid-template-rows:40vh 1fr}.forward_panel.is-flip .forward_panel-media{order:0}.forward_panel-body{align-items:flex-start}}
       @media (prefers-reduced-motion:reduce){.forward_panel{transform:none;position:relative;height:auto}}
       /* --- Meet the team (PR mirror of section_team + team-css embed; JS = src/animations/teamTabs.js + teamPreview.js) --- */

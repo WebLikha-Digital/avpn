@@ -25,12 +25,12 @@ test("switches team categories and keeps tab state exclusive", async ({ page }) 
   await toggle.click();
   await expect(group).toHaveAttribute("data-team-open", "true");
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
-  await expect(section.locator(panel("team-advisor"))).not.toBeHidden();
+  await expect(section.locator(panel("team-management"))).not.toBeHidden();
 
   const categories = await section.locator("[data-team-subtabs] [data-team-tab]").evaluateAll(
     (tabs) => tabs.map((tab) => tab.dataset.teamTab),
   );
-  expect(categories).toHaveLength(10);
+  expect(categories).toHaveLength(11);
   for (const id of categories) {
     await section.locator(`[data-team-tab="${id}"]`).click();
     for (const candidate of ["board", ...categories]) {
@@ -98,14 +98,14 @@ test("switching before entry cancels the board reveal", async ({ page }) => {
   // Keep this a genuine pre-entry switch: contentReveal hides the tabs before
   // they enter view, but a DOM click can activate the tab before any scroll.
   await page.evaluate(() => document.querySelector("[data-team-toggle]").click());
-  await expect(section.locator(panel("team-advisor"))).not.toBeHidden();
+  await expect(section.locator(panel("team-management"))).not.toBeHidden();
   await revealTeamTabs(page);
   await section.locator("[data-team-tabs]").evaluate((element) =>
     element.scrollIntoView({ block: "center", inline: "nearest" }),
   );
   await page.waitForTimeout(700);
 
-  await expect.poll(() => section.locator(panel("team-advisor")).locator("[data-team-row]").evaluateAll((nodes) =>
+  await expect.poll(() => section.locator(panel("team-management")).locator("[data-team-row]").evaluateAll((nodes) =>
     nodes.every((row) => getComputedStyle(row).opacity === "1" && !row.style.opacity && !row.style.transform),
   ), { timeout: 2_000 }).toBe(true);
   await expect.poll(() => board.locator("[data-team-row]").evaluateAll((nodes) =>
@@ -119,7 +119,7 @@ test("keeps board rows visible without an entry reveal under reduced motion", as
   await page.waitForLoadState("networkidle");
 
   const rows = page.locator(panel("board")).locator("[data-team-row]");
-  await expect(rows).toHaveCount(10);
+  await expect(rows).toHaveCount(11);
   await expect.poll(() => rows.evaluateAll((nodes) =>
     nodes.every((row) => getComputedStyle(row).opacity === "1" && !row.style.opacity && !row.style.transform),
   )).toBe(true);
@@ -129,8 +129,8 @@ test("reveals incoming rows on category changes and settles cleanly", async ({ p
   const { section, toggle } = await revealTeamTabs(page);
   await toggle.click();
 
-  const advisor = section.locator(panel("team-advisor"));
-  await expect.poll(() => advisor.locator("[data-team-row]").evaluateAll((nodes) =>
+  const management = section.locator(panel("team-management"));
+  await expect.poll(() => management.locator("[data-team-row]").evaluateAll((nodes) =>
     nodes.every((row) => getComputedStyle(row).opacity === "1" && !row.style.transform),
   ), { timeout: 2_000 }).toBe(true);
 
@@ -174,8 +174,8 @@ test("reveals incoming rows on category changes and settles cleanly", async ({ p
 test("rapid switching clears the interrupted panel and reveals the last panel", async ({ page }) => {
   const { section, toggle } = await revealTeamTabs(page);
   await toggle.click();
-  const advisor = section.locator(panel("team-advisor"));
-  await expect.poll(() => advisor.locator("[data-team-row]").evaluateAll((nodes) =>
+  const management = section.locator(panel("team-management"));
+  await expect.poll(() => management.locator("[data-team-row]").evaluateAll((nodes) =>
     nodes.every((row) => getComputedStyle(row).opacity === "1" && !row.style.transform),
   ), { timeout: 2_000 }).toBe(true);
 
@@ -210,10 +210,10 @@ test("rapid switching clears the interrupted panel and reveals the last panel", 
 test("ArrowDown switches subtabs and reduced motion swaps without inline reveal styles", async ({ page }) => {
   const { section, toggle } = await revealTeamTabs(page);
   await toggle.click();
-  const advisorTab = section.locator('[data-team-tab="team-advisor"]');
-  await advisorTab.focus();
-  await advisorTab.press("ArrowDown");
-  await expect(section.locator(panel("team-ceo-office"))).not.toBeHidden();
+  const managementTab = section.locator('[data-team-tab="team-management"]');
+  await managementTab.focus();
+  await managementTab.press("ArrowDown");
+  await expect(section.locator(panel("team-advisor"))).not.toBeHidden();
 
   await page.emulateMedia({ reducedMotion: "reduce" });
   await section.locator('[data-team-tab="team-finance"]').click();
@@ -301,8 +301,8 @@ test("keeps every panel live across category switches", async ({ page }) => {
   const boardList = section.locator(panel("board")).locator("[data-team-list]");
 
   await toggle.click();
-  const advisor = section.locator(panel("team-advisor")).locator("[data-team-list]");
-  await expectPreviewForRow(page, advisor, 1);
+  const management = section.locator(panel("team-management")).locator("[data-team-list]");
+  await expectPreviewForRow(page, management, 1);
   await expect.poll(() => previewState(boardList).then((state) => state.opacity), { timeout: 3_000 }).toBe(0);
 
   await section.locator('[data-team-tab="team-programmes"]').click();

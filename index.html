@@ -1047,6 +1047,11 @@
          descendant selector (0,2,0) is what makes it visible. */
       .sig-events_line-svg { display: block; position: absolute; top: 0; left: 0; width: 100%; height: 100vh; }
       .sig-events_line .sig-events_line-svg { overflow: visible; }
+      .sig-events_vline {
+        display: none; position: absolute; left: calc(10vw - 5px); top: 0;
+        bottom: 4rem; z-index: 1; width: 10px; pointer-events: none; color: #fff;
+      }
+      .sig-events_vline-svg { display: block; overflow: visible; width: 100%; height: 100%; }
       .sig-events_card-media img { display: block; width: 100%; height: 100%; object-fit: cover; }
       .sig-events_pin {
         position: absolute; left: -3.25vw; width: 6.5vw; height: 6.5vw;
@@ -1054,7 +1059,31 @@
         flex: 0 0 auto;
       }
       @media (max-width: 767px) {
-        .sig-events_line, .sig-events_pin { display: none; }
+        .sig-events_stage { position: relative; height: auto; overflow: visible; }
+        .sig-events_viewport--sig { position: relative; height: auto; overflow: visible; }
+        .sig-events_line { display: none; }
+        .sig-events_vline { display: block; }
+        .sig-events_word {
+          position: static; padding: 3rem 0 1rem; column-gap: 1rem; white-space: normal;
+        }
+        .sig-events_word-text { font-size: 2.5rem; }
+        .sig-events_shape-stack { width: 2.5rem; }
+        .sig-events_track {
+          box-sizing: border-box;
+          width: 100%; height: auto; flex-direction: column; align-items: stretch;
+          column-gap: 0; row-gap: 3rem; padding-left: 20vw; padding-top: 2rem;
+          padding-bottom: 4rem;
+        }
+        .sig-events_card {
+          display: flex; flex-direction: column; align-items: flex-start;
+          row-gap: 1.5rem; width: 100%;
+        }
+        .sig-events_card-inner { display: contents; }
+        .sig-events_card-media { order: -1; }
+        .sig-events_pin {
+          display: block; position: relative; left: 0; top: 0; width: 3rem;
+          height: 3rem; margin-top: 1.5rem;
+        }
       }
       [data-modal-group-status] {
         position: fixed; inset: 0; z-index: 10000; display: flex;
@@ -2445,6 +2474,11 @@
           <div class="sig-events_line" data-sig-events-line data-sig-events-line-lead="788" data-sig-events-line-curve="4349" aria-hidden="true">
             <svg class="sig-events_line-svg" viewBox="0 0 5257 631" preserveAspectRatio="xMinYMin meet">
               <path data-sig-events-line-path d="M0 0H4349C4669 0 4999 87.5 5261 247.5" stroke="currentColor" stroke-width="5" vector-effect="non-scaling-stroke" />
+            </svg>
+          </div>
+          <div class="sig-events_vline" data-sig-events-vline aria-hidden="true">
+            <svg class="sig-events_vline-svg" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 10 100" preserveAspectRatio="none" fill="none">
+              <path d="M5 0V100" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" vector-effect="non-scaling-stroke" data-sig-events-vline-path></path>
             </svg>
           </div>
           <div class="sig-events_spacer is-lead"></div>

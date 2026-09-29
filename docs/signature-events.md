@@ -112,10 +112,41 @@ timeline plays once and never replays when scrolling back.
 | description | 0.80s | y `2em → 0`, autoAlpha `0 → 1` | 0.8s `power4.inOut` |
 | button | 0.90s | y `2em → 0`, autoAlpha `0 → 1` | 0.8s `power4.inOut` |
 
-The `small` breakpoint hides the line and pins but keeps the card sequence.
+The `small` breakpoint replaces the horizontal line with a vertical line and
+keeps the card sequence, including the pin step. If the vertical-line markup is
+missing or hidden, the legacy per-card `top 80%` triggers remain the fallback.
 Reduced motion sets the line and every card to its final state without creating
 tweens. `hscroll:rebuilt` tears down the ticker, section trigger, timelines,
 and SplitText instances before rebuilding them.
+
+### Mobile (<=767px): vertical line
+
+At the `small` breakpoint horizontal scrolling opts out and the cards stack in a
+vertical flow. Webflow supplies the following structure and values:
+
+| Element / rule | Value |
+| --- | --- |
+| `[data-sig-events-vline]` | `display:block; position:absolute; left:calc(10vw - 5px); top:0; bottom:4rem; z-index:1; width:10px; pointer-events:none; color:#fff` |
+| `[data-sig-events-vline] svg` | `display:block; overflow:visible; width:100%; height:100%` |
+| `[data-sig-events-vline-path]` | `M5 0V100`, non-scaling `4.5px` round stroke |
+| `.sig-events_track` | `width:100%; height:auto; flex-direction:column; align-items:stretch; column-gap:0; row-gap:3rem; padding-left:20vw; padding-top:2rem; padding-bottom:4rem` |
+| `.sig-events_card` | `display:flex; flex-direction:column; align-items:flex-start; row-gap:1.5rem; width:100%` |
+| `.sig-events_card-inner` | `display:contents` |
+| `.sig-events_card-media` | `order:-1` |
+| `.sig-events_pin` | `display:block; position:relative; left:0; top:0; width:3rem; height:3rem; margin-top:1.5rem` |
+
+The vline uses screen-pixel path measurement because its SVG is
+`preserveAspectRatio="none"`. On every window-scroll update its tip is
+
+```text
+tip = clamp(0.7 × innerHeight − vlineRect.top, 0, vlineHeight)
+progress = tip / vlineHeight
+```
+
+The path reverses when scrolling upward. A card's one-shot timeline starts when
+the tip reaches its pin centre measured from the vline top; scrolling back never
+re-hides a card. Refresh re-measures the line and pin positions so late-loading
+images do not stale the thresholds.
 
 ---
 

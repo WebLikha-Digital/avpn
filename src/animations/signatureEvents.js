@@ -51,6 +51,8 @@ export function initSignatureEvents() {
     const viewport = section.querySelector("[data-hscroll-viewport]");
     const line = section.querySelector("[data-sig-events-line]");
     const path = line?.querySelector("[data-sig-events-line-path]");
+    const vline = section.querySelector("[data-sig-events-vline]");
+    const vlinePath = vline?.querySelector("[data-sig-events-vline-path]");
     if (!viewport || !line || !path) return;
     if (!line.closest("[data-hscroll-track]")) {
       console.warn("[signatureEvents] line must be inside [data-hscroll-track]");
@@ -65,6 +67,8 @@ export function initSignatureEvents() {
       viewport,
       line,
       path,
+      vline,
+      vlinePath,
       cards: [],
       cardTriggers: [],
       active: false,
@@ -73,7 +77,9 @@ export function initSignatureEvents() {
       render: null,
       measure: null,
       trigger: null,
+      vlineTrigger: null,
       measurements: { scale: 1, screenPathLength: 0, leadPx: 0, curvePx: 0, maxBudget: 0 },
+      vlineMeasurements: { screenPathLength: 0, screenMeasurement: null, height: 0 },
     };
     section._signatureEvents = instance;
 
@@ -85,14 +91,16 @@ export function initSignatureEvents() {
 
     measureLine(instance);
     instance.measure = () => measureLine(instance);
+    const small = isLineHidden(line);
+    const vertical = small && isVerticalLineActive(vline);
+    instance.vertical = vertical;
 
     if (reducedMotion) {
-      setReducedMotionState(instance, cards);
+      setReducedMotionState(instance, cards, vertical);
       return;
     }
 
-    const small = isLineHidden(line);
-    instance.cards = cards.map((card) => buildCard(card, small));
+    instance.cards = cards.map((card) => buildCard(card, !small || vertical));
     measureLine(instance);
 
     if (!small) {
@@ -118,9 +126,27 @@ export function initSignatureEvents() {
         },
         onRefresh: instance.measure,
       });
+    } else if (vertical) {
+      measureVline(instance);
+      setVlineProgress(instance, 0);
+      instance.vlineTrigger = ScrollTrigger.create({
+        trigger: section,
+        start: "top bottom",
+        end: "bottom top",
+        onUpdate: () => renderVline(instance),
+        onEnter: () => renderVline(instance),
+        onEnterBack: () => renderVline(instance),
+        onLeave: () => renderVline(instance),
+        onLeaveBack: () => renderVline(instance),
+        onRefresh: () => {
+          measureVline(instance);
+          renderVline(instance);
+        },
+      });
+      renderVline(instance);
     } else {
-      // The line and pins are display:none on small. Each card gets its own
-      // window trigger because there is no horizontal budget to drive it.
+      // Keep the old small-breakpoint behavior for markup without a visible
+      // vertical line: each card gets its own window trigger.
       instance.cardTriggers = instance.cards.map((card) => ScrollTrigger.create({
         trigger: card.card,
         start: "top 80%",
@@ -129,13 +155,13 @@ export function initSignatureEvents() {
       }));
     }
 
-    if (small) {
+    if (small && !vertical) {
       setLineProgress(instance, 1);
     }
   });
 }
 
-function buildCard(card, small) {
+function buildCard(card, pinTimeline) {
   const pin = card.querySelector("[data-sig-events-pin]");
   const image = card.querySelector(".signature-events_image");
   const pill = card.querySelector("[data-sig-events-pill]");
@@ -167,7 +193,7 @@ function buildCard(card, small) {
     clearProps: "transform,opacity",
   });
 
-  if (!small && pin) {
+  if (pinTimeline && pin) {
     gsap.set(pin, {
       scale: 0.4,
       autoAlpha: 0,
@@ -179,7 +205,7 @@ function buildCard(card, small) {
   gsap.set([heading, date].filter(Boolean), { autoAlpha: 1 });
 
   const timeline = gsap.timeline({ paused: true });
-  if (!small && pin) {
+  if (pinTimeline && pin) {
     timeline.to(pin, {
       scale: 1,
       autoAlpha: 1,
@@ -266,6 +292,19 @@ function render(instance) {
   });
 }
 
+function renderVline(instance) {
+  const { height } = instance.vlineMeasurements;
+  if (!height || !instance.vline) return;
+
+  const rect = instance.vline.getBoundingClientRect();
+  const tip = clamp(0.7 * window.innerHeight - rect.top, 0, height);
+  setVlineProgress(instance, tip / height);
+
+  instance.cards.forEach((card) => {
+    if (!card.played && tip >= card.pinCentreY) playCard(card);
+  });
+}
+
 function measureLine(instance) {
   const lineRect = instance.line.getBoundingClientRect();
   // The non-scaling stroke makes DrawSVG's screen-space length the viewBox
@@ -316,10 +355,27 @@ function measureLine(instance) {
   updateCardPinCoordinates(instance, lineRect);
 }
 
+function measureVline(instance) {
+  if (!instance.vline || !instance.vlinePath) return;
+
+  const measurement = measureScreenPath(instance.vlinePath);
+  instance.vlineMeasurements = {
+    screenPathLength: measurement.screenLength,
+    screenMeasurement: measurement,
+    height: instance.vline.getBoundingClientRect().height,
+  };
+  updateCardPinCoordinates(instance);
+}
+
 function updateCardPinCoordinates(instance, lineRect) {
   instance.cards?.forEach((card) => {
     if (!card.pin) return;
     const pinRect = card.pin.getBoundingClientRect();
+    if (instance.vertical) {
+      const vlineRect = instance.vline.getBoundingClientRect();
+      card.pinCentreY = pinRect.top + pinRect.height / 2 - vlineRect.top;
+      return;
+    }
     // The line block is inside the same scrolling track as the pin. Its rect
     // moves with the pin, so subtracting the two rects already yields the
     // stable content coordinate; adding scrollLeft would double-count it.
@@ -327,8 +383,13 @@ function updateCardPinCoordinates(instance, lineRect) {
   });
 }
 
-function setReducedMotionState(instance, cards) {
-  setLineProgress(instance, 1);
+function setReducedMotionState(instance, cards, vertical) {
+  if (vertical) {
+    measureVline(instance);
+    setVlineProgress(instance, 1);
+  } else {
+    setLineProgress(instance, 1);
+  }
   cards.forEach((card) => {
     const pin = card.querySelector("[data-sig-events-pin]");
     const image = card.querySelector(".signature-events_image");
@@ -353,8 +414,22 @@ function setLineProgress(instance, progress) {
   }
 }
 
+function setVlineProgress(instance, progress) {
+  if (!instance.vlinePath || !instance.vlineMeasurements.screenMeasurement) return;
+  setScreenPathProgress(
+    instance.vlinePath,
+    progress,
+    instance.vlineMeasurements.screenMeasurement,
+  );
+}
+
 function isLineHidden(line) {
   return getComputedStyle(line).display === "none";
+}
+
+function isVerticalLineActive(vline) {
+  return Boolean(vline && vline.querySelector("[data-sig-events-vline-path]")
+    && getComputedStyle(vline).display !== "none");
 }
 
 function clamp(value, min, max) {
@@ -366,6 +441,7 @@ function teardown(section) {
   if (!previous) return;
 
   previous.trigger?.kill();
+  previous.vlineTrigger?.kill();
   previous.cardTriggers?.forEach((trigger) => trigger.kill());
   previous.pinTween?.kill();
   if (previous.render) gsap.ticker.remove(previous.render);
@@ -378,6 +454,10 @@ function teardown(section) {
   if (previous.path) {
     restoreScreenPathVisibility(previous.path);
     gsap.set(previous.path, { clearProps: "all" });
+  }
+  if (previous.vlinePath) {
+    restoreScreenPathVisibility(previous.vlinePath);
+    gsap.set(previous.vlinePath, { clearProps: "all" });
   }
   section._signatureEvents = null;
 }

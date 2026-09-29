@@ -1060,16 +1060,19 @@
       }
       @media (max-width: 767px) {
         .sig-events_stage { position: relative; height: auto; overflow: visible; }
-        .sig-events_viewport--sig { position: relative; height: auto; overflow: visible; }
+        .sig-events_viewport--sig { position: static; height: auto; overflow: visible; }
         .sig-events_line { display: none; }
-        .sig-events_vline { display: block; }
+        /* The track is static here so the line positions against the same box as
+           the cream band and starts where the blue begins. */
+        .sig-events_vline { display: block; top: 25vh; }
         .sig-events_word {
           position: static; padding: 3rem 0 1rem; column-gap: 1rem; white-space: normal;
+          box-sizing: border-box; min-height: 25vh; flex-wrap: wrap; align-content: flex-start;
         }
         .sig-events_word-text { font-size: 2.5rem; }
         .sig-events_shape-stack { width: 2.5rem; }
         .sig-events_track {
-          box-sizing: border-box;
+          position: static; box-sizing: border-box;
           width: 100%; height: auto; flex-direction: column; align-items: stretch;
           column-gap: 0; row-gap: 3rem; padding-left: 20vw; padding-top: 2rem;
           padding-bottom: 4rem;
@@ -1079,10 +1082,9 @@
           row-gap: 1.5rem; width: 100%;
         }
         .sig-events_card-inner { display: contents; }
-        .sig-events_card-media { order: -1; }
         .sig-events_pin {
           display: block; position: relative; left: 0; top: 0; width: 3rem;
-          height: 3rem; margin-top: 1.5rem;
+          height: 3rem;
         }
       }
       [data-modal-group-status] {

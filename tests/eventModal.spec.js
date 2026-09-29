@@ -53,6 +53,63 @@ test("closes from the card button and restores focus to the trigger", async ({ p
   await expect(opener).toHaveAttribute("aria-expanded", "false");
 });
 
+test("unloads modal videos until the card opens and stops them on close", async ({ page }) => {
+  const video = page.locator(card("event-1")).locator("iframe");
+  const source = "about:blank#video";
+
+  await expect(video).toHaveAttribute("data-src", source);
+  await expect(video).not.toHaveAttribute("src");
+
+  await openModal(page, "event-1");
+  await expect(page.locator(card("event-1")).locator("iframe")).toHaveAttribute("src", source);
+
+  await page.locator(card("event-1")).locator("button[data-modal-close]").click();
+  await expect(page.locator(card("event-1")).locator("iframe")).not.toHaveAttribute("src");
+  await expect(page.locator(card("event-1")).locator("iframe")).toHaveAttribute("data-src", source);
+});
+
+test("unloads a modal video from the backdrop and Escape", async ({ page }) => {
+  const video = page.locator(card("event-1")).locator("iframe");
+
+  await openModal(page, "event-1");
+  await expect(video).toHaveAttribute("src", "about:blank#video");
+  await page.locator(`${group} [data-modal-close]:not(button)`).click({ position: { x: 8, y: 8 } });
+  await expect(page.locator(card("event-1")).locator("iframe")).not.toHaveAttribute("src");
+
+  await openModal(page, "event-1");
+  await page.keyboard.press("Escape");
+  await expect(page.locator(card("event-1")).locator("iframe")).not.toHaveAttribute("src");
+});
+
+test("does not change history while opening and closing a modal video", async ({ page }) => {
+  const initialHistoryLength = await page.evaluate(() => history.length);
+
+  await openModal(page, "event-1");
+  await page.locator(card("event-1")).locator("button[data-modal-close]").click();
+  await openModal(page, "event-1");
+  await page.locator(card("event-1")).locator("button[data-modal-close]").click();
+
+  expect(await page.evaluate(() => history.length)).toBe(initialHistoryLength);
+});
+
+test("preserves modal video URLs across reinitialization", async ({ page }) => {
+  const source = "about:blank#video";
+
+  await openModal(page, "event-1");
+  await page.evaluate(async () => {
+    const { initEventModal } = await import("/src/animations/eventModal.js");
+    initEventModal();
+  });
+
+  await expect(page.locator(card("event-1")).locator("iframe")).not.toHaveAttribute("src");
+  await expect(page.locator(card("event-1")).locator("iframe")).toHaveAttribute("data-src", source);
+
+  await openModal(page, "event-1");
+  await expect(page.locator(card("event-1")).locator("iframe")).toHaveAttribute("src", source);
+  await page.locator(card("event-1")).locator("button[data-modal-close]").click();
+  await expect(page.locator(card("event-1")).locator("iframe")).not.toHaveAttribute("src");
+});
+
 test("closes from the backdrop", async ({ page }) => {
   await openModal(page, "event-2");
   await page.locator(`${group} [data-modal-close]:not(button)`).click({ position: { x: 8, y: 8 } });

@@ -5,11 +5,39 @@ const TRIGGER_SELECTOR = 'a[data-modal-target]';
 const CARD_SELECTOR = "[data-modal-name]";
 const CLOSE_SELECTOR = "[data-modal-close]";
 
+const unloadIframes = (card) => {
+  card.querySelectorAll("iframe").forEach((iframe) => {
+    const replacement = iframe.cloneNode(true);
+    replacement.removeAttribute("src");
+    iframe.replaceWith(replacement);
+  });
+};
+
+const loadIframes = (card) => {
+  card.querySelectorAll("iframe").forEach((iframe) => {
+    const replacement = iframe.cloneNode(true);
+    const source = iframe.getAttribute("data-src");
+    replacement.removeAttribute("src");
+    if (source !== null) replacement.setAttribute("src", source);
+    iframe.replaceWith(replacement);
+  });
+};
+
+const prepareIframes = (card) => {
+  card.querySelectorAll("iframe").forEach((iframe) => {
+    if (!iframe.hasAttribute("data-src") && iframe.hasAttribute("src")) {
+      iframe.setAttribute("data-src", iframe.getAttribute("src"));
+    }
+  });
+  unloadIframes(card);
+};
+
 export function initEventModal() {
   document.querySelectorAll(GROUP_SELECTOR).forEach((group) => {
     group._eventModalInstance?.destroy();
 
     const cards = [...group.querySelectorAll(CARD_SELECTOR)];
+    cards.forEach(prepareIframes);
     const triggers = [...document.querySelectorAll(TRIGGER_SELECTOR)];
     const backdrop = group.querySelector(`${CLOSE_SELECTOR}:not(button)`);
     if (!cards.length || !triggers.length || !backdrop) return;
@@ -57,6 +85,8 @@ export function initEventModal() {
 
     const close = () => {
       if (!activeTrigger) return;
+      const activeCard = cardsByName.get(activeTrigger.getAttribute("data-modal-target"));
+      if (activeCard) unloadIframes(activeCard);
       cards.forEach((card) => setCardState(card, false));
       validTriggers.forEach((trigger) => setTriggerState(trigger, false));
       group.setAttribute("data-modal-group-status", "not-active");
@@ -74,7 +104,11 @@ export function initEventModal() {
       const card = cardsByName.get(trigger.getAttribute("data-modal-target"));
       if (!card) return;
 
-      cards.forEach((item) => setCardState(item, item === card));
+      cards.forEach((item) => {
+        setCardState(item, item === card);
+        if (item === card) loadIframes(item);
+        else unloadIframes(item);
+      });
       validTriggers.forEach((item) => setTriggerState(item, item === trigger));
       group.setAttribute("data-modal-group-status", "active");
       group.removeAttribute("aria-hidden");

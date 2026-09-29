@@ -179,6 +179,32 @@ test("fitsShape matches the independent geometry check at every breakpoint", asy
   }
 });
 
+test("every authored Social Causes shape fits its text at tablet widths", async ({ page }) => {
+  for (const width of [991, 820, 768]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+
+    const authored = await page.locator(tile).evaluateAll((tiles) => tiles.map((element) => ({
+      label: element.querySelector(".causes_tile-label")?.textContent.trim(),
+      shape: element.dataset.causesShape,
+    })));
+    const fitsByShape = new Map(
+      await Promise.all(shapeNames.map(async (shapeName) => [
+        shapeName,
+        await independentFits(page, shapeName, fitTolerance),
+      ])),
+    );
+
+    authored.forEach(({ label, shape }, index) => {
+      expect(
+        fitsByShape.get(shape)[index],
+        `${label} authored shape ${shape} does not fit at ${width}px with ${fitTolerance * 100}% tolerance`,
+      ).toBe(true);
+    });
+  }
+});
+
 test("never morphs a tile into a shape that spills its live text box", async ({ page }) => {
   await page.goto("/");
   await page.waitForLoadState("networkidle");

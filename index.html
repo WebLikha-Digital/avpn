@@ -894,8 +894,10 @@
         pointer-events: none;
         visibility: hidden;
       }
+      @media screen and (max-width: 991px) {
+        .image-breaker_frame { height: 100vh; max-height: none; aspect-ratio: auto; }
+      }
       @media screen and (max-width: 767px) {
-        .image-breaker_frame { aspect-ratio: 4 / 3; }
         .image-breaker_start { width: 15rem; }
       }
 

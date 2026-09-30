@@ -71,7 +71,7 @@ test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await page.waitForLoadState("networkidle");
   await expect(page.locator(`${section}[data-prog-overview-init]`)).toHaveCount(1);
-  await expect(page.locator(rows)).toHaveCount(7);
+  await expect(page.locator(rows)).toHaveCount(6);
 });
 
 // The whole point of the sticky arrangement: the section holds the screen for

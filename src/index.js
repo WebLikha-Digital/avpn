@@ -50,6 +50,7 @@ import { initFooterReveal } from "./animations/footerReveal.js";
 import { initFooterFountain } from "./animations/footerFountain.js";
 import { initImpactCollabAuto } from "./animations/impactCollabAuto.js";
 import { initImpactCollabReveal } from "./animations/impactCollabReveal.js";
+import { initStackingCards } from "./animations/stackingCards.js";
 import { prepareScrollRestoration } from "./lib/scrollRestoration.js";
 import { initResizeScrollPreservation } from "./lib/resizeScrollPreservation.js";
 
@@ -110,6 +111,7 @@ function init() {
   initEngagementsTimeline();
   initPartnersProximity();
   initPartnersTestimonials();
+  initStackingCards();
   initFooterReveal();
   initFooterFountain();
   initImpactCollabReveal();

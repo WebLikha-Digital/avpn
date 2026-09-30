@@ -53,6 +53,7 @@ import { initImpactCollabReveal } from "./animations/impactCollabReveal.js";
 import { initStackingCards } from "./animations/stackingCards.js";
 import { prepareScrollRestoration } from "./lib/scrollRestoration.js";
 import { initResizeScrollPreservation } from "./lib/resizeScrollPreservation.js";
+import { initSnapCarousel } from "./animations/snapCarousel.js";
 
 const restoreScrollPosition = prepareScrollRestoration();
 
@@ -79,6 +80,7 @@ function init() {
   initHamburgerNav();
   initHeroVideoGate();
   initHorizontalScroller();
+  initSnapCarousel();
   initEcosystemTabs();
   initEcosystemFolders();
   // Fit before SplitText runs so its line measurements use the final font size.

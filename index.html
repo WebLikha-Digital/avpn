@@ -1139,6 +1139,106 @@
          safe from being clobbered. */
       [data-rotary-wheel-item] > * { transform: translate(-50%, -50%); }
 
+      .prog-highlights_controls {
+        display: none;
+        justify-content: center;
+        align-items: center;
+        column-gap: var(--_spacing---space--3-16px, 1rem);
+        margin-top: var(--_spacing---space--4-24px, 1.5rem);
+        position: relative;
+      }
+      .prog-highlights_arrow {
+        display: flex;
+        width: 3rem;
+        height: 3rem;
+        padding: 0;
+        align-items: center;
+        justify-content: center;
+        flex: none;
+        border: 0;
+        border-radius: 50%;
+        background: var(--_primitives---brand--primary--navy-main, #002944);
+        color: var(--_primitives---colors--white, #fff);
+        cursor: pointer;
+        transition: opacity 0.2s;
+      }
+      .prog-highlights_arrow:disabled { opacity: 0.35; cursor: default; }
+      .prog-highlights_arrow:focus-visible {
+        outline: 2px solid var(--_primitives---brand--primary--navy-main, #002944);
+        outline-offset: 3px;
+      }
+      .prog-highlights_arrow-icon {
+        display: flex;
+        width: 1.25rem;
+        height: 1.25rem;
+      }
+      .prog-highlights_arrow-icon svg { width: 100%; height: 100%; }
+      .prog-highlights_mobile-preview {
+        display: block;
+        width: calc(100% + 4rem);
+        height: auto;
+        box-sizing: border-box;
+        margin: 0 -2rem 2rem;
+        padding: 2rem;
+        background: #f7f1ea;
+        color: #183b45;
+        border: 0;
+        font-size: inherit;
+      }
+      .prog-highlights_mobile-preview .prog-highlights_panel {
+        position: static;
+        display: block;
+        width: 100%;
+        min-width: 0;
+        max-width: none;
+        margin: 0 0 2rem;
+        transform: none;
+      }
+      .prog-highlights_mobile-preview .prog-highlights_stage {
+        position: relative;
+        width: 100%;
+        height: 18rem;
+        overflow: hidden;
+        background: #d9e6e2;
+      }
+      .prog-highlights_mobile-preview [data-snap-carousel-track] {
+        position: relative;
+        display: flex;
+        width: 100%;
+        height: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+        gap: 1rem;
+        overflow: hidden;
+      }
+      .prog-highlights_mobile-preview [data-snap-carousel-track] > .prog-highlights_item {
+        flex: 0 0 100%;
+        min-width: 0;
+      }
+      .prog-highlights_mobile-preview .hband__card {
+        width: 100%;
+        height: 100%;
+        box-sizing: border-box;
+      }
+      @media (max-width: 767px) {
+        .prog-highlights_controls { display: flex; }
+        .prog-highlights_mobile-preview [data-snap-carousel-track] {
+          width: calc(100% + 2rem);
+          margin-left: -1rem;
+          padding-inline: 1rem;
+          box-sizing: border-box;
+          overflow-x: auto;
+          scroll-snap-type: x mandatory;
+          scroll-padding-left: 1rem;
+          scrollbar-width: none;
+        }
+        .prog-highlights_mobile-preview [data-snap-carousel-track]::-webkit-scrollbar { display: none; }
+        .prog-highlights_mobile-preview [data-snap-carousel-track] > .prog-highlights_item {
+          flex-basis: 100%;
+          scroll-snap-align: start;
+        }
+      }
+
       /* Preview-only dressing below this line. */
       /* Full-bleed so the panels' 100vw widths line up with the viewport,
          which the preview page's body padding would otherwise offset. */
@@ -2372,6 +2472,50 @@
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="5.25" y="2.75" width="13.5" height="18.5" rx="6.75"/><path d="M12 7.25v3"/></svg>
           </div>
           <div class="highlights_scroll-label">Scroll more</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="prog-highlights_mobile-preview" aria-label="Programmes Highlights mobile carousel preview">
+      <p>Programmes Highlights — mobile card carousel preview.</p>
+      <div class="prog-highlights_panel is-thematic" data-snap-carousel>
+        <div class="prog-highlights_stage">
+          <div class="prog-highlights_hub" data-snap-carousel-track>
+            <div class="prog-highlights_item"><div class="hband__card">Climate Action</div></div>
+            <div class="prog-highlights_item"><div class="hband__card">Health Impact</div></div>
+            <div class="prog-highlights_item"><div class="hband__card">Gender Equality</div></div>
+            <div class="prog-highlights_item"><div class="hband__card">Economic Inclusion</div></div>
+          </div>
+        </div>
+        <div class="prog-highlights_controls" data-snap-carousel-controls>
+          <button class="prog-highlights_arrow" data-snap-carousel-prev aria-label="Previous card"><span class="prog-highlights_arrow-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 10H3m0 0 6-6m-6 6 6 6" /></svg></span></button>
+          <button class="prog-highlights_arrow" data-snap-carousel-next aria-label="Next card"><span class="prog-highlights_arrow-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10h14m0 0-6-6m6 6-6 6" /></svg></span></button>
+        </div>
+      </div>
+      <div class="prog-highlights_panel is-community" data-snap-carousel>
+        <div class="prog-highlights_stage">
+          <div class="prog-highlights_hub" data-snap-carousel-track>
+            <div class="prog-highlights_item"><div class="hband__card">Community Networks</div></div>
+            <div class="prog-highlights_item"><div class="hband__card">Shared Learning</div></div>
+            <div class="prog-highlights_item"><div class="hband__card">Local Leadership</div></div>
+          </div>
+        </div>
+        <div class="prog-highlights_controls" data-snap-carousel-controls>
+          <button class="prog-highlights_arrow" data-snap-carousel-prev aria-label="Previous card"><span class="prog-highlights_arrow-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 10H3m0 0 6-6m-6 6 6 6" /></svg></span></button>
+          <button class="prog-highlights_arrow" data-snap-carousel-next aria-label="Next card"><span class="prog-highlights_arrow-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10h14m0 0-6-6m6 6-6 6" /></svg></span></button>
+        </div>
+      </div>
+      <div class="prog-highlights_panel is-impact" data-snap-carousel>
+        <div class="prog-highlights_stage">
+          <div class="prog-highlights_hub" data-snap-carousel-track>
+            <div class="prog-highlights_item"><div class="hband__card">Impact Measurement</div></div>
+            <div class="prog-highlights_item"><div class="hband__card">Capital Mobilisation</div></div>
+            <div class="prog-highlights_item"><div class="hband__card">Systems Change</div></div>
+          </div>
+        </div>
+        <div class="prog-highlights_controls" data-snap-carousel-controls>
+          <button class="prog-highlights_arrow" data-snap-carousel-prev aria-label="Previous card"><span class="prog-highlights_arrow-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 10H3m0 0 6-6m-6 6 6 6" /></svg></span></button>
+          <button class="prog-highlights_arrow" data-snap-carousel-next aria-label="Next card"><span class="prog-highlights_arrow-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10h14m0 0-6-6m6 6-6 6" /></svg></span></button>
         </div>
       </div>
     </section>

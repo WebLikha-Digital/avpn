@@ -479,6 +479,16 @@ off-canvas to the right. The stacked layout below follows Figma node
 `4036:38947` (375×4179) and is set on the **Mobile landscape** breakpoint,
 which cascades to portrait.
 
+Each wheel hub is also a native mobile snap carousel with one-card arrow
+controls. The root carries `[data-snap-carousel]`, the horizontally scrolling
+hub carries `[data-snap-carousel-track]`, and its direct children are the
+slides. The buttons use `[data-snap-carousel-prev]` and
+`[data-snap-carousel-next]`. The script computes each snap position from the
+slides' `offsetLeft` (including the authored gap), updates `disabled` and
+`aria-disabled` after scrolls and resizes, and uses automatic scrolling when
+`prefers-reduced-motion: reduce` is active. The controls remain hidden and the
+rotary-wheel component remains untouched at 768px and above.
+
 | Class | Mobile value |
 |---|---|
 | `.prog-highlights_scroller` | `overflow-x: clip` (the disc bleeds both sides) |

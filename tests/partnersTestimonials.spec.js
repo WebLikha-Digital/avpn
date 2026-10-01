@@ -131,6 +131,72 @@ test("throws a real pointer drag onto a snap point", async ({ page }) => {
   expect(samples.some((value) => value < 0 && value > finalX)).toBeTruthy();
 });
 
+test.describe("touch swipes", () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
+
+  test("advances one snap point on a short, fast swipe", async ({ page }) => {
+    const listHandle = page.locator(list);
+    const collectionBox = await page.locator(collection).boundingBox();
+    const listBox = await listHandle.boundingBox();
+    const client = await page.context().newCDPSession(page);
+    const start = { x: collectionBox.x + collectionBox.width * 0.8, y: listBox.y + listBox.height * 0.3 };
+    const end = { x: start.x - 60, y: start.y };
+    await client.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ ...start, id: 1 }] });
+    for (let step = 1; step <= 8; step += 1) {
+      await page.waitForTimeout(15);
+      await client.send("Input.dispatchTouchEvent", {
+        type: "touchMove", touchPoints: [{ x: start.x - (60 * step) / 8, y: end.y, id: 1 }],
+      });
+    }
+    await client.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    const snap = await listHandle.evaluate((node) => node.closest(
+      "[data-testi-partners-init]")._partnersTestimonialsInstance.snapPoints[1]);
+    await expect.poll(() => listHandle.evaluate(readX)).toBeCloseTo(snap, 0);
+    await expect(page.locator(item).nth(1)).toHaveAttribute("data-gsap-slider-item-status", "active");
+  });
+
+  test("does not move on an 8px touch drag", async ({ page }) => {
+    const listHandle = page.locator(list);
+    const collectionBox = await page.locator(collection).boundingBox();
+    const listBox = await listHandle.boundingBox();
+    const client = await page.context().newCDPSession(page);
+    const start = { x: collectionBox.x + collectionBox.width * 0.8, y: listBox.y + listBox.height * 0.3 };
+    await client.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ ...start, id: 1 }] });
+    for (let step = 1; step <= 8; step += 1) {
+      await page.waitForTimeout(15);
+      await client.send("Input.dispatchTouchEvent", {
+        type: "touchMove", touchPoints: [{ x: start.x - step, y: start.y, id: 1 }],
+      });
+    }
+    await client.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await expect.poll(() => listHandle.evaluate(readX)).toBeCloseTo(0, 0);
+    await expect(page.locator(item).nth(0)).toHaveAttribute("data-gsap-slider-item-status", "active");
+  });
+
+  test.describe("tablet", () => {
+    test.use({ viewport: { width: 768, height: 1024 } });
+
+    test("advances on a 45px touch swipe", async ({ page }) => {
+      const listHandle = page.locator(list);
+      const collectionBox = await page.locator(collection).boundingBox();
+      const listBox = await listHandle.boundingBox();
+      const client = await page.context().newCDPSession(page);
+      const start = { x: collectionBox.x + collectionBox.width * 0.8, y: listBox.y + listBox.height * 0.3 };
+      await client.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ ...start, id: 1 }] });
+      for (let step = 1; step <= 8; step += 1) {
+        await page.waitForTimeout(8);
+        await client.send("Input.dispatchTouchEvent", {
+          type: "touchMove", touchPoints: [{ x: start.x - (45 * step) / 8, y: start.y, id: 1 }],
+        });
+      }
+      await client.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      const snap = await listHandle.evaluate((node) => node.closest(
+        "[data-testi-partners-init]")._partnersTestimonialsInstance.snapPoints[1]);
+      await expect.poll(() => listHandle.evaluate(readX)).toBeCloseTo(snap, 0);
+    });
+  });
+});
+
 test("resolves the slider item width below the collection width", async ({ page }) => {
   const result = await page.locator(item).first().evaluate((node) => {
     const collectionNode = node.closest("[data-gsap-slider-collection]");

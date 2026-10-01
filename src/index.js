@@ -45,6 +45,7 @@ import { initCausesShapes } from "./animations/causesShapes.js";
 import { initEngagementsTimeline } from "./animations/engagementsTimeline.js";
 import { initPartnersProximity } from "./animations/partnersProximity.js";
 import { initPartnersTestimonials } from "./animations/partnersTestimonials.js";
+import { initVideoLightbox } from "./animations/videoLightbox.js";
 import { initTextFitToWidth } from "./animations/textFitWidth.js";
 import { initFooterReveal } from "./animations/footerReveal.js";
 import { initFooterFountain } from "./animations/footerFountain.js";
@@ -104,6 +105,7 @@ function init() {
   initTunnel2();
   initMembersScroll();
   initMembersGlobe();
+  initVideoLightbox();
   initMembersTestimonials();
   watchDocumentHeight();
   initHeroEntrance();

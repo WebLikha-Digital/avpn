@@ -182,11 +182,16 @@ export function initForwardSection() {
       // The card stops --forward-panel-top-gap below the panel top so the fixed
       // nav never covers its heading; a taller card keeps going until its
       // bottom meets the panel bottom.
-      const measureStackedPanelTravel = () => Math.max(
-        0,
-        media.offsetHeight - configuredPanelTopGap,
-        media.offsetHeight + body.offsetHeight - panel.clientHeight,
-      );
+      const measureStackedPanelTravel = () => {
+        const mediaHeight = media.getBoundingClientRect().height;
+        const bodyHeight = body.getBoundingClientRect().height;
+        const panelHeight = panel.getBoundingClientRect().height;
+        return Math.max(
+          0,
+          mediaHeight - configuredPanelTopGap,
+          mediaHeight + bodyHeight - panelHeight,
+        );
+      };
       const measureOverflow = () => Math.max(0, scroll.scrollHeight - body.clientHeight);
       const overflow = measureOverflow();
       const panelLabel = `panel${index + 1}`;

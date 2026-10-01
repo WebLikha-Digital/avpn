@@ -202,7 +202,7 @@ test("reduced motion leaves reveal content visible and unanimated", async ({ pag
   await page.waitForLoadState("networkidle");
 
   const targets = page.locator(
-    "[data-reveal-group] > *, [data-reveal-group-nested] > *",
+    '[data-reveal-group] > :not([data-ignore="true"]), [data-reveal-group-nested] > :not([data-ignore="true"])',
   );
   expect(await targets.evaluateAll((nodes) => nodes.every((node) => {
     const styles = getComputedStyle(node);

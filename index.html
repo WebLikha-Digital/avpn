@@ -1001,7 +1001,9 @@
         align-items: flex-end; column-gap: 10.4vw; padding-bottom: 8vh;
         padding-left: 5vw; padding-right: 5vw;
       }
-      .sig-events_card { position: relative; flex-shrink: 0; width: 106.3vw; }
+      /* z-index 2 keeps the card text above the line (z-index 1) where the tail
+         curve crosses the last card on short landscape viewports. */
+      .sig-events_card { position: relative; z-index: 2; flex-shrink: 0; width: 106.3vw; }
       .sig-events_spacer { flex-shrink: 0; width: 5vw; }
       .sig-events_spacer:first-child { width: 0vw; margin-right: -10.4vw; }
       .sig-events_spacer:last-child { width: 0vw; margin-left: -10.4vw; }

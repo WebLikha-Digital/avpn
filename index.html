@@ -3248,6 +3248,10 @@
     width: calc(var(--testi-radius) * 2);
     height: calc(var(--testi-radius) * 2);
     transform: translate(-50%, -50%);
+    /* Solid ring at the shared drawn-line thickness (page-style --line-stroke),
+       overriding the class's 2px dashed border; the class keeps the colour. */
+    border-style: solid;
+    border-width: var(--line-stroke);
   }
   .testimonials_wheel { left: var(--testi-center-x); }
 
@@ -3286,7 +3290,7 @@
   /* Tablet and below (Figma 4036:38581 for mobile): the wheel turns a quarter
      turn. Its centre sits above the section (--testi-center-y), the active
      circle hangs at 6 o'clock, horizontally centred, and the two thumbs sit
-     ±step around it, mostly off screen left and right; only the dashed orbit
+     ±step around it, mostly off screen left and right; only the orbit
      peeks in at the sides. Wrap height = centre-y + R + active/2 + gap. */
   @media screen and (max-width: 991px) {
     .section_testimonials {

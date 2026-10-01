@@ -34,6 +34,12 @@ import {
  *                              wrapper marks several (default 0 — all together)
  *   data-draw-scroll-reveal    presence enables a one-shot 0.8s expo.out reveal;
  *                              data-draw-scroll-end is ignored in this mode
+ *   data-draw-scroll-duration seconds per shape in reveal mode (default 0.8;
+ *                              invalid, non-finite, or <= 0 values use default)
+ *   data-draw-scroll-ease      GSAP ease for reveal mode (default "expo.out";
+ *                              empty or missing values use default)
+ *   data-draw-scroll-delay     seconds before a reveal starts (default 0;
+ *                              invalid, non-finite, or negative values use 0)
  *   data-draw-scroll-trigger   CSS selector for a vertical window trigger;
  *                              nearest matching ancestor, then first page match,
  *                              then the active SVG
@@ -189,9 +195,13 @@ export function initDrawPathScroll() {
         setDrawProgress(paths, 0);
 
         if (reveal) {
+          const duration = readRevealDuration(wrap);
+          const ease = readRevealEase(wrap);
+          const delay = readRevealDelay(wrap);
           const authoredRefresh = scrollTrigger.onRefresh;
           const tl = gsap.timeline({
-            defaults: { ease: "expo.out" },
+            delay,
+            defaults: { ease },
             scrollTrigger: {
               ...scrollTrigger,
               onRefresh: (self) => {
@@ -200,7 +210,7 @@ export function initDrawPathScroll() {
               },
             },
           });
-          addDrawTweens(tl, paths, stagger, 0.8);
+          addDrawTweens(tl, paths, stagger, duration);
           wrap._drawTl = tl;
           return;
         }
@@ -449,6 +459,20 @@ function addDrawTweens(timeline, paths, stagger, duration = 1) {
       onUpdate: () => setScreenPathProgress(path, state.value, state.measurement),
     }, position);
   });
+}
+
+function readRevealDuration(wrap) {
+  const configured = Number(wrap.getAttribute("data-draw-scroll-duration"));
+  return Number.isFinite(configured) && configured > 0 ? configured : 0.8;
+}
+
+function readRevealEase(wrap) {
+  return wrap.getAttribute("data-draw-scroll-ease")?.trim() || "expo.out";
+}
+
+function readRevealDelay(wrap) {
+  const configured = Number(wrap.getAttribute("data-draw-scroll-delay"));
+  return Number.isFinite(configured) && configured >= 0 ? configured : 0;
 }
 
 function setDrawProgress(paths, progress) {

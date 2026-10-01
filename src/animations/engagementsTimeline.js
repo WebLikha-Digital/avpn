@@ -66,6 +66,7 @@ function initEngagementsTimeline(scope = document) {
       )),
       isAnimating: false,
       isInView: false,
+      isHovered: false,
       reduced,
     };
     root._engagementsTimelineInstance = instance;
@@ -216,7 +217,7 @@ function initEngagementsTimeline(scope = document) {
     };
 
     const canAutoplay = () => root.dataset.engagementsAutoplay === "true"
-      && instance.isInView && !instance.isAnimating;
+      && instance.isInView && !instance.isAnimating && !instance.isHovered;
     const scheduleAutoplay = () => {
       instance.autoplayCall?.kill();
       instance.autoplayCall = null;
@@ -379,6 +380,21 @@ function initEngagementsTimeline(scope = document) {
       if (marker) goTo(Number(marker.dataset.engagementsTickIndex));
     });
     if (!window.matchMedia?.("(pointer: coarse)").matches) {
+      const hoverZones = [slidesWrap, media, nav];
+      const hoveredZones = new Set();
+      hoverZones.forEach((zone) => {
+        listen(zone, "mouseenter", () => {
+          hoveredZones.add(zone);
+          instance.isHovered = true;
+          instance.autoplayCall?.kill();
+          instance.autoplayCall = null;
+        });
+        listen(zone, "mouseleave", () => {
+          hoveredZones.delete(zone);
+          instance.isHovered = hoveredZones.size > 0;
+          if (!instance.isHovered) scheduleAutoplay();
+        });
+      });
       ticks.querySelectorAll("[data-engagements-tick-index]").forEach((marker) => {
         listen(marker, "mouseenter", () => {
           if (instance.isAnimating) return;

@@ -16,6 +16,29 @@ const readX = (node) => {
 };
 
 test.beforeEach(async ({ page }) => {
+  await page.route("https://www.youtube-nocookie.com/embed/**", (route) => route.fulfill({
+    status: 200,
+    contentType: "text/html",
+    body: "<!doctype html><script>window.addEventListener('message',event=>parent.postMessage({videoLightboxEcho:event.data},'*'));parent.postMessage({videoLightboxEcho:{ready:true}},'*');</script>",
+  }));
+  await page.route("**/*youtube.com/**", (route) => route.abort());
+  await page.addInitScript(() => {
+    window.__videoLightboxMessages = [];
+    window.addEventListener("message", (event) => {
+      if (event.data?.videoLightboxEcho) {
+        const message = event.data.videoLightboxEcho;
+        window.__videoLightboxMessages.push(typeof message === "string" ? JSON.parse(message) : message);
+      }
+    });
+    const proto = HTMLMediaElement.prototype;
+    proto.play = function playStub() {
+      this.__played = true;
+      return Promise.resolve();
+    };
+    proto.pause = function pauseStub() {
+      this.__paused = true;
+    };
+  });
   await page.goto("/");
   await page.waitForLoadState("networkidle");
   await page.waitForFunction(() => !document.documentElement.classList.contains("is-preloading"));
@@ -121,11 +144,13 @@ test("resolves the slider item width below the collection width", async ({ page 
 
 test("opens and closes the video lightbox with focus restoration", async ({ page }) => {
   const opener = page.locator(trigger).first();
-  const src = await opener.getAttribute("data-video-lightbox-src");
   const clientWidth = await page.locator("html").evaluate((node) => node.clientWidth);
   await opener.click();
   await expect(page.locator(lightbox)).toHaveAttribute("data-video-lightbox-status", "active");
-  await expect(page.locator(`${lightbox} video`)).toHaveAttribute("src", src);
+  await expect(page.locator(`${lightbox} iframe`)).toHaveAttribute(
+    "src",
+    /youtube-nocookie\.com\/embed\/RU1Wk6gMuZo\?.*enablejsapi=1/,
+  );
   await expect(page.locator("html")).toHaveClass(/is-modal-open/);
   const scrollState = await page.locator("html").evaluate((node) => ({
     overflowY: getComputedStyle(node).overflowY,
@@ -135,15 +160,28 @@ test("opens and closes the video lightbox with focus restoration", async ({ page
   expect(scrollState.clientWidth).toBe(clientWidth);
   await page.keyboard.press("Escape");
   await expect(page.locator(lightbox)).toHaveAttribute("data-video-lightbox-status", "not-active");
-  await expect(page.locator(`${lightbox} video`)).toHaveCount(1);
-  expect(await page.locator(`${lightbox} video`).evaluate((video) => video.paused)).toBe(true);
+  await expect(page.locator(`${lightbox} iframe`)).toHaveCount(1);
+  await expect.poll(() => page.evaluate(() => window.__videoLightboxMessages)).toContainEqual(
+    expect.objectContaining({ func: "pauseVideo" }),
+  );
   await expect(opener).toBeFocused();
 
-  const player = page.locator(`${lightbox} video`);
+  const player = page.locator(`${lightbox} iframe`);
+  await player.evaluate((iframe) => { iframe.dataset.videoLightboxTestPlayer = "first"; });
   await opener.click();
+  await expect.poll(() => page.evaluate(() => window.__videoLightboxMessages)).toContainEqual(
+    expect.objectContaining({ func: "playVideo" }),
+  );
   expect(await player.evaluate((node) => node === document.querySelector(
-    "#hear-from-partners [data-video-lightbox] video",
+    "#hear-from-partners [data-video-lightbox] iframe",
   ))).toBe(true);
+
+  await page.keyboard.press("Escape");
+  await opener.evaluate((node) => node.setAttribute("data-video-lightbox-src", "/fixtures/partner.mp4"));
+  await opener.click();
+  await expect(page.locator(`${lightbox} video`)).toHaveAttribute("src", "/fixtures/partner.mp4");
+  await page.keyboard.press("Escape");
+  expect(await page.locator(`${lightbox} video`).evaluate((video) => video.__paused)).toBe(true);
 });
 
 test("does not open the lightbox after dragging from a media button", async ({ page }) => {

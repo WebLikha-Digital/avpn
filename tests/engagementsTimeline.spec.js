@@ -14,6 +14,19 @@ async function showSection(page) {
 }
 
 test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    const disableAutoplay = () => {
+      const root = document.querySelector("[data-engagements-init]");
+      if (!root) return false;
+      root.setAttribute("data-engagements-autoplay", "false");
+      return true;
+    };
+    if (disableAutoplay()) return;
+    const observer = new MutationObserver(() => {
+      if (disableAutoplay()) observer.disconnect();
+    });
+    observer.observe(document, { childList: true, subtree: true });
+  });
   await page.goto("/");
 });
 
@@ -201,4 +214,53 @@ test("reduced motion still changes state with crossfades", async ({ page }) => {
   await settle(root);
   await expect(root).toHaveAttribute("data-engagements-active", "2");
   await expect(root.locator("[data-engagements-media]")).toHaveAttribute("data-engagements-shape", "circle");
+});
+
+test("autoplay advances when enabled", async ({ page }) => {
+  await page.addInitScript(() => {
+    const applyAutoplay = () => {
+      const root = document.querySelector("[data-engagements-init]");
+      if (!root) return false;
+      root.setAttribute("data-engagements-autoplay", "true");
+      root.setAttribute("data-engagements-autoplay-duration", "300");
+      return true;
+    };
+    if (applyAutoplay()) return;
+    const observer = new MutationObserver(() => {
+      if (applyAutoplay()) observer.disconnect();
+    });
+    observer.observe(document, { childList: true, subtree: true });
+  });
+  await page.reload();
+  const root = await showSection(page);
+  await expect(root).not.toHaveAttribute("data-engagements-active", "1", { timeout: 3000 });
+});
+
+test("pauses autoplay while hovering media and resumes after leaving", async ({ page }) => {
+  await page.addInitScript(() => {
+    const applyAutoplay = () => {
+      const root = document.querySelector("[data-engagements-init]");
+      if (!root) return false;
+      root.setAttribute("data-engagements-autoplay", "true");
+      root.setAttribute("data-engagements-autoplay-duration", "300");
+      return true;
+    };
+    if (applyAutoplay()) return;
+    const observer = new MutationObserver(() => {
+      if (applyAutoplay()) observer.disconnect();
+    });
+    observer.observe(document, { childList: true, subtree: true });
+  });
+  await page.reload();
+  const root = await showSection(page);
+  const media = root.locator("[data-engagements-media]");
+  await media.hover();
+  await expect.poll(() => root.evaluate((node) => node._engagementsTimelineInstance?.isHovered)).toBe(true);
+  await expect.poll(() => root.evaluate((node) => node._engagementsTimelineInstance?.isAnimating)).toBe(false);
+  const activeBeforeHoverWait = await root.getAttribute("data-engagements-active");
+  await page.waitForTimeout(700);
+  await expect(root).toHaveAttribute("data-engagements-active", activeBeforeHoverWait);
+  await page.mouse.move(0, 0);
+  await expect.poll(() => root.evaluate((node) => node._engagementsTimelineInstance?.isHovered)).toBe(false);
+  await expect(root).not.toHaveAttribute("data-engagements-active", activeBeforeHoverWait, { timeout: 3000 });
 });

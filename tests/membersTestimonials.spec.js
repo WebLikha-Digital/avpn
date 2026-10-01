@@ -262,7 +262,7 @@ test("swaps quote lines and opens only the active card video", async ({ page }) 
   await trigger.click();
   const lightbox = root.locator("[data-video-lightbox]");
   await expect(lightbox).toHaveAttribute("data-video-lightbox-status", "active");
-  await expect(lightbox.locator("iframe")).toHaveAttribute("src", /youtube-nocookie\.com\/embed\/aqz-KE-bpKQ/);
+  await expect(lightbox.locator("iframe")).toHaveAttribute("src", /youtube-nocookie\.com\/embed\/SwPYymyWWb4/);
   await expect(lightbox.locator("iframe")).toHaveAttribute("src", /enablejsapi=1/);
   const player = lightbox.locator("iframe");
   await expect.poll(() => page.evaluate(() => window.__videoLightboxMessages?.some(

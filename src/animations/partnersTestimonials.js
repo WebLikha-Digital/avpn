@@ -2,6 +2,9 @@ import { gsap, Draggable, InertiaPlugin } from "../lib/gsap.js";
 
 const RESIZE_DEBOUNCE = 200;
 const DRAG_CLICK_THRESHOLD = 6;
+const SWIPE_DISTANCE_RATIO = 0.1;
+const SWIPE_DISTANCE_MAX = 40;
+const SWIPE_VELOCITY = 300;
 
 gsap.registerPlugin(Draggable, InertiaPlugin);
 
@@ -43,10 +46,12 @@ function initPartnersTestimonials() {
     const instance = {
       root, slider, collection, list, items, controls,
       draggable: null, listeners: [], suppressClickUntil: 0, pointerDown: null,
+      touchActionNodes: [], pressIndex: 0, pressX: 0, dragSamples: [],
       dragMoved: false, reduced: reducedMotion(), snapPoints: [], activeIndex: 0,
       destroy() {
         this.draggable?.kill();
         this.listeners.forEach((remove) => remove());
+        this.touchActionNodes.forEach((node) => node.style.removeProperty("touch-action"));
         gsap.killTweensOf(list);
         gsap.set(list, { clearProps: "transform" });
         list.onmouseenter = null;
@@ -149,6 +154,13 @@ function initPartnersTestimonials() {
       const delta = button.getAttribute("data-gsap-slider-control") === "next" ? 1 : -1;
       goTo(instance.activeIndex + delta);
     }));
+    const recordDragSample = (x) => {
+      const now = performance.now();
+      instance.dragSamples.push({ x, time: now });
+      while (instance.dragSamples.length > 1 && now - instance.dragSamples[0].time > 100) {
+        instance.dragSamples.shift();
+      }
+    };
 
     if (sliderEnabled) {
       list.onmouseenter = () => list.setAttribute("data-gsap-slider-list-status", "grab");
@@ -158,13 +170,31 @@ function initPartnersTestimonials() {
         throwResistance: 2000, dragResistance: 0.05,
         maxDuration: instance.reduced ? 0 : 0.6, minDuration: instance.reduced ? 0 : 0.2,
         edgeResistance: 0.75, dragClickables: true, allowEventDefault: true,
-        snap: { x: instance.snapPoints, duration: instance.reduced ? 0 : 0.4 },
+        snap: { x: function snapX(endValue) {
+          if (!this.isThrowing) return endValue;
+          const displacement = this.x - instance.pressX;
+          const sample = instance.dragSamples[0];
+          const elapsed = performance.now() - sample.time;
+          const velocity = elapsed ? (this.x - sample.x) * 1000 / elapsed : 0;
+          const direction = Math.abs(displacement) >= Math.min(
+            slideW * SWIPE_DISTANCE_RATIO, SWIPE_DISTANCE_MAX,
+          )
+            ? Math.sign(displacement) : Math.abs(velocity) >= SWIPE_VELOCITY
+              ? Math.sign(velocity) : 0;
+          const targetIndex = Math.max(0, Math.min(instance.snapPoints.length - 1,
+            instance.pressIndex + (direction < 0 ? 1 : direction > 0 ? -1 : 0)));
+          return instance.snapPoints[targetIndex];
+        }, duration: instance.reduced ? 0 : 0.4 },
         onPress() {
           instance.dragMoved = false;
+          instance.pressIndex = instance.activeIndex;
+          instance.pressX = this.x;
+          instance.dragSamples = [];
+          recordDragSample(this.x);
           list.setAttribute("data-gsap-slider-list-status", "grabbing");
         },
         onDragStart() { instance.dragMoved = true; },
-        onDrag() { setX(this.x); updateStatus(this.x); },
+        onDrag() { recordDragSample(this.x); setX(this.x); updateStatus(this.x); },
         onThrowUpdate() { setX(this.x); updateStatus(this.x); },
         onRelease() { setX(this.x); updateStatus(this.x); },
         onThrowComplete() {
@@ -172,6 +202,8 @@ function initPartnersTestimonials() {
           list.setAttribute("data-gsap-slider-list-status", "grab");
         },
       })[0];
+      instance.touchActionNodes = [list, ...list.querySelectorAll("*")];
+      instance.touchActionNodes.forEach((node) => node.style.setProperty("touch-action", "pan-y"));
     } else {
       list.removeAttribute("style");
       controls.forEach((button) => {

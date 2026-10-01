@@ -140,3 +140,23 @@ test("swaps active cards while keeping the modal scroll lock", async ({ page }) 
   await expect(page.locator("html")).toHaveClass(/is-modal-open/);
   await expect(page.locator(card("event-3")).locator("button[data-modal-close]")).toBeFocused();
 });
+
+test("scrolls the event card while keeping the page locked", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 700 });
+  await openModal(page, "event-1");
+
+  const eventCard = page.locator(card("event-1"));
+  await expect.poll(() => eventCard.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
+  const cardBox = await eventCard.boundingBox();
+  const initialWindowScrollY = await page.evaluate(() => window.scrollY);
+
+  await page.mouse.move(cardBox.x + cardBox.width / 2, cardBox.y + cardBox.height / 2);
+  await page.mouse.wheel(0, 500);
+
+  await expect.poll(() => eventCard.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+  expect(await page.evaluate(() => window.scrollY)).toBe(initialWindowScrollY);
+
+  await page.mouse.move(8, 8);
+  await page.mouse.wheel(0, 500);
+  expect(await page.evaluate(() => window.scrollY)).toBe(initialWindowScrollY);
+});

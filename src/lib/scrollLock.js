@@ -3,6 +3,15 @@ import { getLocomotiveScroll } from "./locomotive.js";
 const SCROLL_KEYS = new Set([
   "Space", "PageUp", "PageDown", "Home", "End", "ArrowUp", "ArrowDown",
 ]);
+const PREVENT_SCROLL_SELECTOR = "[data-lenis-prevent]";
+
+const isInsidePreventContainer = (event, selector) => {
+  const path = typeof event.composedPath === "function" ? event.composedPath() : [];
+  if (path.some((target) => target instanceof Element && target.matches(selector))) {
+    return true;
+  }
+  return event.target instanceof Element && Boolean(event.target.closest(selector));
+};
 
 export function lockScroll({ className } = {}) {
   const scroll = getLocomotiveScroll();
@@ -16,10 +25,24 @@ export function lockScroll({ className } = {}) {
     if (!(target instanceof Element)) return false;
     return target.isContentEditable || Boolean(target.closest("input, textarea, select"));
   };
-  const onWheel = (event) => event.preventDefault();
-  const onTouchMove = (event) => event.preventDefault();
+  const onWheel = (event) => {
+    if (!isInsidePreventContainer(event, `${PREVENT_SCROLL_SELECTOR}, [data-lenis-prevent-wheel]`)) {
+      event.preventDefault();
+    }
+  };
+  const onTouchMove = (event) => {
+    if (!isInsidePreventContainer(event, `${PREVENT_SCROLL_SELECTOR}, [data-lenis-prevent-touch]`)) {
+      event.preventDefault();
+    }
+  };
   const onKeyDown = (event) => {
-    if (!isEditableTarget(event.target) && SCROLL_KEYS.has(event.code)) event.preventDefault();
+    if (
+      !isEditableTarget(event.target) &&
+      SCROLL_KEYS.has(event.code) &&
+      !isInsidePreventContainer(event, PREVENT_SCROLL_SELECTOR)
+    ) {
+      event.preventDefault();
+    }
   };
   let snapFrame;
   const snapScroll = () => {

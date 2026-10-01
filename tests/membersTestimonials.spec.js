@@ -19,7 +19,20 @@ async function showSection(page) {
 }
 
 test.beforeEach(async ({ page }) => {
+  await page.route("https://www.youtube-nocookie.com/embed/**", (route) => route.fulfill({
+    status: 200,
+    contentType: "text/html",
+    body: "<!doctype html><script>window.addEventListener('message',event=>parent.postMessage({videoLightboxEcho:event.data},'*'));parent.postMessage({videoLightboxEcho:{ready:true}},'*');</script>",
+  }));
+  await page.route("**/*youtube.com/**", (route) => route.abort());
   await page.addInitScript(() => {
+    window.__videoLightboxMessages = [];
+    window.addEventListener("message", (event) => {
+      if (event.data?.videoLightboxEcho) {
+        const message = event.data.videoLightboxEcho;
+        window.__videoLightboxMessages.push(typeof message === "string" ? JSON.parse(message) : message);
+      }
+    });
     const proto = HTMLMediaElement.prototype;
     proto.play = function playStub() {
       this.__played = true;
@@ -220,7 +233,7 @@ test("rotates both directions, including the hidden wrap slot sampled during mot
   expect(await root.locator("[data-testimonials-item]").evaluateAll((items) => items.map((item) => item.dataset.testimonialsItemStatus))).toEqual(start);
 });
 
-test("swaps quote lines and pauses a playing video on advance", async ({ page }) => {
+test("swaps quote lines and opens only the active card video", async ({ page }) => {
   const root = await showSection(page);
   const firstQuote = await root.locator("[data-testimonials-slide-status=active] [data-testimonials-text]").innerText();
   const outgoingIndex = await root.locator("[data-testimonials-slide-status=active]").evaluate((slide) => (
@@ -244,13 +257,50 @@ test("swaps quote lines and pauses a playing video on advance", async ({ page })
   expect(lineState.untouched.every((value) => value >= 109)).toBe(true);
   expect(lineState.incoming.every((value) => value === 0)).toBe(true);
 
-  const videoItem = root.locator("[data-testimonials-item]:has([data-testimonials-video])");
-  await videoItem.locator("[data-testimonials-play]").click();
-  await expect(videoItem).toHaveAttribute("data-testimonials-playing", "true");
+  const videoItem = root.locator('[data-testimonials-item-status="active"]');
+  const trigger = videoItem.locator("[data-video-lightbox-trigger]");
+  await trigger.click();
+  const lightbox = root.locator("[data-video-lightbox]");
+  await expect(lightbox).toHaveAttribute("data-video-lightbox-status", "active");
+  await expect(lightbox.locator("iframe")).toHaveAttribute("src", /youtube-nocookie\.com\/embed\/SwPYymyWWb4/);
+  await expect(lightbox.locator("iframe")).toHaveAttribute("src", /enablejsapi=1/);
+  const player = lightbox.locator("iframe");
+  await expect.poll(() => page.evaluate(() => window.__videoLightboxMessages?.some(
+    (message) => message?.ready === true,
+  ))).toBe(true);
+  await player.evaluate((iframe) => { iframe.dataset.videoLightboxTestPlayer = "first"; });
+  await page.keyboard.press("ArrowRight");
+  await expect(root.locator(activeItem)).toHaveAttribute("aria-label", "Slide 2 of 3");
+  await page.keyboard.press("Escape");
+  await expect(lightbox).toHaveAttribute("data-video-lightbox-status", "not-active");
+  await expect.poll(() => page.evaluate(() => window.__videoLightboxMessages)).toContainEqual(
+    expect.objectContaining({ func: "pauseVideo" }),
+  );
+  await trigger.click();
+  await expect.poll(() => page.evaluate(() => window.__videoLightboxMessages)).toContainEqual(
+    expect.objectContaining({ func: "playVideo" }),
+  );
+  expect(await page.locator('iframe[data-video-lightbox-test-player="first"]').count()).toBe(1);
+  await page.locator("#hear-from-members button[data-video-lightbox-close]").click();
   await root.locator("[data-testimonials-next]").click();
   await settle(root);
-  await expect(videoItem).not.toHaveAttribute("data-testimonials-playing");
-  expect(await videoItem.locator("video").evaluate((video) => video.__paused)).toBe(true);
+  await root.locator('[data-testimonials-item-status="active"] [data-video-lightbox-trigger]').evaluate((node) => {
+    node.setAttribute("data-video-lightbox-src", "https://www.youtube.com/watch?v=different-member-video");
+  });
+  await root.locator('[data-testimonials-item-status="active"] [data-video-lightbox-trigger]').click();
+  await expect(lightbox.locator("iframe")).toHaveCount(1);
+  await expect(lightbox.locator('iframe[data-video-lightbox-test-player="first"]')).toHaveCount(0);
+  await page.locator("#hear-from-members button[data-video-lightbox-close]").click();
+  await expect(root.locator(activeItem)).toHaveAttribute("aria-label", "Slide 3 of 3");
+  await expect(root.locator("[data-testimonials-item] [data-video-lightbox-trigger]")).toHaveCount(3);
+});
+
+test("does not open a non-active card video", async ({ page }) => {
+  const root = await showSection(page);
+  await root.locator('[data-testimonials-item-status="next"] [data-video-lightbox-trigger]').click({ force: true });
+  await expect(root.locator("[data-video-lightbox]")).toHaveAttribute(
+    "data-video-lightbox-status", "not-active",
+  );
 });
 
 test("autoplay advances when enabled and pauses after leaving the viewport", async ({ page }) => {

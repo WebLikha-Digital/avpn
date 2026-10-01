@@ -1,4 +1,5 @@
 import { gsap, ScrollTrigger, SplitText } from "../lib/gsap.js";
+import { CLOSE_EVENT, OPEN_EVENT } from "./videoLightbox.js";
 
 const ITEM_COUNT = 3;
 const MOTION_DURATION = 1;
@@ -39,7 +40,6 @@ function initMembersTestimonials(scope = document) {
     const controls = [
       ...root.querySelectorAll("[data-testimonials-prev], [data-testimonials-next]"),
     ];
-    const videos = items.map((item) => item.querySelector("[data-testimonials-video]"));
     const splitTargets = slides.flatMap((slide) => [
       slide.querySelector("[data-testimonials-text]"),
       ...slide.querySelectorAll("[data-testimonials-split]"),
@@ -51,7 +51,6 @@ function initMembersTestimonials(scope = document) {
       orbit,
       items,
       slides,
-      videos,
       splits: [],
       states: items.map(() => ({ angle: 0 })),
       listeners: [],
@@ -69,6 +68,7 @@ function initMembersTestimonials(scope = document) {
       base: 0,
       step: 70,
       thumbScale: 0.476,
+      isLightboxOpen: false,
     };
     root._membersTestimonialsInstance = instance;
 
@@ -177,18 +177,9 @@ function initMembersTestimonials(scope = document) {
       }));
     };
 
-    const pauseVideos = () => {
-      videos.forEach((video, index) => {
-        if (!video) return;
-        video.pause();
-        try { video.currentTime = 0; } catch (_) { /* media may not be seekable yet */ }
-        items[index].removeAttribute("data-testimonials-playing");
-      });
-    };
-
     const canAutoplay = () => root.dataset.testimonialsAutoplay === "true"
       && instance.isInView && !instance.isAnimating
-      && items[instance.activeIndex]?.dataset.testimonialsPlaying !== "true";
+      && !instance.isLightboxOpen;
     const scheduleAutoplay = () => {
       instance.autoplayCall?.kill();
       instance.autoplayCall = null;
@@ -217,7 +208,7 @@ function initMembersTestimonials(scope = document) {
     };
 
     function goTo(targetIndex, automatic = false) {
-      if (instance.isAnimating || !instance.introComplete) return;
+      if (instance.isAnimating || !instance.introComplete || instance.isLightboxOpen) return;
       const newIndex = mod(targetIndex, ITEM_COUNT);
       if (newIndex === instance.activeIndex) return;
       const oldIndex = instance.activeIndex;
@@ -226,7 +217,6 @@ function initMembersTestimonials(scope = document) {
         current: instance.states[index].angle,
         index,
       }));
-      pauseVideos();
       instance.autoplayCall?.kill();
       instance.autoplayCall = null;
       instance.isAnimating = true;
@@ -327,37 +317,34 @@ function initMembersTestimonials(scope = document) {
       instance.activeIndex + (control.hasAttribute("data-testimonials-next") ? 1 : -1),
     )));
     listen(window, "keydown", (event) => {
-      if (!instance.isInView || isTypingTarget(event.target)) return;
+      if (!instance.isInView || instance.isLightboxOpen || isTypingTarget(event.target)) return;
       if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
       event.preventDefault();
       goTo(instance.activeIndex + (event.key === "ArrowRight" ? 1 : -1));
     });
+    listen(document, OPEN_EVENT, (event) => {
+      if (!event.detail?.lightbox || !root.contains(event.detail.lightbox)) return;
+      instance.isLightboxOpen = true;
+      instance.autoplayCall?.kill();
+      instance.autoplayCall = null;
+    });
+    listen(document, CLOSE_EVENT, (event) => {
+      if (!event.detail?.lightbox || !root.contains(event.detail.lightbox)) return;
+      instance.isLightboxOpen = false;
+      scheduleAutoplay();
+    });
     items.forEach((item, index) => {
-      const video = videos[index];
-      const play = item.querySelector("[data-testimonials-play]");
       const media = item.querySelector(".testimonials_media");
-      if (!video || !play || !media) return;
-      listen(play, "click", (event) => {
-        event.stopPropagation();
-        if (index !== instance.activeIndex || instance.isAnimating) return;
-        const result = video.play();
-        Promise.resolve(result).then(() => {
-          item.setAttribute("data-testimonials-playing", "true");
-          instance.autoplayCall?.kill();
-          instance.autoplayCall = null;
-        }).catch(() => {});
-      });
+      const trigger = item.querySelector("[data-video-lightbox-trigger]");
+      if (!trigger || !media) return;
       listen(media, "click", (event) => {
-        if (event.target.closest("[data-testimonials-play]")) return;
-        if (item.dataset.testimonialsPlaying !== "true") return;
-        video.pause();
-        item.removeAttribute("data-testimonials-playing");
-        scheduleAutoplay();
-      });
-      listen(video, "ended", () => {
-        item.removeAttribute("data-testimonials-playing");
-        try { video.currentTime = 0; } catch (_) { /* media may not be seekable yet */ }
-        scheduleAutoplay();
+        if (index !== instance.activeIndex || instance.isAnimating || instance.isLightboxOpen) {
+          event.preventDefault();
+          return;
+        }
+        if (event.target.closest("[data-video-lightbox-trigger]")) return;
+        event.preventDefault();
+        trigger.click();
       });
     });
 
@@ -369,7 +356,6 @@ function initMembersTestimonials(scope = document) {
       instance.introTrigger?.kill();
       instance.listeners.forEach((remove) => remove());
       instance.splits.forEach((split) => split.revert());
-      pauseVideos();
       gsap.set(items, { clearProps: "all" });
       gsap.set(slides, { clearProps: "all" });
       if (root._membersTestimonialsInstance === instance) root._membersTestimonialsInstance = null;

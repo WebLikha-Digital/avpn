@@ -1,5 +1,4 @@
 import { gsap, Draggable, InertiaPlugin } from "../lib/gsap.js";
-import { lockScroll } from "../lib/scrollLock.js";
 
 const RESIZE_DEBOUNCE = 200;
 const DRAG_CLICK_THRESHOLD = 6;
@@ -9,45 +8,6 @@ gsap.registerPlugin(Draggable, InertiaPlugin);
 const reducedMotion = () => window.matchMedia?.(
   "(prefers-reduced-motion: reduce)",
 ).matches ?? false;
-
-function videoEmbedSource(src) {
-  try {
-    const url = new URL(src, window.location.href);
-    const host = url.hostname.toLowerCase().replace(/^www\./, "");
-    let id;
-    if (host === "youtube.com" || host === "m.youtube.com") {
-      if (url.pathname === "/watch") id = url.searchParams.get("v");
-      else if (url.pathname.startsWith("/embed/")) id = url.pathname.split("/")[2];
-    } else if (host === "youtu.be") {
-      id = url.pathname.slice(1).split("/")[0];
-    }
-    if (id) return `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0`;
-    if (host === "vimeo.com" || host === "player.vimeo.com") {
-      const match = url.pathname.match(/\/(?:video\/)?(\d+)/);
-      if (match) return `https://player.vimeo.com/video/${match[1]}?autoplay=1`;
-    }
-  } catch (_) {
-    // An invalid URL is handled as a native video source below.
-  }
-  return null;
-}
-
-function createPlayer(src) {
-  const embed = videoEmbedSource(src);
-  if (embed) {
-    const iframe = document.createElement("iframe");
-    iframe.src = embed;
-    iframe.setAttribute("allow", "autoplay; fullscreen; picture-in-picture");
-    iframe.setAttribute("allowfullscreen", "");
-    return iframe;
-  }
-  const video = document.createElement("video");
-  video.controls = true;
-  video.autoplay = true;
-  video.playsInline = true;
-  video.src = src;
-  return video;
-}
 
 function bindResize() {
   initPartnersTestimonials._resize?.();
@@ -78,19 +38,13 @@ function initPartnersTestimonials() {
     const list = slider?.querySelector("[data-gsap-slider-list]");
     const items = [...(list?.querySelectorAll(":scope > [data-gsap-slider-item]") || [])];
     const controls = [...root.querySelectorAll("[data-gsap-slider-control]")];
-    const lightbox = root.querySelector("[data-video-lightbox]");
-    const player = lightbox?.querySelector("[data-video-lightbox-player]");
-    const triggers = [...root.querySelectorAll("[data-video-lightbox-trigger]")];
-    const closeTargets = [...(lightbox?.querySelectorAll("[data-video-lightbox-close]") || [])];
-    if (!slider || !collection || !list || !items.length || !lightbox || !player) return;
+    if (!slider || !collection || !list || !items.length) return;
 
     const instance = {
-      root, slider, collection, list, items, controls, lightbox, player, triggers,
-      closeTargets, draggable: null, listeners: [], unlockScroll: null,
-      activeTrigger: null, suppressClickUntil: 0, pointerDown: null,
+      root, slider, collection, list, items, controls,
+      draggable: null, listeners: [], suppressClickUntil: 0, pointerDown: null,
       dragMoved: false, reduced: reducedMotion(), snapPoints: [], activeIndex: 0,
       destroy() {
-        this.close();
         this.draggable?.kill();
         this.listeners.forEach((remove) => remove());
         gsap.killTweensOf(list);
@@ -101,23 +55,6 @@ function initPartnersTestimonials() {
         if (root._partnersTestimonialsInstance === this) {
           delete root._partnersTestimonialsInstance;
         }
-      },
-      close() {
-        if (!this.activeTrigger && !this.unlockScroll) return;
-        const trigger = this.activeTrigger;
-        const media = player.querySelector("video");
-        if (media) {
-          media.pause();
-          media.removeAttribute("src");
-          media.load();
-        }
-        player.replaceChildren();
-        lightbox.setAttribute("data-video-lightbox-status", "not-active");
-        lightbox.setAttribute("aria-hidden", "true");
-        this.unlockScroll?.();
-        this.unlockScroll = null;
-        this.activeTrigger = null;
-        trigger?.focus();
       },
     };
     root._partnersTestimonialsInstance = instance;
@@ -156,15 +93,6 @@ function initPartnersTestimonials() {
       button.setAttribute("role", "button");
       button.setAttribute("aria-label", direction === "prev" ? "Previous Slide" : "Next Slide");
     });
-
-    const closeButton = lightbox.querySelector("button[data-video-lightbox-close]");
-    if (closeButton) closeButton.type = "button";
-    triggers.forEach((trigger) => {
-      trigger.type = "button";
-      trigger.setAttribute("aria-haspopup", "dialog");
-    });
-    lightbox.setAttribute("aria-hidden", "true");
-    lightbox.setAttribute("data-video-lightbox-status", "not-active");
 
     const collectionRect = () => collection.getBoundingClientRect();
     const maxScroll = Math.max(list.scrollWidth - collection.clientWidth, 0);
@@ -274,31 +202,10 @@ function initPartnersTestimonials() {
     listen(list, "pointerup", onPointerUp, true);
     listen(list, "pointercancel", onPointerUp, true);
 
-    const open = (trigger) => {
-      const src = trigger.getAttribute("data-video-lightbox-src");
-      if (!src) return;
-      instance.close();
-      player.replaceChildren(createPlayer(src));
-      lightbox.setAttribute("data-video-lightbox-status", "active");
-      lightbox.setAttribute("aria-hidden", "false");
-      instance.unlockScroll = lockScroll({ className: "is-modal-open" });
-      instance.activeTrigger = trigger;
-      closeButton?.focus();
-    };
-    const onTriggerClick = (event) => {
+    listen(list, "click", (event) => {
       if (performance.now() < instance.suppressClickUntil
-        || instance.draggable?.isDragging || instance.draggable?.isThrowing) {
-        event.preventDefault();
-        return;
-      }
-      event.preventDefault();
-      open(event.currentTarget);
-    };
-    triggers.forEach((trigger) => listen(trigger, "click", onTriggerClick));
-    closeTargets.forEach((target) => listen(target, "click", () => instance.close()));
-    listen(document, "keydown", (event) => {
-      if (event.key === "Escape" && instance.activeTrigger) instance.close();
-    });
+        || instance.draggable?.isDragging || instance.draggable?.isThrowing) event.preventDefault();
+    }, true);
   });
 }
 

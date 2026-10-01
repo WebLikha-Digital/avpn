@@ -135,8 +135,15 @@ test("opens and closes the video lightbox with focus restoration", async ({ page
   expect(scrollState.clientWidth).toBe(clientWidth);
   await page.keyboard.press("Escape");
   await expect(page.locator(lightbox)).toHaveAttribute("data-video-lightbox-status", "not-active");
-  await expect(page.locator(`${lightbox} video`)).toHaveCount(0);
+  await expect(page.locator(`${lightbox} video`)).toHaveCount(1);
+  expect(await page.locator(`${lightbox} video`).evaluate((video) => video.paused)).toBe(true);
   await expect(opener).toBeFocused();
+
+  const player = page.locator(`${lightbox} video`);
+  await opener.click();
+  expect(await player.evaluate((node) => node === document.querySelector(
+    "#hear-from-partners [data-video-lightbox] video",
+  ))).toBe(true);
 });
 
 test("does not open the lightbox after dragging from a media button", async ({ page }) => {

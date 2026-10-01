@@ -81,6 +81,39 @@ test("scrubs grid entrance, copy reveal, and panels in order", async ({ page }) 
   expect(reversed.panel).toBeGreaterThan(0);
 });
 
+test("keeps the entrance tiles clear of the sticky stage edges", async ({ page }) => {
+  for (const viewport of [
+    { width: 768, height: 1024 },
+    { width: 820, height: 1180 },
+    { width: 393, height: 852 },
+    { width: 1440, height: 900 },
+  ]) {
+    await test.step(`${viewport.width}x${viewport.height}`, async () => {
+      await loadForward(page, false, viewport);
+      const clearance = await page.locator(ROOT).evaluate((section) => new Promise((resolve) => {
+        const trigger = section._forwardInstance.timeline.scrollTrigger;
+        window.scrollTo({ top: trigger.start, behavior: "instant" });
+        requestAnimationFrame(() => {
+          const stage = section.querySelector("[data-forward-stage]").getBoundingClientRect();
+          const columns = [...section.querySelectorAll("[data-forward-col]")];
+          const rectsFor = (column) => [...column.querySelectorAll("[data-forward-tile]")]
+            .flatMap((tile) => [tile, tile.querySelector("img")].filter(Boolean))
+            .map((element) => element.getBoundingClientRect());
+          const sideRects = [...rectsFor(columns[0]), ...rectsFor(columns[2])];
+          const middleRects = rectsFor(columns[1]);
+          resolve({
+            sideBottomGap: stage.top - Math.max(...sideRects.map((rect) => rect.bottom)),
+            middleTopGap: Math.min(...middleRects.map((rect) => rect.top)) - stage.bottom,
+          });
+        });
+      }));
+
+      expect(clearance.sideBottomGap).toBeGreaterThanOrEqual(8);
+      expect(clearance.middleTopGap).toBeGreaterThanOrEqual(8);
+    });
+  }
+});
+
 test("keeps the section static under reduced motion", async ({ page }) => {
   await loadForward(page, true);
   const state = await page.locator(ROOT).evaluate((section) => ({

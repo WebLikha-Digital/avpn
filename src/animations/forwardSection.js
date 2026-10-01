@@ -12,6 +12,8 @@ const DEFAULT_PANEL_DURATION = 1;
 const DEFAULT_DWELL = 0.35;
 const DEFAULT_CONTENT_DWELL = 0.9;
 const DEFAULT_PANEL_TOP_GAP = 80;
+// Keeps scaled tile images and subpixel compositing clear of the stage clip.
+const ENTRANCE_CLEARANCE = 24;
 const RESIZE_DEBOUNCE = 150;
 
 /**
@@ -92,7 +94,7 @@ export function initForwardSection() {
     const middleShifts = readList(section, "data-forward-middle-shift", DEFAULT_MIDDLE_SHIFTS, "--forward-middle-shift");
     const viewportHeight = window.innerHeight;
     const gridHeight = grid.getBoundingClientRect().height;
-    const entranceDistance = viewportHeight - (viewportHeight - gridHeight) / 2;
+    const entranceDistance = viewportHeight - (viewportHeight - gridHeight) / 2 + ENTRANCE_CLEARANCE;
     const contentHeight = content.getBoundingClientRect().height;
     const titleHeight = title.getBoundingClientRect().height;
     const titleOffset = contentHeight

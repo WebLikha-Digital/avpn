@@ -11,6 +11,7 @@ const DEFAULT_ZOOM_DURATION = 1;
 const DEFAULT_PANEL_DURATION = 1;
 const DEFAULT_DWELL = 0.35;
 const DEFAULT_CONTENT_DWELL = 0.9;
+const DEFAULT_PANEL_TOP_GAP = 80;
 const RESIZE_DEBOUNCE = 150;
 
 /**
@@ -82,6 +83,12 @@ export function initForwardSection() {
     const columnPush = readNumber(section, "data-forward-column-push", DEFAULT_COLUMN_PUSH, "--forward-column-push");
     const stagger = readNumber(section, "data-forward-stagger", DEFAULT_STAGGER, "--forward-stagger");
     const contentDwell = readNumber(section, "data-forward-content-dwell", DEFAULT_CONTENT_DWELL, "--forward-content-dwell");
+    const configuredPanelTopGap = readLength(
+      section,
+      "data-forward-panel-top-gap",
+      DEFAULT_PANEL_TOP_GAP,
+      "--forward-panel-top-gap",
+    );
     const middleShifts = readList(section, "data-forward-middle-shift", DEFAULT_MIDDLE_SHIFTS, "--forward-middle-shift");
     const viewportHeight = window.innerHeight;
     const gridHeight = grid.getBoundingClientRect().height;
@@ -162,7 +169,7 @@ export function initForwardSection() {
     let cursor = DEFAULT_REVEAL_DURATION * 0.72 + DEFAULT_ZOOM_DURATION;
     timeline.to({}, { duration: contentDwell }, cursor);
     cursor += contentDwell;
-    const isPhone = window.matchMedia("(max-width: 767px)").matches;
+    const isStackedPanel = window.matchMedia("(max-width: 991px)").matches;
     panels.slice(0, 2).forEach((panel, index) => {
       const media = panel.querySelector("[data-forward-media]");
       const image = panel.querySelector("[data-forward-media] img");
@@ -170,13 +177,15 @@ export function initForwardSection() {
       const scroll = panel.querySelector("[data-forward-scroll]");
       if (!media || !body || !scroll) return;
 
-      const measureOverflow = () => {
-        const bodyStyle = getComputedStyle(body);
-        const bodyPadding = isPhone
-          ? Number.parseFloat(bodyStyle.paddingTop) + Number.parseFloat(bodyStyle.paddingBottom)
-          : 0;
-        return Math.max(0, scroll.scrollHeight - body.clientHeight + bodyPadding);
-      };
+      // The card stops --forward-panel-top-gap below the panel top so the fixed
+      // nav never covers its heading; a taller card keeps going until its
+      // bottom meets the panel bottom.
+      const measureStackedPanelTravel = () => Math.max(
+        0,
+        media.offsetHeight - configuredPanelTopGap,
+        media.offsetHeight + body.offsetHeight - panel.clientHeight,
+      );
+      const measureOverflow = () => Math.max(0, scroll.scrollHeight - body.clientHeight);
       const overflow = measureOverflow();
       const panelLabel = `panel${index + 1}`;
       gsap.set(image || media, { scale: 1.3, transformOrigin: "50% 50%" });
@@ -190,7 +199,12 @@ export function initForwardSection() {
       cursor += DEFAULT_PANEL_DURATION;
       timeline.to({}, { duration: DEFAULT_DWELL }, cursor);
       cursor += DEFAULT_DWELL;
-      if (overflow > 0 || isPhone) {
+      // Keep the stacked phase in the timeline so a later refresh can
+      // re-measure after fonts or layout settle.
+      if (isStackedPanel) {
+        timeline.to(body, { y: () => -measureStackedPanelTravel(), duration: 1, ease: "none" }, cursor);
+        cursor += 1;
+      } else if (overflow > 0) {
         timeline.to(scroll, { y: () => -measureOverflow(), duration: 1, ease: "none" }, cursor);
         cursor += 1;
       }
@@ -213,6 +227,27 @@ function readNumber(section, attribute, fallback, customProperty) {
 
   const attributeNumber = Number.parseFloat(section.getAttribute(attribute));
   return Number.isFinite(attributeNumber) ? attributeNumber : fallback;
+}
+
+function readLength(section, attribute, fallback, customProperty) {
+  const cssValue = readCustomProperty(section, customProperty);
+  const cssLength = parseLength(cssValue, section);
+  if (Number.isFinite(cssLength)) return cssLength;
+
+  const attributeLength = parseLength(section.getAttribute(attribute), section);
+  return Number.isFinite(attributeLength) ? attributeLength : fallback;
+}
+
+function parseLength(value, element) {
+  if (!value) return NaN;
+
+  const match = String(value).trim().match(/^(-?\d*\.?\d+)(px|rem|em)?$/);
+  if (!match) return NaN;
+
+  const amount = Number.parseFloat(match[1]);
+  if (match[2] === "rem") return amount * Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
+  if (match[2] === "em") return amount * Number.parseFloat(getComputedStyle(element).fontSize);
+  return amount;
 }
 
 function readList(section, attribute, fallback, customProperty) {

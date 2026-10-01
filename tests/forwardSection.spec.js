@@ -96,40 +96,6 @@ test("keeps the section static under reduced motion", async ({ page }) => {
   expect(state.columnTransforms).toEqual(["none", "none", "none"]);
 });
 
-test("scrolls phone panel copy through the body's content box", async ({ page }) => {
-  await loadForward(page, false, { width: 390, height: 844 });
-
-  await page.locator(ROOT).evaluate((section) => {
-    const scroll = section.querySelector("[data-forward-panel] [data-forward-scroll]");
-    const extraCopy = document.createElement("p");
-    extraCopy.className = "forward_panel-copy";
-    extraCopy.textContent = "Additional engagement pathway detail added after initialization. ".repeat(12);
-    scroll.append(extraCopy);
-    section._forwardInstance.timeline.scrollTrigger.refresh();
-  });
-
-  const triggerEnd = await page.locator(ROOT).evaluate((section) => section._forwardInstance.timeline.scrollTrigger.end);
-  await page.evaluate((y) => window.scrollTo({ top: y, behavior: "instant" }), triggerEnd);
-  await page.waitForTimeout(100);
-
-  const panels = await page.locator(ROOT).evaluate((section) => [...section.querySelectorAll("[data-forward-panel]")].map((panel) => {
-    const body = panel.querySelector("[data-forward-body]");
-    const scroll = panel.querySelector("[data-forward-scroll]");
-    const lastChild = scroll.lastElementChild;
-    const bodyStyle = getComputedStyle(body);
-    const bodyRect = body.getBoundingClientRect();
-    const lastChildRect = lastChild.getBoundingClientRect();
-    return {
-      lastChildBottom: lastChildRect.bottom,
-      contentBoxBottom: bodyRect.bottom - Number.parseFloat(bodyStyle.paddingBottom),
-    };
-  }));
-
-  for (const panel of panels) {
-    expect(panel.lastChildBottom).toBeLessThanOrEqual(panel.contentBoxBottom + 1);
-  }
-});
-
 test("clears the intro copy from the zoomed tablet tiles", async ({ page }) => {
   for (const viewport of [
     { width: 768, height: 1024 },
@@ -191,4 +157,188 @@ test("clears the intro copy from the zoomed tablet tiles", async ({ page }) => {
       expect(layout.title.top).toBeGreaterThan(layout.middleSecond.bottom);
     });
   }
+});
+
+test("stacks tablet and phone panels and slides the cream body over the media", async ({ page }) => {
+  for (const viewport of [
+    { width: 768, height: 1024 },
+    { width: 820, height: 1180 },
+    { width: 991, height: 800 },
+    { width: 390, height: 844 },
+    { width: 375, height: 667 },
+  ]) {
+    await test.step(`${viewport.width}x${viewport.height}`, async () => {
+      await loadForward(page, false, viewport);
+      // Reusing the page reloads the same URL, and the site restores the deep
+      // scroll position from the previous viewport; start each size at the top.
+      await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+      await expect.poll(() => page.locator(ROOT).evaluate((section) => [...section.querySelectorAll("[data-forward-body]")]
+        .every((body) => getComputedStyle(body).transform === "none" || new DOMMatrix(getComputedStyle(body).transform).m42 === 0))).toBe(true);
+
+      const state = await page.locator(ROOT).evaluate((section) => {
+        const panels = [...section.querySelectorAll("[data-forward-panel]")].slice(0, 2);
+        const stage = section.querySelector("[data-forward-stage]");
+        return panels.map((panel) => {
+          const media = panel.querySelector("[data-forward-media]").getBoundingClientRect();
+          const body = panel.querySelector("[data-forward-body]").getBoundingClientRect();
+          const panelRect = panel.getBoundingClientRect();
+          const configuredGap = getComputedStyle(section).getPropertyValue("--forward-panel-top-gap").trim();
+          const rootFontSize = Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
+          const configuredGapPx = configuredGap.endsWith("rem")
+            ? Number.parseFloat(configuredGap) * rootFontSize
+            : Number.parseFloat(configuredGap);
+          return {
+            mediaWidth: media.width,
+            mediaHeight: media.height,
+            stageWidth: stage.getBoundingClientRect().width,
+            mediaBottom: media.bottom,
+            bodyTop: body.top,
+            bodyBottom: body.bottom,
+            panelTop: panelRect.top,
+            panelHeight: panelRect.height,
+            bodyHeight: body.height,
+            topGap: configuredGapPx,
+            lastChildBottom: panel.querySelector("[data-forward-scroll]").lastElementChild.getBoundingClientRect().bottom,
+          };
+        });
+      });
+
+      for (const panel of state) {
+        expect(panel.mediaWidth).toBeCloseTo(panel.stageWidth, 0);
+        expect(panel.mediaHeight / panel.mediaWidth).toBeCloseTo(9 / 16, 2);
+        expect(panel.bodyTop).toBeGreaterThanOrEqual(panel.mediaBottom - 1);
+      }
+
+      const triggerRange = await page.locator(ROOT).evaluate((section) => {
+        const { timeline } = section._forwardInstance;
+        const trigger = timeline.scrollTrigger;
+        const panels = [...section.querySelectorAll("[data-forward-panel]")].slice(0, 2);
+        return {
+          start: trigger.start,
+          end: trigger.end,
+          duration: timeline.duration(),
+          slidePhases: panels.map((panel) => {
+            const body = panel.querySelector("[data-forward-body]");
+            const tween = timeline.getTweensOf(body).find((candidate) => candidate.vars.y !== undefined);
+            return { start: tween.startTime(), end: tween.endTime() };
+          }),
+        };
+      });
+      const frames = await page.evaluate(({ start, end, duration, slidePhases }) => new Promise((resolve) => {
+        const section = document.querySelector("[data-forward-init]");
+        const panels = [...section.querySelectorAll("[data-forward-panel]")].slice(0, 2);
+        const scrollForTime = (time) => start + (end - start) * time / duration;
+        const samples = [];
+        const framesPerPhase = 24;
+        let phaseIndex = 0;
+        let frameIndex = 0;
+
+        const readFrame = () => panels.map((panel) => {
+          const media = panel.querySelector("[data-forward-media]").getBoundingClientRect();
+          const bodyElement = panel.querySelector("[data-forward-body]");
+          const body = bodyElement.getBoundingClientRect();
+          return {
+            bodyTop: body.top,
+            bodyBottom: body.bottom,
+            panelTop: panel.getBoundingClientRect().top,
+            panelBottom: panel.getBoundingClientRect().bottom,
+            mediaBottom: media.bottom,
+            bodyZIndex: Number.parseInt(getComputedStyle(bodyElement).zIndex, 10),
+            mediaZIndex: Number.parseInt(getComputedStyle(panel.querySelector("[data-forward-media]")).zIndex, 10) || 0,
+            lastChildBottom: panel.querySelector("[data-forward-scroll]").lastElementChild.getBoundingClientRect().bottom,
+          };
+        });
+
+        const next = () => {
+          if (phaseIndex >= slidePhases.length) return resolve(samples);
+          const phase = slidePhases[phaseIndex];
+          const phaseProgress = frameIndex / (framesPerPhase - 1);
+          window.scrollTo({ top: scrollForTime(phase.start + (phase.end - phase.start) * phaseProgress), behavior: "instant" });
+          requestAnimationFrame(() => {
+            samples.push({ phaseIndex, frameIndex, panels: readFrame() });
+            frameIndex += 1;
+            if (frameIndex >= framesPerPhase) {
+              phaseIndex += 1;
+              frameIndex = 0;
+            }
+            requestAnimationFrame(next);
+          });
+        };
+
+        requestAnimationFrame(next);
+      }), triggerRange);
+
+      for (let phaseIndex = 0; phaseIndex < triggerRange.slidePhases.length; phaseIndex += 1) {
+        const phaseFrames = frames.filter((frame) => frame.phaseIndex === phaseIndex);
+        expect(phaseFrames.length).toBeGreaterThan(20);
+        // Each slide phase moves only its own panel's body.
+        const panelIndex = phaseIndex;
+        expect(phaseFrames.some((frame) => {
+          const panel = frame.panels[panelIndex];
+          return panel.bodyTop < panel.mediaBottom;
+        })).toBe(true);
+        expect(phaseFrames.every((frame) => frame.panels.every((panel) => panel.bodyZIndex > panel.mediaZIndex))).toBe(true);
+
+        const panel = phaseFrames.at(-1).panels[panelIndex];
+        const initial = state[panelIndex];
+        // Travel = max(0, media − gap, media + body − panel): a body that fits below the
+        // gap ends with its top at the gap; a taller one ends bottom flush.
+        const bodyFits = initial.bodyHeight <= initial.panelHeight - initial.topGap + 1;
+        if (bodyFits) {
+          expect(panel.bodyTop).toBeCloseTo(panel.panelTop + initial.topGap, 0);
+        } else {
+          expect(panel.bodyBottom).toBeCloseTo(panel.panelBottom, 0);
+        }
+        expect(panel.lastChildBottom).toBeLessThanOrEqual(viewport.height + 1);
+      }
+    });
+  }
+});
+
+test("scrolls overflowing desktop panel copy through the body", async ({ page }) => {
+  await page.addInitScript(() => {
+    document.addEventListener("DOMContentLoaded", () => {
+      const scroll = document.querySelector("[data-forward-panel] [data-forward-scroll]");
+      const extraCopy = document.createElement("p");
+      extraCopy.className = "forward_panel-copy";
+      extraCopy.textContent = "Additional desktop overflow detail added for regression coverage. ".repeat(24);
+      scroll.append(extraCopy);
+    }, { once: true });
+  });
+  await loadForward(page, false, { width: 1280, height: 600 });
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+  await expect.poll(() => page.locator(ROOT).evaluate((section) => [...section.querySelectorAll("[data-forward-body]")]
+    .every((body) => getComputedStyle(body).transform === "none" || new DOMMatrix(getComputedStyle(body).transform).m42 === 0))).toBe(true);
+
+  const phase = await page.locator(ROOT).evaluate((section) => {
+    const { timeline } = section._forwardInstance;
+    const trigger = timeline.scrollTrigger;
+    const scroll = section.querySelector("[data-forward-panel] [data-forward-scroll]");
+    const tween = timeline.getTweensOf(scroll).find((candidate) => candidate.vars.y !== undefined);
+    return {
+      start: trigger.start,
+      end: trigger.end,
+      duration: timeline.duration(),
+      tweenStart: tween.startTime(),
+      tweenEnd: tween.endTime(),
+    };
+  });
+  const scrollPosition = phase.start + (phase.end - phase.start) * phase.tweenEnd / phase.duration;
+  await page.evaluate((y) => window.scrollTo({ top: y, behavior: "instant" }), scrollPosition);
+  await page.waitForTimeout(100);
+
+  const state = await page.locator(ROOT).evaluate((section) => {
+    const panel = section.querySelector("[data-forward-panel]");
+    const body = panel.querySelector("[data-forward-body]").getBoundingClientRect();
+    const scroll = panel.querySelector("[data-forward-scroll]");
+    const lastChild = scroll.lastElementChild.getBoundingClientRect();
+    const transform = getComputedStyle(scroll).transform;
+    return {
+      lastChildBottom: lastChild.bottom,
+      bodyBottom: body.bottom,
+      scrollTransform: transform === "none" ? 0 : new DOMMatrix(transform).m42,
+    };
+  });
+  expect(state.scrollTransform).toBeLessThan(0);
+  expect(state.lastChildBottom).toBeLessThanOrEqual(state.bodyBottom + 1);
 });

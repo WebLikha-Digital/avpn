@@ -45,6 +45,62 @@ test.beforeEach(async ({ page }) => {
   await page.goto("/");
 });
 
+test("uses the default reveal duration and ease when overrides are absent", async ({ page }) => {
+  await page.addInitScript(() => {
+    const applyDefaults = () => {
+      const orbit = document.querySelector(".testimonials_orbit");
+      if (!orbit) return;
+      orbit.removeAttribute("data-draw-scroll-duration");
+      orbit.removeAttribute("data-draw-scroll-ease");
+      orbit.removeAttribute("data-draw-scroll-delay");
+    };
+    const observer = new MutationObserver(applyDefaults);
+    observer.observe(document, { childList: true, subtree: true });
+    applyDefaults();
+  });
+  await page.reload();
+  const reveal = page.locator(".testimonials_orbit");
+  await expect.poll(() => reveal.evaluate((node) => ({
+    duration: node._drawTl.duration(),
+    ease: node._drawTl.vars.defaults.ease,
+    delay: node._drawTl.vars.delay,
+  }))).toEqual({ duration: 0.8, ease: "expo.out", delay: 0 });
+});
+
+test("uses the testimonials orbit reveal overrides for the wheel intro", async ({ page }) => {
+  const reveal = page.locator(".testimonials_orbit");
+  await expect.poll(() => reveal.evaluate((node) => ({
+    duration: node._drawTl.duration(),
+    totalDuration: node._drawTl.totalDuration(),
+    ease: node._drawTl.vars.defaults.ease,
+    delay: node._drawTl.vars.delay,
+    targetCount: node._drawTl.getChildren().length,
+  }))).toEqual({
+    duration: 1.44,
+    totalDuration: 1.44,
+    ease: "radial",
+    delay: 0,
+    targetCount: 3,
+  });
+});
+
+test("falls back to the default reveal duration for an invalid override", async ({ page }) => {
+  await page.addInitScript(() => {
+    const applyInvalidDuration = () => {
+      const orbit = document.querySelector(".testimonials_orbit");
+      if (!orbit) return;
+      orbit.setAttribute("data-draw-scroll-duration", "not-a-duration");
+    };
+    const observer = new MutationObserver(applyInvalidDuration);
+    observer.observe(document, { childList: true, subtree: true });
+    applyInvalidDuration();
+  });
+  await page.reload();
+  await expect.poll(() => page.locator(".testimonials_orbit").evaluate((node) => (
+    node._drawTl.duration()
+  ))).toBe(0.8);
+});
+
 test("starts hidden two orbit slots back and follows the orbit during its one-time intro", async ({ page }) => {
   const root = page.locator(rootSelector);
   const initial = await root.evaluate((node) => {

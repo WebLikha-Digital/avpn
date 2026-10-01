@@ -8,6 +8,10 @@ const DEFAULTS = {
   revealStagger: 0.035,
   revealDistance: "1.75rem",
   revealScale: 0.62,
+  idleMin: 1.5,
+  idleMax: 2.5,
+  idleScale: 0.85,
+  idleRotation: 3,
 };
 
 function readNumber(styles, property, fallback, isValid = Number.isFinite) {
@@ -42,11 +46,131 @@ export function initPartnersProximity() {
     const radius = readNumber(styles, "--partners-radius", DEFAULTS.radius, (value) => Number.isFinite(value) && value > 0);
     const maxScale = readNumber(styles, "--partners-scale", DEFAULTS.maxScale);
     const duration = readNumber(styles, "--partners-duration", DEFAULTS.duration, (value) => Number.isFinite(value) && value >= 0);
+    const idleMin = readNumber(styles, "--partners-idle-min", DEFAULTS.idleMin, (value) => Number.isFinite(value) && value >= 0);
+    const idleMax = readNumber(styles, "--partners-idle-max", DEFAULTS.idleMax, (value) => Number.isFinite(value) && value >= idleMin);
 
     const revealPlayed = section._partnersRevealPlayed === true;
     let revealComplete = reducedMotion.matches || revealPlayed;
     let revealTimeline = null;
     let revealTrigger = null;
+    let idleVisibilityTrigger = null;
+    let idleDelay = null;
+    let idleTween = null;
+    let idlePill = null;
+    let idleLastIndex = -1;
+    let idleInViewport = false;
+    let idlePointerInside = false;
+    let idleStartRotation = 0;
+
+    const idleState = {
+      activePill: null,
+      paused: true,
+      running: false,
+      mode: null,
+      forceMode: null,
+    };
+
+    const resetIdlePill = (pill) => {
+      if (!pill) return;
+      gsap.set(pill, {
+        rotation: idleStartRotation,
+        scaleX: 1,
+        scaleY: 1,
+      });
+      delete pill.dataset.partnersIdle;
+    };
+
+    const stopIdle = () => {
+      idleDelay?.kill();
+      idleDelay = null;
+      idleTween?.kill();
+      idleTween = null;
+      resetIdlePill(idlePill);
+      idlePill = null;
+      idleState.activePill = null;
+      idleState.running = false;
+      idleState.paused = true;
+      idleState.mode = null;
+    };
+
+    const scheduleIdle = () => {
+      if (reducedMotion.matches || !revealComplete || !idleInViewport || idlePointerInside || idleDelay || idleTween) return;
+      const gap = gsap.utils.random(idleMin, idleMax);
+      idleDelay = gsap.delayedCall(gap, () => {
+        idleDelay = null;
+        playIdle();
+      });
+      idleState.paused = false;
+    };
+
+    function playIdle() {
+      if (reducedMotion.matches || !revealComplete || !idleInViewport || idlePointerInside || idleTween) {
+        idleState.paused = true;
+        return;
+      }
+
+      let index = gsap.utils.random(0, pills.length - 1, 1);
+      if (pills.length > 1 && index === idleLastIndex) index = (index + 1) % pills.length;
+      idleLastIndex = index;
+      idlePill = pills[index];
+      const pill = idlePill;
+      const baseRotation = Number(gsap.getProperty(pill, "rotation")) || 0;
+      idleStartRotation = baseRotation;
+      const mode = idleState.forceMode || (Math.random() < 0.5 ? "wiggle" : "zoom-out");
+      idleState.forceMode = null;
+
+      pill.dataset.partnersIdle = mode;
+      idleState.activePill = pill;
+      idleState.running = true;
+      idleState.paused = false;
+      idleState.mode = mode;
+
+      const finish = () => {
+        resetIdlePill(pill);
+        idleTween = null;
+        idlePill = null;
+        idleState.activePill = null;
+        idleState.running = false;
+        idleState.mode = null;
+        scheduleIdle();
+      };
+
+      if (mode === "wiggle") {
+        idleTween = gsap.timeline({ onComplete: finish })
+          .to(pill, { rotation: baseRotation + DEFAULTS.idleRotation, duration: 0.16, ease: "power2.out" })
+          .to(pill, { rotation: baseRotation - DEFAULTS.idleRotation, duration: 0.2, ease: "power2.inOut" })
+          .to(pill, { rotation: baseRotation, duration: 0.16, ease: "power2.out" });
+      } else {
+        idleTween = gsap.timeline({ onComplete: finish })
+          .to(pill, { scaleX: DEFAULTS.idleScale, scaleY: DEFAULTS.idleScale, duration: 0.2, ease: "power2.out" })
+          .to(pill, { scaleX: 1, scaleY: 1, duration: 0.42, ease: "back.out(2.2)" });
+      }
+    }
+
+    const createIdleVisibilityTrigger = () => {
+      if (reducedMotion.matches) return;
+      idleVisibilityTrigger = ScrollTrigger.create({
+        trigger: section,
+        start: "top bottom",
+        end: "bottom top",
+        onEnter: () => {
+          idleInViewport = true;
+          scheduleIdle();
+        },
+        onEnterBack: () => {
+          idleInViewport = true;
+          scheduleIdle();
+        },
+        onLeave: () => {
+          idleInViewport = false;
+          stopIdle();
+        },
+        onLeaveBack: () => {
+          idleInViewport = false;
+          stopIdle();
+        },
+      });
+    };
 
     if (!reducedMotion.matches && !revealPlayed) {
       revealTimeline = gsap.timeline({
@@ -54,6 +178,7 @@ export function initPartnersProximity() {
         onComplete: () => {
           revealComplete = true;
           section._partnersRevealPlayed = true;
+          scheduleIdle();
         },
       });
       revealTimeline.from(pills, {
@@ -74,11 +199,14 @@ export function initPartnersProximity() {
       });
     }
 
+    createIdleVisibilityTrigger();
+
     if (reducedMotion.matches || hoverNone.matches) {
       const instance = {
         pills,
         revealTimeline,
         revealTrigger,
+        idle: idleState,
         destroy: null,
         destroyed: false,
       };
@@ -86,6 +214,8 @@ export function initPartnersProximity() {
         if (instance.destroyed) return;
         instance.destroyed = true;
         if (revealTrigger) revealTrigger.kill();
+        if (idleVisibilityTrigger) idleVisibilityTrigger.kill();
+        stopIdle();
         if (revealTimeline) revealTimeline.kill();
         gsap.killTweensOf(pills);
         gsap.set(pills, { clearProps: "transform,translate,rotate,scale,opacity,visibility" });
@@ -159,7 +289,14 @@ export function initPartnersProximity() {
       });
     };
 
+    const onPointerEnter = () => {
+      if (destroyed) return;
+      idlePointerInside = true;
+      stopIdle();
+    };
+
     const onMouseLeave = () => {
+      idlePointerInside = false;
       if (destroyed || !revealComplete) return;
 
       // quickTo owns a paused tween internally. Kill those tweens before the
@@ -174,6 +311,7 @@ export function initPartnersProximity() {
         duration: duration * 2,
         ease: "power2.out",
         overwrite: "auto",
+        onComplete: scheduleIdle,
       });
     };
 
@@ -182,11 +320,14 @@ export function initPartnersProximity() {
       destroyed = true;
       if (instance) instance.destroyed = true;
       section.removeEventListener("pointermove", onPointerMove);
+      section.removeEventListener("pointerenter", onPointerEnter);
       section.removeEventListener("mouseleave", onMouseLeave);
       window.removeEventListener("resize", invalidateRects);
       window.removeEventListener("scroll", invalidateRects, true);
       gsap.killTweensOf(pills);
       revealTrigger?.kill();
+      idleVisibilityTrigger?.kill();
+      stopIdle();
       revealTimeline?.kill();
       gsap.set(pills, { clearProps: "transform,translate,rotate,scale,opacity,visibility" });
       pills.forEach((pill) => delete pill.dataset.partnersLift);
@@ -194,6 +335,7 @@ export function initPartnersProximity() {
     };
 
     section.addEventListener("pointermove", onPointerMove);
+    section.addEventListener("pointerenter", onPointerEnter);
     section.addEventListener("mouseleave", onMouseLeave);
     window.addEventListener("resize", invalidateRects);
     window.addEventListener("scroll", invalidateRects, true);
@@ -205,6 +347,7 @@ export function initPartnersProximity() {
       pills,
       revealTimeline,
       revealTrigger,
+      idle: idleState,
       destroy,
       destroyed: false,
     };

@@ -175,6 +175,62 @@ test("draws the reachable tail to its full path length at scroll end", async ({ 
   expect(progress).toBeGreaterThanOrEqual(99);
 });
 
+test("paints the last card description above the drawn tail line", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 640 });
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+
+  const { top, distance } = await geometry(page);
+  await scrollTo(page, top + distance);
+  await expect.poll(() => page.locator(`${band} [data-sig-events-line-path]`).evaluate((path) => {
+    const dasharray = path.style.strokeDasharray.trim();
+    if (!dasharray || dasharray === "none") return 1;
+    return Number.parseFloat(dasharray) / (path.getTotalLength() * Math.abs(path.getScreenCTM().a));
+  })).toBeGreaterThanOrEqual(0.99);
+
+  const result = await page.locator(band).evaluate((section) => {
+    const card = section.querySelectorAll(".sig-events_card")[section.querySelectorAll(".sig-events_card").length - 1];
+    const description = card.querySelector(".sig-events_card-desc");
+    const path = section.querySelector("[data-sig-events-line-path]");
+    const rect = description.getBoundingClientRect();
+    const inset = 2;
+    const bounds = {
+      left: rect.left + inset,
+      right: rect.right - inset,
+      top: rect.top + inset,
+      bottom: rect.bottom - inset,
+    };
+    const transform = path.getScreenCTM();
+    const length = path.getTotalLength();
+    const points = [];
+    for (let index = 0; index <= 1200; index += 1) {
+      const point = path.getPointAtLength(length * index / 1200);
+      const screen = new DOMPoint(point.x, point.y).matrixTransform(transform);
+      if (screen.x >= bounds.left && screen.x <= bounds.right
+        && screen.y >= bounds.top && screen.y <= bounds.bottom) {
+        points.push({ x: screen.x, y: screen.y });
+      }
+    }
+
+    return {
+      points,
+      hits: points.map(({ x, y }) => {
+        const element = document.elementFromPoint(x, y);
+        return {
+          point: { x, y },
+          hit: element?.tagName.toLowerCase() ?? "null",
+          insideCard: Boolean(element && card.contains(element)),
+        };
+      }),
+    };
+  });
+
+  expect(result.points.length).toBeGreaterThan(0);
+  for (const { point, hit, insideCard } of result.hits) {
+    expect(insideCard, `At (${point.x}, ${point.y}), elementFromPoint hit <${hit}> instead of the last card`).toBe(true);
+  }
+});
+
 test("fully draws a short-band line at the tablet scroll end", async ({ page }) => {
   await page.setViewportSize({ width: 820, height: 1180 });
   const tabletStyles = `

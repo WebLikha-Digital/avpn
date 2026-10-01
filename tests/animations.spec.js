@@ -290,7 +290,7 @@ test("initializes the scroll-direction marquee", async ({ page }) => {
 
 test("draws every marked line in each draw-path wrapper", async ({ page }) => {
   const paths = page.locator("[data-draw-scroll-wrap] [data-draw-scroll-path]");
-  await expect(paths).toHaveCount(9);
+  await expect(paths).toHaveCount(11);
 
   expect(await page.locator("[data-draw-scroll-wrap]").evaluateAll((wrappers) =>
     wrappers.map((wrapper) => {
@@ -311,6 +311,10 @@ test("draws every marked line in each draw-path wrapper", async ({ page }) => {
     { hasTrigger: true, targetCount: 1 },
     // Our Members: the solid path drawn over the pinned runway.
     { hasTrigger: true, targetCount: 1 },
+    // Communities Served: the line that enters right and exits left behind the pile.
+    { hasTrigger: true, targetCount: 1 },
+    // Communities Served mobile band: mobile SVG only, so nothing is built on desktop.
+    { hasTrigger: false, targetCount: 0 },
     // Upcoming Initiatives: the line that snakes between the four rows.
     { hasTrigger: true, targetCount: 1 },
   ]);

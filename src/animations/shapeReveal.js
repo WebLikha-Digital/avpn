@@ -3,6 +3,7 @@ import {
   bandContext,
   verticalScrollPosition,
 } from "./horizontalScroller.js";
+import { lineRevealContext } from "./lineReveal.js";
 
 const DEFAULT_ORIGIN = "50% 50%";
 const SWEEP_DURATION = 0.8;
@@ -27,6 +28,8 @@ const SWEEP_EASE = "power4.inOut";
  *   [data-shape-once="false"] replays the reveal on re-entry; defaults to once
  *   [data-shape-scroller="window"] resolve the trigger against the window's
  *                         vertical scroll instead of an active horizontal band
+ *   [data-line-reveal]   selector for a scrub line; starts at its tip crossing
+ *                         the shape's left edge and overrides data-shape-start
  */
 export function initShapeReveal() {
   const shapes = document.querySelectorAll("[data-shape-reveal]");
@@ -44,10 +47,14 @@ export function initShapeReveal() {
       shape.getAttribute("data-shape-scroller") === "window"
         ? null
         : bandContext(shape);
+    const line = lineRevealContext(shape);
+    const scrollContext = line ? lineScrollContext(line) : band;
     const authoredStart =
       shape.getAttribute("data-shape-start") ||
       (heading && heading.getAttribute("data-split-start"));
-    const start = authoredStart
+    const start = line
+      ? line.start
+      : authoredStart
       ? band
         ? authoredStart
         : verticalScrollPosition(authoredStart)
@@ -82,7 +89,7 @@ export function initShapeReveal() {
         trigger,
         start,
         once,
-        ...band,
+        ...scrollContext,
       },
     };
 
@@ -132,6 +139,14 @@ export function initShapeReveal() {
     }
     shape._shapeRevealTween = tween;
   });
+}
+
+function lineScrollContext(line) {
+  const { scroller, horizontal } = line.trigger.vars;
+  return {
+    ...(scroller ? { scroller } : {}),
+    ...(horizontal ? { horizontal: true } : {}),
+  };
 }
 
 function defaultStart(band) {

@@ -3,6 +3,7 @@ import {
   bandContext,
   verticalScrollPosition,
 } from "./horizontalScroller.js";
+import { lineRevealContext } from "./lineReveal.js";
 
 const START_CLIP = "inset(100% 0% 0% 0%)";
 
@@ -19,6 +20,9 @@ const START_CLIP = "inset(100% 0% 0% 0%)";
  *                            an active horizontal band
  *   [data-wipe-delay]        optional delay in seconds; defaults to 0
  *   [data-wipe-once="false"] replays the reveal on re-entry; defaults to once
+ *   [data-line-reveal]       selector for a scrub line; starts at its tip
+ *                            crossing the image's left edge and overrides the
+ *                            normal data-wipe-start
  *
  * The start clip is only applied by JavaScript, so the image's resting CSS
  * state remains visible if the bundle fails to load. fromTo() supplies an
@@ -45,8 +49,12 @@ export function initWipeReveal() {
     // default has to swap axis with it. An authored start still wins, and is
     // expected to use the band's axis when there is one.
     const band = bandContext(image);
+    const line = lineRevealContext(image);
+    const scrollContext = line ? lineScrollContext(line) : band;
     const authoredStart = image.getAttribute("data-wipe-start");
-    const start = authoredStart
+    const start = line
+      ? line.start
+      : authoredStart
       ? band
         ? authoredStart
         : verticalScrollPosition(authoredStart)
@@ -68,11 +76,19 @@ export function initWipeReveal() {
           trigger,
           start,
           once,
-          ...band,
+          ...scrollContext,
         },
       },
     );
   });
+}
+
+function lineScrollContext(line) {
+  const { scroller, horizontal } = line.trigger.vars;
+  return {
+    ...(scroller ? { scroller } : {}),
+    ...(horizontal ? { horizontal: true } : {}),
+  };
 }
 
 function resolveTrigger(image) {

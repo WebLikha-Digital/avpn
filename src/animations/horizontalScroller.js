@@ -173,6 +173,61 @@ export function verticalScrollPosition(position) {
   );
 }
 
+/**
+ * Resolve an authored horizontal ScrollTrigger position to the band's local
+ * scrollLeft. This is intentionally numeric so a window-axis trigger can
+ * share the band's authored end without creating a second trigger.
+ */
+export function horizontalScrollPosition(element, position) {
+  const scroller = horizontalScrollerFor(element);
+  if (!scroller) return 0;
+
+  const viewportRect = scroller.getBoundingClientRect();
+  const elementRect = element.getBoundingClientRect();
+  const currentLeft = scroller.scrollLeft;
+  const left = elementRect.left + currentLeft - viewportRect.left;
+  const width = elementRect.width;
+  const viewportWidth = scroller.clientWidth;
+  const [triggerToken, viewportToken = "left"] = unwrapPosition(position);
+  const triggerPoint = edgePoint(triggerToken, left, width);
+  const viewportPoint = viewportEdgePoint(viewportToken, viewportWidth);
+  const value = triggerPoint - viewportPoint;
+  const clamp = position.trim().startsWith("clamp(");
+  const distance = Math.max(0, scroller.scrollWidth - viewportWidth);
+  return clamp ? Math.min(distance, Math.max(0, value)) : value;
+}
+
+/** Resolve a vertical lead position against the document position of element. */
+export function verticalLeadPosition(element, position) {
+  const band = element.closest("[data-hscroll-init]") || element;
+  const rect = band.getBoundingClientRect();
+  const documentTop = rect.top + window.scrollY;
+  const [triggerToken, viewportToken = "top"] = unwrapPosition(position);
+  const triggerPoint = edgePoint(triggerToken, documentTop, rect.height);
+  const viewportPoint = viewportEdgePoint(viewportToken, window.innerHeight);
+  const value = triggerPoint - viewportPoint;
+  return position.trim().startsWith("clamp(") ? Math.max(0, value) : value;
+}
+
+function unwrapPosition(position) {
+  const value = position.trim().replace(/^clamp\((.*)\)$/, "$1");
+  return value.split(/\s+/).filter(Boolean);
+}
+
+function edgePoint(token, start, size) {
+  if (token === "right" || token === "bottom") return start + size;
+  if (token === "center") return start + size / 2;
+  const numeric = Number.parseFloat(token);
+  return Number.isFinite(numeric) ? start + size * numeric / 100 : start;
+}
+
+function viewportEdgePoint(token, size) {
+  if (token === "right" || token === "bottom") return size;
+  if (token === "center") return size / 2;
+  const numeric = Number.parseFloat(token);
+  return Number.isFinite(numeric) ? size * numeric / 100 : 0;
+}
+
 function teardown(wrap) {
   const previous = wrap._horizontalScroller;
   if (!previous) return;

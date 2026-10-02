@@ -5,21 +5,21 @@ import { measureScreenPath } from "./screenPath.js";
 // tablet and phone widths, where the existing horizontal-band behavior owns.
 export const DESKTOP_LINE_REVEAL_MIN_WIDTH = 992;
 
+export function hasLineRevealDependants(line) {
+  if (window.innerWidth < DESKTOP_LINE_REVEAL_MIN_WIDTH) return false;
+  return [...document.querySelectorAll("[data-line-reveal]")].some(
+    (element) => resolveLine(element) === line,
+  );
+}
+
 /**
  * Resolve data-line-reveal without making reveal modules know how a draw line
  * is implemented. The draw module refreshes this state once per ScrollTrigger
  * refresh, after the line trigger has measured itself.
  */
 export function lineRevealContext(element) {
-  const selector = element.getAttribute("data-line-reveal");
-  if (!selector || window.innerWidth < DESKTOP_LINE_REVEAL_MIN_WIDTH) return null;
-
-  let line;
-  try {
-    line = element.closest(selector) || document.querySelector(selector);
-  } catch {
-    return null;
-  }
+  if (window.innerWidth < DESKTOP_LINE_REVEAL_MIN_WIDTH) return null;
+  const line = resolveLine(element);
 
   const state = line?._drawLineState;
   if (!state?.trigger || !line.closest("[data-hscroll-init][data-hscroll-active]")) {
@@ -40,27 +40,30 @@ export function lineRevealContext(element) {
 }
 
 /**
- * Refresh the crossing geometry once, not on every animation frame. Path
- * points and target bounds are compared in the line wrapper's local space so
- * horizontal scrolling cannot change the answer.
+ * Invalidate the crossing geometry on refresh, then measure it lazily on the
+ * first dependant lookup. Every dependant in that refresh shares the same
+ * wrapper-local path measurement; nothing is sampled per animation frame.
  */
 export function refreshLineRevealState(wrap, paths, timeline, trigger, stagger) {
   const duration = timeline.duration() || 1;
-  const wrapperRect = wrap.getBoundingClientRect();
-  const pathsForLine = [...paths].map((path) => ({
-    path,
-    measurement: localizeMeasurement(
-      measureScreenPath(path, true),
-      wrapperRect.left,
-    ),
-  }));
+  let pathsForLine;
 
   wrap._drawLineState = {
     trigger,
-    paths: pathsForLine,
+    paths,
     stagger,
     duration,
     revealScrollPosition(element) {
+      if (!pathsForLine) {
+        const wrapperLeft = wrap.getBoundingClientRect().left;
+        pathsForLine = [...paths].map((path) => ({
+          path,
+          measurement: localizeMeasurement(
+            measureScreenPath(path, true),
+            wrapperLeft,
+          ),
+        }));
+      }
       const targetRect = element.getBoundingClientRect();
       const targetLeft = targetRect.left - wrap.getBoundingClientRect().left;
       let pathProgress = 1;
@@ -92,6 +95,17 @@ export function refreshLineRevealState(wrap, paths, timeline, trigger, stagger) 
       return start + (end - start) * timelineProgress;
     },
   };
+}
+
+function resolveLine(element) {
+  const selector = element.getAttribute("data-line-reveal");
+  if (!selector) return null;
+
+  try {
+    return element.closest(selector) || document.querySelector(selector);
+  } catch {
+    return null;
+  }
 }
 
 function localizeMeasurement(measurement, wrapperLeft) {

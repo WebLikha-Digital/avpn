@@ -23,7 +23,31 @@ const fixture = `
   <div class=line-lead-panel><p data-line-target>Last panel</p></div>
 </div></div></section>`;
 
-async function loadFixture(page, width, height) {
+async function installPathCallCounter(page) {
+  await page.addInitScript(() => {
+    const prototype = SVGGeometryElement.prototype;
+    const getPointAtLength = prototype.getPointAtLength;
+    window.__fixturePathPointCalls = 0;
+    window.__resetFixturePathPointCalls = () => {
+      window.__fixturePathPointCalls = 0;
+    };
+    prototype.getPointAtLength = function (...args) {
+      if (this.closest?.(".lead-line")) window.__fixturePathPointCalls += 1;
+      return getPointAtLength.apply(this, args);
+    };
+  });
+}
+
+async function refreshPathCallCount(page) {
+  return page.evaluate(async () => {
+    window.__resetFixturePathPointCalls();
+    const { ScrollTrigger } = await import("/src/lib/gsap.js");
+    ScrollTrigger.refresh();
+    return window.__fixturePathPointCalls;
+  });
+}
+
+async function loadFixture(page, width, height, active = true) {
   await page.addInitScript((html) => {
     const install = () => {
       if (document.readyState !== "interactive") return;
@@ -35,7 +59,7 @@ async function loadFixture(page, width, height) {
   await page.setViewportSize({ width, height });
   await page.goto("/");
   await page.waitForLoadState("networkidle");
-  await expect(page.locator("[data-testid=line-lead-fixture][data-hscroll-active]")).toHaveCount(1);
+  await expect(page.locator("[data-testid=line-lead-fixture][data-hscroll-active]")).toHaveCount(active ? 1 : 0);
 }
 
 async function geometry(page) {
@@ -87,10 +111,16 @@ async function crossingProgress(page) {
 
 for (const [width, height] of [[1280, 800], [1440, 900], [1920, 1080]]) {
   test(`lead and reveals stay continuous at ${width}x${height}`, async ({ page }) => {
+    if (width === 1440) await installPathCallCounter(page);
     await loadFixture(page, width, height);
     const range = await geometry(page);
     const crossings = await crossingProgress(page);
     expect(range.end).toBeCloseTo(range.expectedLeadEnd, 0);
+    if (width === 1440) {
+      const calls = await refreshPathCallCount(page);
+      expect(calls).toBeGreaterThan(0);
+      expect(calls).toBeLessThanOrEqual(129);
+    }
 
     await page.evaluate((range) => {
       scrollTo({ top: range.lead - 100, behavior: "instant" });
@@ -151,6 +181,7 @@ test("resize rebuilds the line mapping and preserves opt-outs", async ({ page })
 });
 
 test("tablet keeps the normal horizontal line and reveal starts", async ({ page }) => {
+  await installPathCallCounter(page);
   await loadFixture(page, 900, 1100);
 
   const state = await page.locator(".lead-line").evaluate((line) => ({
@@ -173,6 +204,32 @@ test("tablet keeps the normal horizontal line and reveal starts", async ({ page 
     { start: "clamp(left 80%)", horizontal: true },
     { start: "clamp(left 80%)", horizontal: true },
   ]);
+
+  const withAttributes = await refreshPathCallCount(page);
+  await page.evaluate(() => {
+    document.querySelector(".lead-line").removeAttribute("data-draw-scroll-lead");
+    document.querySelectorAll("[data-line-reveal]").forEach((element) => {
+      element.removeAttribute("data-line-reveal");
+    });
+  });
+  const withoutAttributes = await refreshPathCallCount(page);
+  expect(withAttributes).toBe(withoutAttributes);
+  expect(await page.locator(".lead-line").evaluate((line) => line._drawLineState)).toBeNull();
+});
+
+test("phone adds no line-reveal path sampling", async ({ page }) => {
+  await installPathCallCounter(page);
+  await loadFixture(page, 390, 844, false);
+  const withAttributes = await refreshPathCallCount(page);
+  await page.evaluate(() => {
+    document.querySelector(".lead-line").removeAttribute("data-draw-scroll-lead");
+    document.querySelectorAll("[data-line-reveal]").forEach((element) => {
+      element.removeAttribute("data-line-reveal");
+    });
+  });
+  const withoutAttributes = await refreshPathCallCount(page);
+  expect(withAttributes).toBe(withoutAttributes);
+  expect(await page.locator(".lead-line").evaluate((line) => line._drawLineState)).toBeNull();
 });
 
 test("crossing 992px switches line-led mode cleanly in both directions", async ({ page }) => {

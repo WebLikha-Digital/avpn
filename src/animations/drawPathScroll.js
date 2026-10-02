@@ -14,6 +14,7 @@ import {
 } from "./screenPath.js";
 import {
   DESKTOP_LINE_REVEAL_MIN_WIDTH,
+  hasLineRevealDependants,
   refreshLineRevealState,
 } from "./lineReveal.js";
 
@@ -160,6 +161,7 @@ export function initDrawPathScroll() {
           scrollBand &&
           window.innerWidth >= DESKTOP_LINE_REVEAL_MIN_WIDTH,
         );
+        const lineRevealEnabled = hasLead && hasLineRevealDependants(wrap);
         const start = hasLead
           ? () => verticalLeadPosition(wrap, authoredLead)
           : authoredStart
@@ -252,6 +254,7 @@ export function initDrawPathScroll() {
             paths,
             scrollTrigger,
             stagger,
+            lineRevealEnabled,
           });
           return;
         }
@@ -272,12 +275,26 @@ export function initDrawPathScroll() {
           return;
         }
 
-        createScrubTimeline(wrap, paths, scrollTrigger, stagger);
+        createScrubTimeline(
+          wrap,
+          paths,
+          scrollTrigger,
+          stagger,
+          lineRevealEnabled,
+        );
       });
 
-      gatedScrubs.forEach(({ wrap, paths, scrollTrigger, stagger }) => {
-        setupGatedScrub(wrap, paths, scrollTrigger, stagger);
-      });
+      gatedScrubs.forEach(
+        ({ wrap, paths, scrollTrigger, stagger, lineRevealEnabled }) => {
+          setupGatedScrub(
+            wrap,
+            paths,
+            scrollTrigger,
+            stagger,
+            lineRevealEnabled,
+          );
+        },
+      );
 
       // Refresh after the matchMedia callback returns so this context cannot
       // capture tweens that other components create during refresh.
@@ -293,7 +310,13 @@ export function initDrawPathScroll() {
   );
 }
 
-function createScrubTimeline(wrap, paths, scrollTrigger, stagger) {
+function createScrubTimeline(
+  wrap,
+  paths,
+  scrollTrigger,
+  stagger,
+  lineRevealEnabled = false,
+) {
   const authoredRefresh = scrollTrigger.onRefresh;
   const tl = gsap.timeline({
     defaults: {
@@ -301,11 +324,16 @@ function createScrubTimeline(wrap, paths, scrollTrigger, stagger) {
     },
     scrollTrigger: {
       ...scrollTrigger,
-      onRefresh: (self) => {
-        refreshDrawMeasurements(paths);
-        refreshLineRevealState(wrap, paths, tl, self, stagger);
-        authoredRefresh?.(self);
-      },
+      onRefresh: lineRevealEnabled
+        ? (self) => {
+            refreshDrawMeasurements(paths);
+            refreshLineRevealState(wrap, paths, tl, self, stagger);
+            authoredRefresh?.(self);
+          }
+        : (self) => {
+            refreshDrawMeasurements(paths);
+            authoredRefresh?.(self);
+          },
     },
   });
 
@@ -317,13 +345,8 @@ function createScrubTimeline(wrap, paths, scrollTrigger, stagger) {
 
   // Keep a reference so we can kill it on breakpoint change
   wrap._drawTl = tl;
-  if (!wrap._drawLineState) {
-    wrap._drawLineState = {
-      trigger: tl.scrollTrigger,
-      paths,
-      stagger,
-      revealScrollPosition: () => tl.scrollTrigger.start,
-    };
+  if (lineRevealEnabled) {
+    refreshLineRevealState(wrap, paths, tl, tl.scrollTrigger, stagger);
   }
   return tl;
 }
@@ -370,7 +393,13 @@ function createWheelHoldScrubTimeline(wrap, paths, wheelState, stagger) {
   return tl;
 }
 
-function setupGatedScrub(wrap, paths, scrollTrigger, stagger) {
+function setupGatedScrub(
+  wrap,
+  paths,
+  scrollTrigger,
+  stagger,
+  lineRevealEnabled,
+) {
   const selector = wrap.getAttribute("data-draw-scroll-after");
   const target = resolveDrawTrigger(wrap, selector, null);
   const targetTween = target?._drawTl;
@@ -378,12 +407,24 @@ function setupGatedScrub(wrap, paths, scrollTrigger, stagger) {
   // A missing selector, a non-reveal target, or a reveal that opted out of a
   // tween (reduced motion) all retain the original ungated behaviour.
   if (!target?.hasAttribute("data-draw-scroll-reveal")) {
-    createScrubTimeline(wrap, paths, scrollTrigger, stagger);
+    createScrubTimeline(
+      wrap,
+      paths,
+      scrollTrigger,
+      stagger,
+      lineRevealEnabled,
+    );
     return;
   }
 
   if (!targetTween || targetTween.progress() >= 1) {
-    createScrubTimeline(wrap, paths, scrollTrigger, stagger);
+    createScrubTimeline(
+      wrap,
+      paths,
+      scrollTrigger,
+      stagger,
+      lineRevealEnabled,
+    );
     return;
   }
 
@@ -393,7 +434,13 @@ function setupGatedScrub(wrap, paths, scrollTrigger, stagger) {
     if (gate.cancelled || wrap._drawScrollGate !== gate) return;
     wrap._drawScrollGate = null;
 
-    const tl = createScrubTimeline(wrap, paths, scrollTrigger, stagger);
+    const tl = createScrubTimeline(
+      wrap,
+      paths,
+      scrollTrigger,
+      stagger,
+      lineRevealEnabled,
+    );
     // The trigger measures on the next refresh, not on creation. Refresh it
     // now so the timeline sits at its mapped progress before it is read.
     const st = tl.scrollTrigger;

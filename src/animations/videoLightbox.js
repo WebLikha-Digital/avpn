@@ -141,12 +141,11 @@ function initVideoLightbox() {
           if (player === this.player && this.desiredAction === "pause") player.pause();
         };
         player.addEventListener("load", onLoad);
-        player.addEventListener("play", onPlay); player.addEventListener("playing", onPlay);
+        player.addEventListener("play", onPlay);
         window.addEventListener("message", onMessage);
         this.playerCleanup = () => {
           player.removeEventListener("load", onLoad);
           player.removeEventListener("play", onPlay);
-          player.removeEventListener("playing", onPlay);
           window.removeEventListener("message", onMessage);
         };
         onLoad();

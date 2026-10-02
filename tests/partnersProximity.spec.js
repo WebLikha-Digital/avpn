@@ -277,10 +277,16 @@ test("idle wiggle follows and returns to the active pill's authored tilt", async
 
   await page.waitForTimeout(700);
   const allSettled = await pillVisuals(section);
-  const authoredTilts = await section.locator("[data-partners-pill]").evaluateAll((pills) => (
-    pills.map((pill) => Number(pill.dataset.partnersTilt))
-  ));
+  const { activeIndices, authoredTilts } = await section.locator("[data-partners-pill]").evaluateAll((pills) => ({
+    activeIndices: pills.reduce((indices, pill, pillIndex) => {
+      if (pill.dataset.partnersIdle) indices.push(pillIndex);
+      return indices;
+    }, []),
+    authoredTilts: pills.map((pill) => Number(pill.dataset.partnersTilt)),
+  }));
+  expect(activeIndices.length).toBeLessThanOrEqual(1);
   expect(allSettled.every(({ rotation, scale }, pillIndex) => (
+    activeIndices.includes(pillIndex) ||
     Math.abs(rotation - authoredTilts[pillIndex]) < 0.1 && Math.abs(scale - 1) < 0.01
   ))).toBe(true);
 });
@@ -292,4 +298,17 @@ test("idle zoom-out returns every pill to scale 1", async ({ page }) => {
   expect(Math.min(...samples.map(({ scale }) => scale))).toBeLessThan(0.95);
   expect(samples.at(-1).scale).toBeCloseTo(1, 2);
   expect(await scaleOf(section.locator("[data-partners-pill]").nth(index))).toBeCloseTo(1, 2);
+  const { activeIndices, visuals } = await section.locator("[data-partners-pill]").evaluateAll((pills) => ({
+    activeIndices: pills.reduce((indices, pill, pillIndex) => {
+      if (pill.dataset.partnersIdle) indices.push(pillIndex);
+      return indices;
+    }, []),
+    visuals: pills.map((pill) => {
+      const transform = getComputedStyle(pill).transform;
+      const values = transform.match(/matrix(3d)?\(([^)]+)\)/)?.[2].split(",").map(Number);
+      return values ? Math.hypot(values[0], values[1]) : 1;
+    }),
+  }));
+  expect(activeIndices.length).toBeLessThanOrEqual(1);
+  expect(visuals.every((scale, pillIndex) => activeIndices.includes(pillIndex) || Math.abs(scale - 1) < 0.01)).toBe(true);
 });

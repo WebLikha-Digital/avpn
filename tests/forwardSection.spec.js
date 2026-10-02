@@ -81,6 +81,41 @@ test("scrubs grid entrance, copy reveal, and panels in order", async ({ page }) 
   expect(reversed.panel).toBeGreaterThan(0);
 });
 
+test("anchor navigation lands after the forward entrance", async ({ page }) => {
+  await page.addInitScript(() => {
+    document.addEventListener("click", (event) => {
+      const link = event.target.closest?.('a[href*="#"]');
+      const href = link?.getAttribute("href");
+      const target = href?.startsWith("#") ? document.getElementById(href.slice(1)) : null;
+      if (!target || href === "#") return;
+      setTimeout(() => window.scrollTo({
+        top: target.getBoundingClientRect().top + window.scrollY,
+        behavior: "instant",
+      }), 300);
+    });
+  });
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 820, height: 1180 },
+    { width: 390, height: 844 },
+  ]) {
+    await test.step(`${viewport.width}x${viewport.height}`, async () => {
+      await loadForward(page, false, viewport);
+      const nav = page.locator("[data-nav-init]");
+      await nav.locator('[data-navigation-toggle="toggle"]').click();
+      await nav.locator("[data-accordion-toggle]").nth(2).click();
+      await nav.locator('a[href="#forward-15"]').click();
+
+      await expect.poll(() => page.locator(ROOT).evaluate((section) => {
+        const columns = [...section.querySelectorAll("[data-forward-col]")].map((column) =>
+          new DOMMatrixReadOnly(getComputedStyle(column).transform).m42);
+        return columns.every((y) => Math.abs(y) < 1)
+          && Number.parseFloat(getComputedStyle(section.querySelector("[data-forward-title]")).opacity) > 0.99;
+      }), { timeout: 15000 }).toBe(true);
+    });
+  }
+});
+
 test("keeps the entrance tiles clear of the sticky stage edges", async ({ page }) => {
   for (const viewport of [
     { width: 768, height: 1024 },

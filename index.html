@@ -3374,7 +3374,7 @@
   </style></div>
   <div class="communities-css w-embed"><style>
   /* Communities Served — ball geometry + physics state. */
-  .section_communities{--communities-size-min:min(clamp(6rem,14vw,12.75rem),24vh);--communities-size-max:min(clamp(8.5rem,20.5vw,18.5rem),28vh)}
+  .section_communities{--communities-size-min:clamp(10.5rem,min(14vw,24vh),12.75rem);--communities-size-max:clamp(12rem,min(20.5vw,28vh),18.5rem)}
   .communities_ball{--communities-size:calc(var(--communities-size-min) + (var(--communities-size-max) - var(--communities-size-min)) * var(--communities-t,.5));width:var(--communities-size);height:var(--communities-size)}
   .communities_ball-label,.communities_ball-value{max-width:100%}
   [data-communities-state="physics"] .communities_pile{display:block}[data-communities-state="physics"] .communities_ball{position:absolute;top:0;left:0;margin:0;will-change:transform;cursor:grab}[data-communities-state="physics"] .communities_ball[data-communities-dragging]{cursor:grabbing}

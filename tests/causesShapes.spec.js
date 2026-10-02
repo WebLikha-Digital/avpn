@@ -8,26 +8,17 @@ const shapeValues = new Set([
   "50% 50% 50% 50%",
   "25% 0% 25% 0%",
   "0% 25% 0% 25%",
-  "100% 0% 0% 0%",
-  "0% 100% 0% 0%",
-  "0% 0% 100% 0%",
-  "0% 0% 0% 100%",
 ]);
 const shapeRadii = {
   square: "15% 15% 15% 15%",
   circle: "50% 50% 50% 50%",
   "leaf-a": "25% 0% 25% 0%",
   "leaf-b": "0% 25% 0% 25%",
-  "quarter-tl": "100% 0% 0% 0%",
-  "quarter-tr": "0% 100% 0% 0%",
-  "quarter-br": "0% 0% 100% 0%",
-  "quarter-bl": "0% 0% 0% 100%",
 };
 const shapeNames = Object.keys(shapeRadii);
 const fitTolerance = 0.02;
 // Authored shapes are checked loosely, only to catch a start shape that visibly
-// spills; the original Climate quarter-tl measured 1.14–1.20. The morph rule
-// is stricter.
+// spills. The morph rule is stricter.
 const authoredTolerance = 0.06;
 
 async function scrollIntoView(page) {
@@ -432,4 +423,36 @@ test("sixteen swaps visit every tile once", async ({ page }) => {
     return indices;
   });
   expect(new Set(visited).size).toBe(16);
+});
+
+test("many forced swaps never produce a quarter shape", async ({ page }) => {
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+
+  const quarterShapes = await page.locator(section).evaluate((root) => {
+    const instance = root._causesShapes;
+    const snapshots = [];
+    for (let swap = 0; swap < instance.tiles.length * 8; swap += 1) {
+      instance.swapNext();
+      instance.currentTween?.progress(1);
+      snapshots.push(...instance.tiles.map((element) => {
+        const styles = getComputedStyle(element);
+        const radii = [
+          styles.borderTopLeftRadius,
+          styles.borderTopRightRadius,
+          styles.borderBottomRightRadius,
+          styles.borderBottomLeftRadius,
+        ].map((radius) => parseFloat(radius));
+        return {
+          shape: element.dataset.causesShape,
+          isQuarter: radii.filter((radius) => radius > 0).length === 1,
+        };
+      }));
+    }
+    return snapshots.filter(({ shape, isQuarter }) =>
+      shape?.startsWith("quarter-") || isQuarter,
+    );
+  });
+
+  expect(quarterShapes).toEqual([]);
 });

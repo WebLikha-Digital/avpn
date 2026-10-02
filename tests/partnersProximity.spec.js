@@ -115,77 +115,19 @@ test("hovering and leaving during the reveal cannot interrupt its final state", 
   expect(Math.abs(visuals[0].rotation - 4)).toBeLessThan(0.1);
 });
 
-test("scales by proximity, preserves tilt, and lifts only active pills", async ({ page }) => {
+test("pointer movement over pills does not change their scale", async ({ page }) => {
   const section = await showPartners(page);
-  const firstPill = section.locator("[data-partners-pill]").first();
-  const geometry = await section.locator("[data-partners-pill]").evaluateAll((pills) => {
-    const rects = pills.map((pill) => pill.getBoundingClientRect());
-    const first = rects[0];
-    const farIndex = rects.findIndex((rect) => Math.hypot(
-      rect.left + rect.width / 2 - (first.left + first.width / 2),
-      rect.top + rect.height / 2 - (first.top + first.height / 2),
-    ) > 180);
-    const far = rects[farIndex];
-    const firstCenter = {
-      x: first.left + first.width / 2,
-      y: first.top + first.height / 2,
-    };
-    const farCenter = {
-      x: far.left + far.width / 2,
-      y: far.top + far.height / 2,
-    };
-    return {
-      firstCenter,
-      farCenter,
-      intermediate: {
-        x: firstCenter.x + (farCenter.x - firstCenter.x) * 0.5,
-        y: firstCenter.y + (farCenter.y - firstCenter.y) * 0.5,
-      },
-    };
-  });
-
-  await page.mouse.move(geometry.firstCenter.x, geometry.firstCenter.y);
+  const boxes = await section.locator("[data-partners-pill]").evaluateAll((pills) => (
+    pills.map((pill) => {
+      const rect = pill.getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    })
+  ));
+  for (const box of boxes) await page.mouse.move(box.x, box.y);
   await page.waitForTimeout(500);
-  expect(await scaleOf(firstPill)).toBeCloseTo(1.3, 1);
-  await expect(firstPill).toHaveAttribute("data-partners-lift", "");
-  const rotation = await firstPill.evaluate((pill) => {
-    const values = getComputedStyle(pill).transform.match(/matrix(3d)?\(([^)]+)\)/)?.[2]
-      .split(",")
-      .map(Number);
-    return Math.atan2(values[1], values[0]) * 180 / Math.PI;
-  });
-  expect(Math.abs(rotation - 4)).toBeLessThan(0.1);
-
-  await page.mouse.move(geometry.intermediate.x, geometry.intermediate.y);
-  await page.waitForTimeout(500);
-  const intermediateScale = await scaleOf(firstPill);
-  expect(intermediateScale).toBeGreaterThan(1.01);
-  expect(intermediateScale).toBeLessThan(1.3);
-
-  await page.mouse.move(geometry.farCenter.x, geometry.farCenter.y);
-  await page.waitForTimeout(500);
-  expect(await scaleOf(firstPill)).toBeCloseTo(1, 2);
-  await expect(firstPill).not.toHaveAttribute("data-partners-lift");
-
-  await page.mouse.move(geometry.firstCenter.x, geometry.firstCenter.y);
-  await page.waitForTimeout(250);
-  await section.evaluate((element) => element.dispatchEvent(new MouseEvent("mouseleave")));
-  await page.waitForTimeout(800);
-  const scales = await section.locator("[data-partners-pill]").evaluateAll((pills) => pills.map((pill) => {
-    const transform = getComputedStyle(pill).transform;
-    if (transform === "none") return 1;
-    const values = transform.match(/matrix(3d)?\(([^)]+)\)/)?.[2].split(",").map(Number);
-    return transform.startsWith("matrix3d")
-      ? Math.hypot(values[0], values[1], values[2])
-      : Math.hypot(values[0], values[1]);
-  }));
-  expect(scales.every((scale) => Math.abs(scale - 1) < 0.01)).toBe(true);
+  const visuals = await pillVisuals(section);
+  expect(visuals.every(({ scale }) => Math.abs(scale - 1) < 0.01)).toBe(true);
   await expect(section.locator("[data-partners-lift]")).toHaveCount(0);
-
-  await page.mouse.move(0, 0);
-  await page.mouse.move(geometry.firstCenter.x, geometry.firstCenter.y);
-  await page.waitForTimeout(500);
-  expect(await scaleOf(firstPill)).toBeCloseTo(1.3, 1);
 });
 
 test("animates only one idle pill at a time", async ({ page }) => {
@@ -202,15 +144,47 @@ test("animates only one idle pill at a time", async ({ page }) => {
   expect(samples.every((count) => count <= 1)).toBe(true);
 });
 
-test("pauses the idle loop when the pointer enters the section", async ({ page }) => {
+test("idle uses the default four-second interval", async ({ page }) => {
+  const section = await showPartners(page);
+  const interval = await section.evaluate(async (root) => {
+    document.adoptedStyleSheets = document.adoptedStyleSheets.filter((sheet) => (
+      ![...sheet.cssRules].some((rule) => rule.cssText.includes("--partners-idle-min: 999"))
+    ));
+    const { initPartnersProximity } = await import("/src/animations/partnersProximity.js");
+    initPartnersProximity();
+    return new Promise((resolve) => {
+      let endedAt = null;
+      const observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+          if (mutation.attributeName !== "data-partners-idle") continue;
+          if (mutation.target.dataset.partnersIdle) {
+            if (endedAt !== null) {
+              observer.disconnect();
+              resolve(performance.now() - endedAt);
+            }
+          } else {
+            endedAt = performance.now();
+          }
+        }
+      });
+      observer.observe(root, { subtree: true, attributes: true, attributeFilter: ["data-partners-idle"] });
+    });
+  });
+  expect(interval).toBeGreaterThan(3900);
+  expect(interval).toBeLessThan(4100);
+});
+
+test("idle keeps running while the pointer is over the section", async ({ page }) => {
   const section = await showPartners(page);
   await enableFastIdle(section, page);
+  const box = await section.boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.waitForFunction((root) => root.querySelector("[data-partners-idle]"), await section.elementHandle());
-
   await section.evaluate((root) => root.dispatchEvent(new Event("pointerenter")));
-  await page.waitForTimeout(250);
-  expect(await idlePillCount(section)).toBe(0);
-  expect(await section.evaluate((root) => root._partnersProximity.idle.paused)).toBe(true);
+  await page.waitForFunction((root) => (
+    root._partnersProximity.idle.activePill === null && !root._partnersProximity.idle.paused
+  ), await section.elementHandle());
+  await page.waitForFunction((root) => root.querySelector("[data-partners-idle]"), await section.elementHandle());
 });
 
 test("re-initializing replaces the prior instance without stacking handlers", async ({ page }) => {
@@ -231,7 +205,7 @@ test("re-initializing replaces the prior instance without stacking handlers", as
   const box = await pill.boundingBox();
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.waitForTimeout(500);
-  expect(await scaleOf(pill)).toBeCloseTo(1.3, 1);
+  expect(await scaleOf(pill)).toBeCloseTo(1, 2);
 });
 
 test("skips the interaction for reduced motion", async ({ page }) => {
@@ -302,7 +276,6 @@ test("idle wiggle follows and returns to the active pill's authored tilt", async
   expect(Math.abs((await pillVisuals(section))[index].rotation - authoredTilt)).toBeLessThan(0.1);
 
   await page.waitForTimeout(700);
-  await section.evaluate((root) => root.dispatchEvent(new Event("pointerenter")));
   const allSettled = await pillVisuals(section);
   const authoredTilts = await section.locator("[data-partners-pill]").evaluateAll((pills) => (
     pills.map((pill) => Number(pill.dataset.partnersTilt))
@@ -319,44 +292,4 @@ test("idle zoom-out returns every pill to scale 1", async ({ page }) => {
   expect(Math.min(...samples.map(({ scale }) => scale))).toBeLessThan(0.95);
   expect(samples.at(-1).scale).toBeCloseTo(1, 2);
   expect(await scaleOf(section.locator("[data-partners-pill]").nth(index))).toBeCloseTo(1, 2);
-});
-
-test("skips the interaction when hover is unavailable", async ({ page }) => {
-  await page.addInitScript(() => {
-    const nativeMatchMedia = window.matchMedia.bind(window);
-    window.matchMedia = (query) => {
-      if (query === "(hover: none)") {
-        return {
-          matches: true,
-          media: query,
-          onchange: null,
-          addListener() {},
-          removeListener() {},
-          addEventListener() {},
-          removeEventListener() {},
-          dispatchEvent() { return false; },
-        };
-      }
-      return nativeMatchMedia(query);
-    };
-  });
-  await page.goto("/");
-  await page.waitForLoadState("networkidle");
-  expect(await page.evaluate(() => matchMedia("(hover: none)").matches)).toBe(true);
-  const section = await showPartners(page);
-  const pill = section.locator("[data-partners-pill]").first();
-  const box = await pill.boundingBox();
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.waitForTimeout(500);
-  expect(await section.evaluate((root) => Boolean(root._partnersProximity?.revealTrigger))).toBe(true);
-  const visuals = await pillVisuals(section);
-  const authoredTilts = await section.locator("[data-partners-pill]").evaluateAll((pills) => (
-    pills.map((pill) => Number.parseFloat(pill.dataset.partnersTilt))
-  ));
-  expect(visuals.every(({ opacity, scale, y, rotation }, index) => (
-    Math.abs(opacity - 1) < 0.01 &&
-    Math.abs(scale - 1) < 0.01 &&
-    Math.abs(y) < 0.5 &&
-    Math.abs(rotation - authoredTilts[index]) < 0.1
-  ))).toBe(true);
 });

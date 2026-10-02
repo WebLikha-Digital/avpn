@@ -1,4 +1,5 @@
-import { gsap, Draggable, InertiaPlugin } from "../lib/gsap.js";
+import { gsap, Draggable, InertiaPlugin, ScrollTrigger } from "../lib/gsap.js";
+import { CLOSE_EVENT, OPEN_EVENT } from "./videoLightbox.js";
 
 const RESIZE_DEBOUNCE = 200;
 const DRAG_CLICK_THRESHOLD = 6;
@@ -48,14 +49,16 @@ function initPartnersTestimonials() {
       draggable: null, listeners: [], suppressClickUntil: 0, pointerDown: null,
       touchActionNodes: [], pressIndex: 0, pressX: 0, dragSamples: [],
       dragMoved: false, reduced: reducedMotion(), snapPoints: [], activeIndex: 0,
+      autoplayCall: null, scrollTrigger: null, isInView: false,
+      isHovered: false, isDragging: false, isLightboxOpen: false,
       destroy() {
         this.draggable?.kill();
+        this.autoplayCall?.kill();
+        this.scrollTrigger?.kill();
         this.listeners.forEach((remove) => remove());
         this.touchActionNodes.forEach((node) => node.style.removeProperty("touch-action"));
         gsap.killTweensOf(list);
         gsap.set(list, { clearProps: "transform" });
-        list.onmouseenter = null;
-        list.onmouseleave = null;
         list.removeAttribute("style");
         if (root._partnersTestimonialsInstance === this) {
           delete root._partnersTestimonialsInstance;
@@ -138,15 +141,46 @@ function initPartnersTestimonials() {
       });
     };
 
+    const autoplayDuration = (() => {
+      const value = slider.getAttribute("data-gsap-slider-autoplay");
+      if (value === "false" || value === "0") return 0;
+      const duration = Number.parseFloat(value);
+      return Number.isFinite(duration) && duration > 0 ? duration : 4000;
+    })();
+    const canAutoplay = () => autoplayDuration > 0
+      && !instance.reduced
+      && slider.getAttribute("data-gsap-slider-status") === "active"
+      && instance.isInView && !instance.isHovered && !instance.isDragging
+      && !instance.isLightboxOpen;
+    const scheduleAutoplay = () => {
+      instance.autoplayCall?.kill();
+      instance.autoplayCall = null;
+      if (!canAutoplay()) return;
+      instance.autoplayCall = gsap.delayedCall(autoplayDuration / 1000, () => {
+        instance.autoplayCall = null;
+        if (canAutoplay()) goTo(instance.activeIndex + 1, true);
+        else scheduleAutoplay();
+      });
+    };
+
     const setX = gsap.quickSetter(list, "x", "px");
-    const goTo = (target) => {
+    const goTo = (targetIndex, automatic = false) => {
+      const target = automatic
+        ? ((targetIndex % instance.snapPoints.length) + instance.snapPoints.length)
+          % instance.snapPoints.length
+        : targetIndex;
       const point = instance.snapPoints[target];
       if (point === undefined) return;
+      instance.autoplayCall?.kill();
+      instance.autoplayCall = null;
       gsap.to(list, {
         duration: instance.reduced ? 0 : 0.4,
         x: point,
         onUpdate: () => updateStatus(gsap.getProperty(list, "x")),
-        onComplete: () => updateStatus(point),
+        onComplete: () => {
+          updateStatus(point);
+          scheduleAutoplay();
+        },
       });
     };
     controls.forEach((button) => listen(button, "click", () => {
@@ -163,8 +197,6 @@ function initPartnersTestimonials() {
     };
 
     if (sliderEnabled) {
-      list.onmouseenter = () => list.setAttribute("data-gsap-slider-list-status", "grab");
-      list.onmouseleave = () => list.removeAttribute("data-gsap-slider-list-status");
       instance.draggable = Draggable.create(list, {
         type: "x", inertia: true, bounds: { minX, maxX },
         throwResistance: 2000, dragResistance: 0.05,
@@ -186,6 +218,9 @@ function initPartnersTestimonials() {
           return instance.snapPoints[targetIndex];
         }, duration: instance.reduced ? 0 : 0.4 },
         onPress() {
+          instance.autoplayCall?.kill();
+          instance.autoplayCall = null;
+          instance.isDragging = true;
           instance.dragMoved = false;
           instance.pressIndex = instance.activeIndex;
           instance.pressX = this.x;
@@ -196,10 +231,18 @@ function initPartnersTestimonials() {
         onDragStart() { instance.dragMoved = true; },
         onDrag() { recordDragSample(this.x); setX(this.x); updateStatus(this.x); },
         onThrowUpdate() { setX(this.x); updateStatus(this.x); },
-        onRelease() { setX(this.x); updateStatus(this.x); },
+        onRelease() {
+          setX(this.x); updateStatus(this.x);
+          if (!this.isThrowing) {
+            instance.isDragging = false;
+            scheduleAutoplay();
+          }
+        },
         onThrowComplete() {
           setX(this.endX); updateStatus(this.endX);
           list.setAttribute("data-gsap-slider-list-status", "grab");
+          instance.isDragging = false;
+          scheduleAutoplay();
         },
       })[0];
       instance.touchActionNodes = [list, ...list.querySelectorAll("*")];
@@ -238,6 +281,45 @@ function initPartnersTestimonials() {
       if (performance.now() < instance.suppressClickUntil
         || instance.draggable?.isDragging || instance.draggable?.isThrowing) event.preventDefault();
     }, true);
+
+    if (sliderEnabled) {
+      listen(list, "pointerenter", (event) => {
+        if (event.pointerType !== "mouse") return;
+        instance.isHovered = true;
+        instance.autoplayCall?.kill();
+        instance.autoplayCall = null;
+        list.setAttribute("data-gsap-slider-list-status", "grab");
+      });
+      listen(list, "pointerleave", (event) => {
+        if (event.pointerType !== "mouse") return;
+        instance.isHovered = false;
+        list.removeAttribute("data-gsap-slider-list-status");
+        scheduleAutoplay();
+      });
+    }
+    instance.scrollTrigger = ScrollTrigger.create({
+      trigger: root,
+      start: "top bottom",
+      end: "bottom top",
+      onToggle: (self) => {
+        instance.isInView = self.isActive;
+        scheduleAutoplay();
+      },
+    });
+    const rect = root.getBoundingClientRect();
+    instance.isInView = rect.top < window.innerHeight && rect.bottom > 0;
+    listen(document, OPEN_EVENT, (event) => {
+      if (!event.detail?.lightbox || !root.contains(event.detail.lightbox)) return;
+      instance.isLightboxOpen = true;
+      instance.autoplayCall?.kill();
+      instance.autoplayCall = null;
+    });
+    listen(document, CLOSE_EVENT, (event) => {
+      if (!event.detail?.lightbox || !root.contains(event.detail.lightbox)) return;
+      instance.isLightboxOpen = false;
+      scheduleAutoplay();
+    });
+    scheduleAutoplay();
   });
 }
 

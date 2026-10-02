@@ -14,8 +14,24 @@ const readX = (node) => {
   if (!transform || transform === "none") return 0;
   return Number.parseFloat(transform.match(/matrix\([^,]+,\s*[^,]+,\s*[^,]+,\s*[^,]+,\s*([^,]+)/)?.[1] || 0);
 };
+const readActiveIndex = (page) => page.locator(item).evaluateAll((nodes) => nodes.findIndex(
+  (node) => node.getAttribute("data-gsap-slider-item-status") === "active",
+));
 
-test.beforeEach(async ({ page }) => {
+async function scrollIntoView(page) {
+  await page.locator(section).scrollIntoViewIfNeeded();
+  await page.evaluate((selector) => {
+    const element = document.querySelector(selector);
+    if (!element) return;
+    window.scrollTo({
+      top: window.scrollY + element.getBoundingClientRect().top - window.innerHeight * 0.5,
+      behavior: "auto",
+    });
+  }, section);
+  await page.waitForTimeout(400);
+}
+
+test.beforeEach(async ({ page }, testInfo) => {
   await page.route("https://www.youtube-nocookie.com/embed/**", (route) => route.fulfill({
     status: 200,
     contentType: "text/html",
@@ -39,10 +55,19 @@ test.beforeEach(async ({ page }) => {
       this.__paused = true;
     };
   });
+  // Autoplay specs run a short interval; every other spec turns autoplay off so the
+  // slider only moves when the spec moves it. document.documentElement does not exist
+  // yet when init scripts run, so observe the document itself.
+  await page.addInitScript(({ duration }) => {
+    const apply = () => document.querySelector(
+      "#hear-from-partners [data-gsap-slider-init]",
+    )?.setAttribute("data-gsap-slider-autoplay", String(duration));
+    new MutationObserver(apply).observe(document, { childList: true, subtree: true });
+  }, { duration: testInfo.title.includes("autoplay") ? 250 : 0 });
   await page.goto("/");
   await page.waitForLoadState("networkidle");
   await page.waitForFunction(() => !document.documentElement.classList.contains("is-preloading"));
-  await page.locator(section).scrollIntoViewIfNeeded();
+  await scrollIntoView(page);
 });
 
 test("initializes the slider and its controls", async ({ page }) => {
@@ -50,6 +75,40 @@ test("initializes the slider and its controls", async ({ page }) => {
   await expect(page.locator(item).nth(0)).toHaveAttribute("data-gsap-slider-item-status", "active");
   await expect(page.locator(prev)).toHaveAttribute("data-gsap-slider-control-status", "not-active");
   await expect(page.locator(next)).toHaveAttribute("data-gsap-slider-control-status", "active");
+});
+
+test("autoplay advances one card at the configured interval", async ({ page }) => {
+  await expect.poll(() => readActiveIndex(page), { timeout: 5000 }).toBe(1);
+});
+
+test("autoplay wraps from the last reachable position to the first", async ({ page }) => {
+  const snapCount = await page.locator(list).evaluate((node) =>
+    node.closest("[data-testi-partners-init]")._partnersTestimonialsInstance.snapPoints.length);
+  await expect.poll(() => readActiveIndex(page), { timeout: 5000 }).toBe(snapCount - 1);
+  await expect.poll(() => readActiveIndex(page), { timeout: 5000 }).toBe(0);
+});
+
+test("autoplay pauses while the slider is hovered", async ({ page }) => {
+  await page.locator(list).hover();
+  const heldIndex = await readActiveIndex(page);
+  await page.waitForTimeout(1000);
+  await expect.poll(() => readActiveIndex(page)).toBe(heldIndex);
+  await page.mouse.move(10, 10);
+  await expect.poll(() => readActiveIndex(page), { timeout: 5000 }).not.toBe(heldIndex);
+});
+
+test("autoplay pauses while the video lightbox is open", async ({ page }) => {
+  await page.locator(trigger).first().click();
+  await expect(page.locator(lightbox)).toHaveAttribute("data-video-lightbox-status", "active");
+  const heldIndex = await readActiveIndex(page);
+  await page.waitForTimeout(1000);
+  await expect.poll(() => readActiveIndex(page)).toBe(heldIndex);
+  await page.keyboard.press("Escape");
+  await page.mouse.move(10, 10);
+  await expect.poll(() => readActiveIndex(page), { timeout: 5000 }).not.toBe(heldIndex);
+  await expect.poll(() => page.evaluate(() => window.__videoLightboxMessages)).toContainEqual(
+    expect.objectContaining({ func: "pauseVideo" }),
+  );
 });
 
 test("moves one snap point at a time and disables next at the end", async ({ page }) => {

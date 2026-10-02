@@ -278,3 +278,17 @@ test("hover still morphs border-radius after the reveal", async ({ page }) => {
   await expect.poll(() => tile.evaluate((element) => getComputedStyle(element).borderRadius))
     .not.toBe(before);
 });
+
+test("resizing across 768 switches between line-led and fixed-range reveals", async ({ page }) => {
+  await page.setViewportSize({ width: 800, height: 900 });
+  await page.goto("/");
+  await waitForInit(page);
+  const mode = () => page.locator(grid).evaluate((node) => Boolean(node._impactCollabReveal?.line));
+  await expect.poll(mode).toBe(true);
+
+  await page.setViewportSize({ width: 700, height: 900 });
+  await expect.poll(mode).toBe(false);
+
+  await page.setViewportSize({ width: 800, height: 900 });
+  await expect.poll(mode).toBe(true);
+});

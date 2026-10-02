@@ -40,10 +40,12 @@ export function initImpactCollabReveal() {
     {
       isDesktop: "(min-width: 992px)",
       isMobile: "(max-width: 991px)",
+      // The line is display:none at <=767; crossing 768 must re-run init.
+      showsLine: "(min-width: 768px)",
       reduceMotion: "(prefers-reduced-motion: reduce)",
     },
     (context) => {
-      const { isDesktop, reduceMotion } = context.conditions;
+      const { isDesktop, showsLine, reduceMotion } = context.conditions;
 
       grids.forEach((grid) => {
         const tiles = [...grid.children];
@@ -58,7 +60,7 @@ export function initImpactCollabReveal() {
           return;
         }
 
-        const line = isLineLed(grid);
+        const line = showsLine ? isLineLed(grid) : null;
         const start = resolvePosition(
           grid.getAttribute("data-impact-reveal-start"),
           isDesktop ? DESKTOP_START : MOBILE_START,
@@ -140,7 +142,6 @@ function resolvePosition(authored, fallback) {
 }
 
 function isLineLed(grid) {
-  if (window.innerWidth < 768) return null;
   const selector = grid.getAttribute("data-impact-reveal-line")?.trim();
   if (!selector) return null;
 

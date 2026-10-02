@@ -224,7 +224,42 @@ export function initForwardSection() {
     ScrollTrigger.refresh();
   }
 
+  installAnchorHandler();
   installResizeHandler();
+}
+
+function installAnchorHandler() {
+  initForwardSection._anchorHandler?.();
+  const ownedClicks = new WeakSet();
+  const onClick = (event) => {
+    const link = event.target.closest?.("[data-scroll-to]");
+    if (!link) return;
+    const codeOwned = link.hasAttribute("data-forward-anchor-offset");
+    if (!codeOwned && link.hasAttribute("data-scroll-to-offset")) return;
+    const href = link.getAttribute("data-scroll-to-href") || link.getAttribute("href");
+    const section = href?.startsWith("#") ? document.getElementById(href.slice(1)) : null;
+    const trigger = section?._forwardInstance?.timeline?.scrollTrigger;
+    const duration = section?._forwardInstance?.timeline?.duration();
+    if (!trigger || !Number.isFinite(duration) || !duration) return;
+
+    const offset = (trigger.end - trigger.start) * DEFAULT_REVEAL_DURATION / duration;
+    if (!Number.isFinite(offset)) return;
+    link.setAttribute("data-scroll-to-offset", String(offset));
+    link.setAttribute("data-forward-anchor-offset", "");
+    ownedClicks.add(event);
+  };
+  const stopDelegatedScroll = (event) => {
+    if (ownedClicks.has(event)) {
+      ownedClicks.delete(event);
+      event.stopPropagation();
+    }
+  };
+  document.addEventListener("click", onClick, true);
+  document.documentElement.addEventListener("click", stopDelegatedScroll);
+  initForwardSection._anchorHandler = () => {
+    document.removeEventListener("click", onClick, true);
+    document.documentElement.removeEventListener("click", stopDelegatedScroll);
+  };
 }
 
 function readNumber(section, attribute, fallback, customProperty) {

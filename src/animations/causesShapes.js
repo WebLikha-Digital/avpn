@@ -3,7 +3,7 @@ import { gsap, ScrollTrigger } from "../lib/gsap.js";
 /**
  * Morph one square Social Causes tile at a time by tweening its four
  * border-radius values. Border-radius preserves the tile's layout and text
- * position while expressing all eight authored shapes without SVG morphing or
+ * position while expressing all four authored shapes without SVG morphing or
  * a crossfade. The repeating timeline follows the Osmo Logo Wall Cycle:
  * repeatDelay spaces swaps by four seconds and a shuffled tile pattern makes
  * every tile morph once per round. The shared "smooth" ease comes from
@@ -11,7 +11,7 @@ import { gsap, ScrollTrigger } from "../lib/gsap.js";
  * while the section is visible and the document is visible. Reduced-motion
  * users keep the static authored shapes. Text stays centred and does not move,
  * so a tile only morphs into a shape whose rounded corners still contain its
- * text; quarter shapes are used only when their arcs fit. The
+ * text. The
  * data-causes-shape start shape authored in Webflow should itself fit the
  * tile's text, though authored starts are not validated by this morph rule.
  *
@@ -25,10 +25,6 @@ const SHAPES = Object.freeze({
   circle: "50% 50% 50% 50%",
   "leaf-a": "25% 0% 25% 0%",
   "leaf-b": "0% 25% 0% 25%",
-  "quarter-tl": "100% 0% 0% 0%",
-  "quarter-tr": "0% 100% 0% 0%",
-  "quarter-br": "0% 0% 100% 0%",
-  "quarter-bl": "0% 0% 0% 100%",
 });
 
 const SHAPE_RADII = Object.freeze(

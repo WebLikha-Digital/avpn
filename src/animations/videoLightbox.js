@@ -46,7 +46,7 @@ function createPlayer(src) {
   }
   const video = document.createElement("video");
   video.controls = true;
-  video.autoplay = true;
+  video.autoplay = false;
   video.playsInline = true;
   video.src = embed.src;
   video.dataset.videoLightboxPlayerType = embed.type;
@@ -70,6 +70,11 @@ function controlPlayer(player, action) {
     const result = player.play();
     result?.catch?.(() => {});
   }
+}
+
+function parseMessage(data) {
+  if (typeof data !== "string") return data;
+  try { return JSON.parse(data); } catch (_) { return null; }
 }
 
 function ownerFor(trigger) {
@@ -107,19 +112,61 @@ function initVideoLightbox() {
       player: null,
       src: null,
       trigger: null,
+      desiredAction: "pause",
       unlockScroll: null,
       listeners: [],
+      playerCleanup: null,
+      watchPlayer() {
+        this.playerCleanup?.();
+        if (!this.player) return;
+        const player = this.player;
+        const resend = () => {
+          if (player === this.player) controlPlayer(player, this.desiredAction);
+        };
+        const onLoad = () => {
+          if (player.dataset.videoLightboxPlayerType === "youtube") {
+            postCommand(player, { event: "listening" });
+          }
+          resend();
+        };
+        const onMessage = (event) => {
+          if (event.source !== player.contentWindow || player !== this.player) return;
+          const message = parseMessage(event.data);
+          const state = message?.event === "infoDelivery" ? message.info?.playerState : null;
+          const ready = message?.event === "onReady" || message?.event === "ready";
+          const playing = state === 1 || state === 3 || message?.event === "play";
+          if (ready || (this.desiredAction === "pause" && playing)) resend();
+        };
+        const onPlay = () => {
+          if (player === this.player && this.desiredAction === "pause") player.pause();
+        };
+        player.addEventListener("load", onLoad);
+        player.addEventListener("play", onPlay); player.addEventListener("playing", onPlay);
+        window.addEventListener("message", onMessage);
+        this.playerCleanup = () => {
+          player.removeEventListener("load", onLoad);
+          player.removeEventListener("play", onPlay);
+          player.removeEventListener("playing", onPlay);
+          window.removeEventListener("message", onMessage);
+        };
+        onLoad();
+      },
       open(trigger) {
         const src = trigger.getAttribute("data-video-lightbox-src");
         if (!src) return;
         if (activeInstance && activeInstance !== this) activeInstance.close(false);
         if (this.src !== src || !this.player) {
+          this.desiredAction = "play";
           controlPlayer(this.player, "pause");
+          this.playerCleanup?.();
           this.playerHost.replaceChildren();
           this.player = createPlayer(src);
           this.playerHost.append(this.player);
           this.src = src;
+          this.watchPlayer();
+          controlPlayer(this.player, "play");
         } else {
+          this.desiredAction = "play";
           controlPlayer(this.player, "play");
         }
         this.trigger = trigger;
@@ -133,6 +180,7 @@ function initVideoLightbox() {
       close(restoreFocus = true) {
         if (!this.trigger && this.lightbox.getAttribute("data-video-lightbox-status") !== "active") return;
         const trigger = this.trigger;
+        this.desiredAction = "pause";
         controlPlayer(this.player, "pause");
         this.lightbox.setAttribute("data-video-lightbox-status", "not-active");
         this.lightbox.setAttribute("aria-hidden", "true");
@@ -180,6 +228,7 @@ function initVideoLightbox() {
   initVideoLightbox._destroy = () => {
     instances.forEach((instance) => {
       instance.close(false);
+      instance.playerCleanup?.();
       instance.playerHost.replaceChildren();
       instance.player = null;
       instance.src = null;

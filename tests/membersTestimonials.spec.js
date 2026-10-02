@@ -18,6 +18,24 @@ async function showSection(page) {
   return root;
 }
 
+async function enableAutoplay(page, duration = 300) {
+  await page.addInitScript((autoplayDuration) => {
+    const applyAutoplay = () => {
+      const root = document.querySelector("[data-testimonials-init]");
+      if (!root) return false;
+      root.setAttribute("data-testimonials-autoplay", "true");
+      root.setAttribute("data-testimonials-autoplay-duration", String(autoplayDuration));
+      return true;
+    };
+    if (applyAutoplay()) return;
+    const observer = new MutationObserver(() => {
+      if (applyAutoplay()) observer.disconnect();
+    });
+    observer.observe(document, { childList: true, subtree: true });
+  }, duration);
+  await page.reload();
+}
+
 test.beforeEach(async ({ page }) => {
   await page.route("https://www.youtube-nocookie.com/embed/**", (route) => route.fulfill({
     status: 200,
@@ -360,27 +378,107 @@ test("does not open a non-active card video", async ({ page }) => {
 });
 
 test("autoplay advances when enabled and pauses after leaving the viewport", async ({ page }) => {
-  await page.addInitScript(() => {
-    const applyAutoplay = () => {
-      const root = document.querySelector("[data-testimonials-init]");
-      if (!root) return false;
-      root.setAttribute("data-testimonials-autoplay", "true");
-      root.setAttribute("data-testimonials-autoplay-duration", "300");
-      return true;
-    };
-    if (applyAutoplay()) return;
-    const observer = new MutationObserver(() => {
-      if (applyAutoplay()) observer.disconnect();
-    });
-    observer.observe(document, { childList: true, subtree: true });
-  });
-  await page.reload();
+  await enableAutoplay(page);
   const root = await showSection(page);
   await expect(root.locator(activeItem)).toHaveAttribute("aria-label", "Slide 2 of 3", { timeout: 3000 });
   const activeBeforeExit = await root.locator(activeItem).getAttribute("aria-label");
   await root.evaluate((node) => window.scrollTo(0, node.offsetTop + node.offsetHeight + window.innerHeight));
   await page.waitForTimeout(1000);
   await expect(root.locator(activeItem)).toHaveAttribute("aria-label", activeBeforeExit);
+});
+
+test("pauses autoplay while media or quote content is hovered, but not in empty section space", async ({ page }) => {
+  await enableAutoplay(page);
+  const root = await showSection(page);
+  const media = root.locator('[data-testimonials-item-status="active"] .testimonials_media');
+  const content = root.locator(".testimonials_content");
+  const list = root.locator("[data-testimonials-list]");
+
+  await media.hover();
+  const mediaLabel = await root.locator(activeItem).getAttribute("aria-label");
+  await page.waitForTimeout(700);
+  await expect(root.locator(activeItem)).toHaveAttribute("aria-label", mediaLabel);
+
+  await page.mouse.move(1, 1);
+  await page.waitForTimeout(100);
+  await expect(root.locator(activeItem)).toHaveAttribute("aria-label", mediaLabel);
+  await expect.poll(() => root.locator(activeItem).getAttribute("aria-label"), {
+    timeout: 1500,
+  }).not.toBe(mediaLabel);
+
+  await content.hover({ position: { x: 5, y: 5 } });
+  const emptyAreaLabel = await root.locator(activeItem).getAttribute("aria-label");
+  await page.waitForTimeout(700);
+  await expect.poll(() => root.locator(activeItem).getAttribute("aria-label"), {
+    timeout: 4000,
+  }).not.toBe(emptyAreaLabel);
+
+  await list.hover();
+  const contentLabel = await root.locator(activeItem).getAttribute("aria-label");
+  await page.waitForTimeout(700);
+  await expect(root.locator(activeItem)).toHaveAttribute("aria-label", contentLabel);
+  await page.mouse.move(1, 1);
+});
+
+test("pauses autoplay while focus remains inside the section", async ({ page }) => {
+  await enableAutoplay(page);
+  const root = await showSection(page);
+  const playButton = root.locator('[data-testimonials-item-status="active"] [data-video-lightbox-trigger]');
+  await page.evaluate(() => document.activeElement?.blur());
+  let focusedViaKeyboard = false;
+  for (let index = 0; index < 100; index += 1) {
+    await page.keyboard.press("Tab");
+    focusedViaKeyboard = await playButton.evaluate((node) => (
+      document.activeElement === node && node.matches(":focus-visible")
+    ));
+    if (focusedViaKeyboard) break;
+  }
+  expect(focusedViaKeyboard).toBe(true);
+  const focusedLabel = await root.locator(activeItem).getAttribute("aria-label");
+  await page.waitForTimeout(700);
+  await expect(root.locator(activeItem)).toHaveAttribute("aria-label", focusedLabel);
+
+  await page.evaluate(() => {
+    const outside = document.createElement("button");
+    outside.type = "button";
+    outside.id = "members-testimonials-focus-outside";
+    outside.textContent = "outside";
+    document.body.append(outside);
+    outside.focus({ preventScroll: true });
+  });
+  await expect.poll(() => root.locator(activeItem).getAttribute("aria-label"), {
+    timeout: 1500,
+  }).not.toBe(focusedLabel);
+});
+
+test("does not keep autoplay paused after a mouse click focuses the next arrow", async ({ page }) => {
+  await enableAutoplay(page);
+  const root = await showSection(page);
+  const next = root.locator("[data-testimonials-next]");
+  await next.click();
+  await settle(root);
+  const clickedLabel = await root.locator(activeItem).getAttribute("aria-label");
+  await page.mouse.move(1, 1);
+  await expect.poll(() => root.locator(activeItem).getAttribute("aria-label"), {
+    timeout: 1500,
+  }).not.toBe(clickedLabel);
+});
+
+test("pauses autoplay after a touch interaction until leaving and re-entering the section", async ({ page }) => {
+  await enableAutoplay(page);
+  const root = await showSection(page);
+  const media = root.locator('[data-testimonials-item-status="active"] .testimonials_media');
+  await media.dispatchEvent("pointerdown", { pointerType: "touch" });
+  const touchLabel = await root.locator(activeItem).getAttribute("aria-label");
+  await page.waitForTimeout(700);
+  await expect(root.locator(activeItem)).toHaveAttribute("aria-label", touchLabel);
+
+  await root.evaluate((node) => window.scrollTo(0, node.offsetTop + node.offsetHeight + window.innerHeight));
+  await page.waitForTimeout(100);
+  await root.evaluate((node) => node.scrollIntoView({ block: "center", behavior: "instant" }));
+  await expect.poll(() => root.locator(activeItem).getAttribute("aria-label"), {
+    timeout: 1500,
+  }).not.toBe(touchLabel);
 });
 
 test("does not schedule autoplay when explicitly disabled and only responds to arrows in view", async ({ page }) => {

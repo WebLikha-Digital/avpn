@@ -69,6 +69,9 @@ function initMembersTestimonials(scope = document) {
       step: 70,
       thumbScale: 0.476,
       isLightboxOpen: false,
+      isHovered: false,
+      isFocused: false,
+      isTouchEngaged: false,
     };
     root._membersTestimonialsInstance = instance;
 
@@ -179,7 +182,8 @@ function initMembersTestimonials(scope = document) {
 
     const canAutoplay = () => root.dataset.testimonialsAutoplay === "true"
       && instance.isInView && !instance.isAnimating
-      && !instance.isLightboxOpen;
+      && !instance.isLightboxOpen && !instance.isHovered
+      && !instance.isFocused && !instance.isTouchEngaged;
     const scheduleAutoplay = () => {
       instance.autoplayCall?.kill();
       instance.autoplayCall = null;
@@ -307,11 +311,58 @@ function initMembersTestimonials(scope = document) {
       end: "bottom top",
       onToggle: (self) => {
         instance.isInView = self.isActive;
+        if (!self.isActive) instance.isTouchEngaged = false;
         scheduleAutoplay();
       },
     });
     instance.isInView = initialRect.top < window.innerHeight && initialRect.bottom > 0;
     scheduleAutoplay();
+
+    const mediaZones = items.map((item) => item.querySelector(".testimonials_media")).filter(Boolean);
+    const controlsWrap = root.querySelector(".testimonials_controls");
+    const hoverZones = [...mediaZones, list, controlsWrap].filter(Boolean);
+    const hoveredZones = new Set();
+    const pauseAutoplay = () => {
+      instance.autoplayCall?.kill();
+      instance.autoplayCall = null;
+    };
+    hoverZones.forEach((zone) => {
+      listen(zone, "pointerenter", (event) => {
+        if (event.pointerType !== "mouse") return;
+        hoveredZones.add(zone);
+        instance.isHovered = hoveredZones.size > 0;
+        pauseAutoplay();
+      });
+      listen(zone, "pointerleave", (event) => {
+        if (event.pointerType !== "mouse") return;
+        hoveredZones.delete(zone);
+        instance.isHovered = hoveredZones.size > 0;
+        if (!instance.isHovered) scheduleAutoplay();
+      });
+    });
+    listen(root, "focusin", (event) => {
+      let isFocusVisible = false;
+      try {
+        isFocusVisible = event.target?.matches?.(":focus-visible") ?? false;
+      } catch {
+        isFocusVisible = false;
+      }
+      if (!isFocusVisible) return;
+      instance.isFocused = true;
+      pauseAutoplay();
+    });
+    listen(root, "focusout", (event) => {
+      if (root.contains(event.relatedTarget)) return;
+      instance.isFocused = false;
+      scheduleAutoplay();
+    });
+    const pauseOnTouch = (event) => {
+      if (event.pointerType === "mouse") return;
+      instance.isTouchEngaged = true;
+      pauseAutoplay();
+    };
+    mediaZones.forEach((zone) => listen(zone, "pointerdown", pauseOnTouch));
+    controls.forEach((control) => listen(control, "pointerdown", pauseOnTouch));
 
     controls.forEach((control) => listen(control, "click", () => goTo(
       instance.activeIndex + (control.hasAttribute("data-testimonials-next") ? 1 : -1),

@@ -1,7 +1,9 @@
 import { gsap, ScrollTrigger } from "../lib/gsap.js";
 import {
   bandContext,
+  horizontalScrollPosition,
   verticalScrollPosition,
+  verticalLeadPosition,
 } from "./horizontalScroller.js";
 import {
   measureScreenPath,
@@ -10,6 +12,7 @@ import {
   setScreenPathProgress,
   usesScreenPathLength,
 } from "./screenPath.js";
+import { refreshLineRevealState } from "./lineReveal.js";
 
 /**
  * Draw Path on Scroll — based on the Osmo Supply resource, wired into this
@@ -52,6 +55,9 @@ import {
  *                              scrubs to 100% across the wheel hold. The
  *                              wheel's --rotary-wheel-hold must be > 0;
  *                              otherwise normal draw-path behaviour applies.
+ *   data-draw-scroll-lead     vertical window start (for example "top 60%")
+ *                              for a scrub line inside an active band; the
+ *                              authored horizontal end remains the finish.
  *
  * Despite the attribute name, [data-draw-scroll-path] works on anything
  * DrawSVGPlugin accepts: path, line, polyline, polygon, rect, ellipse, circle.
@@ -143,7 +149,11 @@ export function initDrawPathScroll() {
         const band = bandContext(wrap);
         const scrollBand = hasWindowTrigger ? null : band;
         const authoredStart = wrap.getAttribute("data-draw-scroll-start");
-        const start = authoredStart
+        const authoredLead = wrap.getAttribute("data-draw-scroll-lead");
+        const hasLead = Boolean(authoredLead && scrollBand);
+        const start = hasLead
+          ? () => verticalLeadPosition(wrap, authoredLead)
+          : authoredStart
           ? scrollBand
             ? authoredStart
             : verticalScrollPosition(authoredStart)
@@ -153,7 +163,13 @@ export function initDrawPathScroll() {
               ? "clamp(left center)"
               : "clamp(top center)";
         const authoredEnd = wrap.getAttribute("data-draw-scroll-end");
-        const end = authoredEnd
+        const end = hasLead
+          ? () => {
+              const band = wrap.closest("[data-hscroll-init]") || wrap;
+              const bandStart = band.getBoundingClientRect().top + window.scrollY;
+              return bandStart + horizontalScrollPosition(wrap, authoredEnd || "clamp(right center)");
+            }
+          : authoredEnd
           ? scrollBand
             ? authoredEnd
             : verticalScrollPosition(authoredEnd)
@@ -186,7 +202,8 @@ export function initDrawPathScroll() {
                 end,
                 scrub: true,
                 invalidateOnRefresh: true,
-                ...scrollBand,
+                refreshPriority: 1,
+                ...(hasLead ? {} : scrollBand),
               }),
         };
 
@@ -273,6 +290,7 @@ function createScrubTimeline(wrap, paths, scrollTrigger, stagger) {
       ...scrollTrigger,
       onRefresh: (self) => {
         refreshDrawMeasurements(paths);
+        refreshLineRevealState(wrap, paths, tl, self, stagger);
         authoredRefresh?.(self);
       },
     },
@@ -286,6 +304,14 @@ function createScrubTimeline(wrap, paths, scrollTrigger, stagger) {
 
   // Keep a reference so we can kill it on breakpoint change
   wrap._drawTl = tl;
+  if (!wrap._drawLineState) {
+    wrap._drawLineState = {
+      trigger: tl.scrollTrigger,
+      paths,
+      stagger,
+      revealScrollPosition: () => tl.scrollTrigger.start,
+    };
+  }
   return tl;
 }
 
@@ -407,6 +433,7 @@ function teardownDrawWrapper(wrap) {
     wrap._drawTl.kill();
     wrap._drawTl = null;
   }
+  wrap._drawLineState = null;
   wrap.querySelectorAll("[data-draw-scroll-path]").forEach((path) => {
     if (!path._screenPathDrawState) return;
     path.style.strokeDasharray = path._screenPathDrawState.dasharray;

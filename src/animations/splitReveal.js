@@ -3,6 +3,7 @@ import {
   bandContext,
   verticalScrollPosition,
 } from "./horizontalScroller.js";
+import { lineRevealContext } from "./lineReveal.js";
 
 // Per split-type timing. Finer splits get shorter, tighter staggers so a long
 // string doesn't take forever to finish arriving.
@@ -39,6 +40,10 @@ const TYPES_TO_SPLIT = {
  * where its own position is a poor scroll reference.
  *
  * [data-split-once] — "false" replays the reveal every time it re-enters.
+ *
+ * [data-line-reveal] points to a [data-draw-scroll-wrap]. When that line has a
+ * scrub timeline, the heading starts when its drawn tip crosses the heading's
+ * left edge; this overrides [data-split-start].
  *
  * [data-split-opacity] — "true" scrubs each split target from its normal
  * opacity to zero as the section leaves view. This is opt-in so instances that
@@ -89,8 +94,12 @@ function setupSplit(heading, replay = false) {
   // default has to swap axis with it. An authored start still wins, and has
   // to be written in the band's axis when there is one.
   const band = bandContext(heading);
+  const line = lineRevealContext(heading);
+  const scrollContext = line ? lineScrollContext(line) : band;
   const authoredStart = heading.getAttribute("data-split-start");
-  const start = authoredStart
+  const start = line
+    ? line.start
+    : authoredStart
     ? band
       ? authoredStart
       : verticalScrollPosition(authoredStart)
@@ -140,7 +149,7 @@ function setupSplit(heading, replay = false) {
             trigger,
             start,
             once,
-            ...band,
+            ...scrollContext,
           },
         }),
       });
@@ -148,6 +157,14 @@ function setupSplit(heading, replay = false) {
       return heading._splitTween;
     },
   });
+}
+
+function lineScrollContext(line) {
+  const { scroller, horizontal } = line.trigger.vars;
+  return {
+    ...(scroller ? { scroller } : {}),
+    ...(horizontal ? { horizontal: true } : {}),
+  };
 }
 
 function cleanupSplit(heading) {

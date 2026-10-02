@@ -6,9 +6,9 @@ const fixture = `
   [data-testid=line-lead-fixture]{height:1px}
   [data-testid=line-lead-fixture] [data-hscroll-viewport]{position:sticky;top:0;height:100vh;overflow:hidden}
   [data-testid=line-lead-fixture] [data-hscroll-track]{position:relative;display:flex;width:max-content;height:100%}
-  .line-lead-panel{position:relative;flex:0 0 600px;height:100%;padding:120px 40px}
-  .line-lead-panel:last-child{flex-basis:1200px}
-  [data-testid=line-lead-fixture] [data-draw-scroll-wrap]{position:absolute;left:0;top:0;width:1800px;height:100%;pointer-events:none}
+  .line-lead-panel{position:relative;flex:0 0 700px;height:100%;padding:120px 40px}
+  .line-lead-panel:last-child{flex-basis:1600px}
+  [data-testid=line-lead-fixture] [data-draw-scroll-wrap]{position:absolute;left:0;top:0;width:2600px;height:100%;pointer-events:none}
   [data-testid=line-lead-fixture] [data-draw-scroll-wrap] svg{width:100%;height:100%;overflow:visible}
   [data-testid=line-lead-fixture] [data-line-target]{position:relative;z-index:1}
   [data-testid=line-lead-fixture] [data-shape-reveal]{width:120px;height:120px;background:#fff}
@@ -16,8 +16,8 @@ const fixture = `
 </style>
 <div class=line-lead-spacer></div>
 <section data-testid=line-lead-fixture data-hscroll-init><div data-hscroll-viewport><div data-hscroll-track>
-  <div class=lead-line data-draw-scroll-wrap data-draw-scroll-lead="top 60%" data-draw-scroll-end="clamp(right center)"><svg viewBox="0 0 1800 1000" preserveAspectRatio="none" data-draw-scroll-desktop><path d="M0 100 C300 100 420 180 600 260 S900 480 1200 520 S1550 800 1800 980" vector-effect="non-scaling-stroke" fill="none" stroke="white" stroke-width="5" data-draw-scroll-path></svg></div>
-  <div class=default-line data-draw-scroll-wrap data-draw-scroll-start="clamp(left center)" data-draw-scroll-end="clamp(right center)"><svg viewBox="0 0 1800 1000" preserveAspectRatio="none" data-draw-scroll-desktop><path d="M0 800 L1800 800" vector-effect="non-scaling-stroke" fill="none" stroke="white" stroke-width="5" data-draw-scroll-path></svg></div>
+  <div class=lead-line data-draw-scroll-wrap data-draw-scroll-lead="top 60%" data-draw-scroll-end="clamp(right center)" data-draw-scroll-lead-end="clamp(right right)"><svg viewBox="0 0 2600 1000" preserveAspectRatio="none" data-draw-scroll-desktop><path d="M0 100 C430 100 600 180 870 260 S1300 480 1730 520 S2250 800 2600 980" vector-effect="non-scaling-stroke" fill="none" stroke="white" stroke-width="5" data-draw-scroll-path></svg></div>
+  <div class=default-line data-draw-scroll-wrap data-draw-scroll-start="clamp(left center)" data-draw-scroll-end="clamp(right center)"><svg viewBox="0 0 2600 1000" preserveAspectRatio="none" data-draw-scroll-desktop><path d="M0 800 L2600 800" vector-effect="non-scaling-stroke" fill="none" stroke="white" stroke-width="5" data-draw-scroll-path></svg></div>
   <div class=line-lead-panel><h2 data-split=heading data-line-reveal=.lead-line>First line</h2><div data-shape-reveal=circle data-line-reveal=.lead-line></div><p data-split=heading data-testid=default-heading>Default line</p></div>
   <div class=line-lead-panel><img data-wipe-reveal data-line-reveal=.lead-line alt="" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="></div>
   <div class=line-lead-panel><p data-line-target>Last panel</p></div>
@@ -42,7 +42,17 @@ async function geometry(page) {
   return page.locator("[data-testid=line-lead-fixture]").evaluate((band) => {
     const line = band.querySelector(".lead-line");
     const st = line._drawTl.scrollTrigger;
-    return { bandStart: band.getBoundingClientRect().top + scrollY, lead: st.start, end: st.end };
+    return {
+      bandStart: band.getBoundingClientRect().top + scrollY,
+      lead: st.start,
+      end: st.end,
+      expectedLeadEnd: band.getBoundingClientRect().top + scrollY + Math.min(
+        Math.max(0, band.querySelector("[data-hscroll-track]").scrollWidth -
+          band.querySelector("[data-hscroll-viewport]").clientWidth),
+        Math.max(0, line.getBoundingClientRect().width -
+          band.querySelector("[data-hscroll-viewport]").clientWidth),
+      ),
+    };
   });
 }
 
@@ -80,6 +90,7 @@ for (const [width, height] of [[1280, 800], [1440, 900], [1920, 1080]]) {
     await loadFixture(page, width, height);
     const range = await geometry(page);
     const crossings = await crossingProgress(page);
+    expect(range.end).toBeCloseTo(range.expectedLeadEnd, 0);
 
     await page.evaluate((range) => {
       scrollTo({ top: range.lead - 100, behavior: "instant" });
@@ -130,10 +141,51 @@ for (const [width, height] of [[1280, 800], [1440, 900], [1920, 1080]]) {
 test("resize rebuilds the line mapping and preserves opt-outs", async ({ page }) => {
   await loadFixture(page, 1440, 900);
   const before = await geometry(page);
+  await expect.poll(() => page.locator(".lead-line").evaluate((line) => typeof line._drawTl.scrollTrigger.vars.start)).toBe("function");
   await expect(page.locator("[data-testid=default-heading]")).toHaveCount(1);
   await expect.poll(() => page.locator("[data-testid=default-heading]").evaluate((element) => ({ start: element._splitTween.scrollTrigger.vars.start, horizontal: element._splitTween.scrollTrigger.vars.horizontal }))).toEqual({ start: "clamp(left 80%)", horizontal: true });
   await expect.poll(() => page.locator(".default-line").evaluate((line) => ({ horizontal: line._drawTl.scrollTrigger.vars.horizontal, scroller: Boolean(line._drawTl.scrollTrigger.vars.scroller) }))).toEqual({ horizontal: true, scroller: true });
   await page.setViewportSize({ width: 1280, height: 800 });
   await expect.poll(() => page.locator(".lead-line").evaluate((line) => line._drawTl?.scrollTrigger?.end)).not.toBe(before.end);
   await expect(page.locator("[data-testid=line-lead-fixture][data-hscroll-active]")).toHaveCount(1);
+});
+
+test("tablet keeps the normal horizontal line and reveal starts", async ({ page }) => {
+  await loadFixture(page, 900, 1100);
+
+  const state = await page.locator(".lead-line").evaluate((line) => ({
+    start: line._drawTl.scrollTrigger.vars.start,
+    end: line._drawTl.scrollTrigger.vars.end,
+    horizontal: line._drawTl.scrollTrigger.vars.horizontal,
+    targetStarts: [...document.querySelectorAll("[data-line-reveal]")].map((element) => {
+      const tween = element._splitTween || element._shapeRevealTween || element._wipeTween;
+      return { start: tween.scrollTrigger.vars.start, horizontal: tween.scrollTrigger.vars.horizontal };
+    }),
+  }));
+
+  expect(state).toMatchObject({
+    start: "clamp(left center)",
+    end: "clamp(right center)",
+    horizontal: true,
+  });
+  expect(state.targetStarts).toEqual([
+    { start: "clamp(left 80%)", horizontal: true },
+    { start: "clamp(left 80%)", horizontal: true },
+    { start: "clamp(left 80%)", horizontal: true },
+  ]);
+});
+
+test("crossing 992px switches line-led mode cleanly in both directions", async ({ page }) => {
+  await loadFixture(page, 1440, 900);
+  const mode = () => page.locator(".lead-line").evaluate((line) => ({
+    lead: typeof line._drawTl.scrollTrigger.vars.start === "function",
+    horizontal: line._drawTl.scrollTrigger.vars.horizontal === true,
+    reveal: typeof document.querySelector("[data-line-reveal]")._splitTween.scrollTrigger.vars.start === "function",
+  }));
+
+  await expect.poll(mode).toEqual({ lead: true, horizontal: false, reveal: true });
+  await page.setViewportSize({ width: 900, height: 1100 });
+  await expect.poll(mode).toEqual({ lead: false, horizontal: true, reveal: false });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect.poll(mode).toEqual({ lead: true, horizontal: false, reveal: true });
 });

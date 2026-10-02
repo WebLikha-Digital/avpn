@@ -1,6 +1,10 @@
 import { gsap } from "../lib/gsap.js";
 import { measureScreenPath } from "./screenPath.js";
 
+// Webflow's desktop breakpoint. Line-led behavior is intentionally absent at
+// tablet and phone widths, where the existing horizontal-band behavior owns.
+export const DESKTOP_LINE_REVEAL_MIN_WIDTH = 992;
+
 /**
  * Resolve data-line-reveal without making reveal modules know how a draw line
  * is implemented. The draw module refreshes this state once per ScrollTrigger
@@ -8,7 +12,7 @@ import { measureScreenPath } from "./screenPath.js";
  */
 export function lineRevealContext(element) {
   const selector = element.getAttribute("data-line-reveal");
-  if (!selector) return null;
+  if (!selector || window.innerWidth < DESKTOP_LINE_REVEAL_MIN_WIDTH) return null;
 
   let line;
   try {

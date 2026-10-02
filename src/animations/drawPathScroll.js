@@ -12,7 +12,10 @@ import {
   setScreenPathProgress,
   usesScreenPathLength,
 } from "./screenPath.js";
-import { refreshLineRevealState } from "./lineReveal.js";
+import {
+  DESKTOP_LINE_REVEAL_MIN_WIDTH,
+  refreshLineRevealState,
+} from "./lineReveal.js";
 
 /**
  * Draw Path on Scroll — based on the Osmo Supply resource, wired into this
@@ -58,6 +61,8 @@ import { refreshLineRevealState } from "./lineReveal.js";
  *   data-draw-scroll-lead     vertical window start (for example "top 60%")
  *                              for a scrub line inside an active band; the
  *                              authored horizontal end remains the finish.
+ *   data-draw-scroll-lead-end horizontal end used by lead mode only; falls
+ *                              back to data-draw-scroll-end, then its default.
  *
  * Despite the attribute name, [data-draw-scroll-path] works on anything
  * DrawSVGPlugin accepts: path, line, polyline, polygon, rect, ellipse, circle.
@@ -150,7 +155,11 @@ export function initDrawPathScroll() {
         const scrollBand = hasWindowTrigger ? null : band;
         const authoredStart = wrap.getAttribute("data-draw-scroll-start");
         const authoredLead = wrap.getAttribute("data-draw-scroll-lead");
-        const hasLead = Boolean(authoredLead && scrollBand);
+        const hasLead = Boolean(
+          authoredLead &&
+          scrollBand &&
+          window.innerWidth >= DESKTOP_LINE_REVEAL_MIN_WIDTH,
+        );
         const start = hasLead
           ? () => verticalLeadPosition(wrap, authoredLead)
           : authoredStart
@@ -163,11 +172,15 @@ export function initDrawPathScroll() {
               ? "clamp(left center)"
               : "clamp(top center)";
         const authoredEnd = wrap.getAttribute("data-draw-scroll-end");
+        const authoredLeadEnd = wrap.getAttribute("data-draw-scroll-lead-end");
         const end = hasLead
           ? () => {
               const band = wrap.closest("[data-hscroll-init]") || wrap;
               const bandStart = band.getBoundingClientRect().top + window.scrollY;
-              return bandStart + horizontalScrollPosition(wrap, authoredEnd || "clamp(right center)");
+              return bandStart + horizontalScrollPosition(
+                wrap,
+                authoredLeadEnd || authoredEnd || "clamp(right center)",
+              );
             }
           : authoredEnd
           ? scrollBand
@@ -202,7 +215,7 @@ export function initDrawPathScroll() {
                 end,
                 scrub: true,
                 invalidateOnRefresh: true,
-                refreshPriority: 1,
+                ...(hasLead ? { refreshPriority: 1 } : {}),
                 ...(hasLead ? {} : scrollBand),
               }),
         };

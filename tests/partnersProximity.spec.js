@@ -48,6 +48,29 @@ async function pillVisuals(section) {
   }));
 }
 
+async function partnerSnapshot(section) {
+  return section.evaluate((root) => {
+    const pills = [...root.querySelectorAll("[data-partners-pill]")];
+    const visuals = pills.map((pill) => {
+      const transform = getComputedStyle(pill).transform;
+      const values = transform.match(/matrix(3d)?\(([^)]+)\)/)?.[2].split(",").map(Number);
+      const cssRotate = Number.parseFloat(getComputedStyle(pill).rotate) || 0;
+      return {
+        rotation: (values ? Math.atan2(values[1], values[0]) * 180 / Math.PI : 0) + cssRotate,
+        scale: values ? Math.hypot(values[0], values[1]) : 1,
+      };
+    });
+    return {
+      visuals,
+      activeIndices: pills.reduce((indices, pill, pillIndex) => {
+        if (pill.dataset.partnersIdle) indices.push(pillIndex);
+        return indices;
+      }, []),
+      authoredTilts: pills.map((pill) => Number(pill.dataset.partnersTilt)),
+    };
+  });
+}
+
 async function enableFastIdle(section, page) {
   await section.evaluate(async (root) => {
     root.style.setProperty("--partners-idle-min", "0.05s");
@@ -130,18 +153,53 @@ test("pointer movement over pills does not change their scale", async ({ page })
   await expect(section.locator("[data-partners-lift]")).toHaveCount(0);
 });
 
-test("animates only one idle pill at a time", async ({ page }) => {
+test("animates a fresh group of two or three idle pills per round", async ({ page }) => {
   const section = await showPartners(page);
   await enableFastIdle(section, page);
 
-  await page.waitForFunction((root) => root.querySelector("[data-partners-idle]"), await section.elementHandle());
-  const samples = [];
-  for (let index = 0; index < 8; index += 1) {
-    samples.push(await idlePillCount(section));
-    await page.waitForTimeout(100);
+  const rounds = await section.evaluate((root) => {
+    const pills = [...root.querySelectorAll("[data-partners-pill]")];
+    return new Promise((resolve) => {
+      const captured = [];
+      let activeRound = null;
+      const tick = () => {
+        const active = pills
+          .map((pill, index) => pill.dataset.partnersIdle ? index : null)
+          .filter((index) => index !== null);
+        if (!activeRound && active.length) activeRound = active;
+        if (activeRound && !active.length) {
+          const settled = pills.map((pill) => {
+            const transform = getComputedStyle(pill).transform;
+            const values = transform.match(/matrix(3d)?\(([^)]+)\)/)?.[2].split(",").map(Number);
+            const cssRotate = Number.parseFloat(getComputedStyle(pill).rotate) || 0;
+            return {
+              rotation: (values ? Math.atan2(values[1], values[0]) * 180 / Math.PI : 0) + cssRotate,
+              scale: values ? Math.hypot(values[0], values[1]) : 1,
+              authoredTilt: Number(pill.dataset.partnersTilt),
+            };
+          });
+          captured.push({ active: activeRound, settled });
+          activeRound = null;
+          if (captured.length >= 4) {
+            resolve(captured);
+            return;
+          }
+        }
+        requestAnimationFrame(tick);
+      };
+      tick();
+    });
+  });
+
+  expect(rounds).toHaveLength(4);
+  expect(rounds.every(({ active }) => active.length >= 2 && active.length <= 3)).toBe(true);
+  expect(rounds.every(({ active }) => new Set(active).size === active.length)).toBe(true);
+  for (let index = 1; index < rounds.length; index += 1) {
+    expect(rounds[index].active.some((pill) => rounds[index - 1].active.includes(pill))).toBe(false);
   }
-  expect(samples.some((count) => count === 1)).toBe(true);
-  expect(samples.every((count) => count <= 1)).toBe(true);
+  expect(rounds.every(({ settled }) => settled.every(({ rotation, scale, authoredTilt }) => (
+    Math.abs(rotation - authoredTilt) < 0.1 && Math.abs(scale - 1) < 0.01
+  )))).toBe(true);
 });
 
 test("idle uses the default four-second interval", async ({ page }) => {
@@ -273,21 +331,17 @@ test("idle wiggle follows and returns to the active pill's authored tilt", async
   expect(Math.max(...rotations) - Math.min(...rotations)).toBeGreaterThan(2);
   expect(rotations.every((rotation) => Math.abs(rotation - authoredTilt) <= 3.5)).toBe(true);
   expect(Math.abs(samples.at(-1).rotation - authoredTilt)).toBeLessThan(0.1);
-  expect(Math.abs((await pillVisuals(section))[index].rotation - authoredTilt)).toBeLessThan(0.1);
+  const afterRound = await partnerSnapshot(section);
+  if (!afterRound.activeIndices.includes(index)) {
+    expect(Math.abs(afterRound.visuals[index].rotation - authoredTilt)).toBeLessThan(0.1);
+  }
 
   await page.waitForTimeout(700);
-  const allSettled = await pillVisuals(section);
-  const { activeIndices, authoredTilts } = await section.locator("[data-partners-pill]").evaluateAll((pills) => ({
-    activeIndices: pills.reduce((indices, pill, pillIndex) => {
-      if (pill.dataset.partnersIdle) indices.push(pillIndex);
-      return indices;
-    }, []),
-    authoredTilts: pills.map((pill) => Number(pill.dataset.partnersTilt)),
-  }));
-  expect(activeIndices.length).toBeLessThanOrEqual(1);
-  expect(allSettled.every(({ rotation, scale }, pillIndex) => (
-    activeIndices.includes(pillIndex) ||
-    Math.abs(rotation - authoredTilts[pillIndex]) < 0.1 && Math.abs(scale - 1) < 0.01
+  const settled = await partnerSnapshot(section);
+  expect(settled.activeIndices.length).toBeLessThanOrEqual(3);
+  expect(settled.visuals.every(({ rotation, scale }, pillIndex) => (
+    settled.activeIndices.includes(pillIndex) ||
+    Math.abs(rotation - settled.authoredTilts[pillIndex]) < 0.1 && Math.abs(scale - 1) < 0.01
   ))).toBe(true);
 });
 
@@ -297,7 +351,10 @@ test("idle zoom-out returns every pill to scale 1", async ({ page }) => {
 
   expect(Math.min(...samples.map(({ scale }) => scale))).toBeLessThan(0.95);
   expect(samples.at(-1).scale).toBeCloseTo(1, 2);
-  expect(await scaleOf(section.locator("[data-partners-pill]").nth(index))).toBeCloseTo(1, 2);
+  const afterRound = await partnerSnapshot(section);
+  if (!afterRound.activeIndices.includes(index)) {
+    expect(afterRound.visuals[index].scale).toBeCloseTo(1, 2);
+  }
   const { activeIndices, visuals } = await section.locator("[data-partners-pill]").evaluateAll((pills) => ({
     activeIndices: pills.reduce((indices, pill, pillIndex) => {
       if (pill.dataset.partnersIdle) indices.push(pillIndex);
@@ -309,6 +366,6 @@ test("idle zoom-out returns every pill to scale 1", async ({ page }) => {
       return values ? Math.hypot(values[0], values[1]) : 1;
     }),
   }));
-  expect(activeIndices.length).toBeLessThanOrEqual(1);
+  expect(activeIndices.length).toBeLessThanOrEqual(3);
   expect(visuals.every((scale, pillIndex) => activeIndices.includes(pillIndex) || Math.abs(scale - 1) < 0.01)).toBe(true);
 });

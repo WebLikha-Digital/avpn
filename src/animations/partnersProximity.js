@@ -7,6 +7,7 @@ const DEFAULTS = {
   revealScale: 0.62,
   idleMin: 4,
   idleMax: 4,
+  idleStagger: 0.12,
   idleScale: 0.85,
   idleRotation: 3,
 };
@@ -43,23 +44,23 @@ export function initPartnersProximity() {
     let idleVisibilityTrigger = null;
     let idleDelay = null;
     let idleTween = null;
-    let idlePill = null;
-    let idleLastIndex = -1;
+    let idlePreviousPills = [];
     let idleInViewport = false;
-    let idleStartRotation = 0;
+    const idleBaseRotations = new Map();
 
     const idleState = {
       activePill: null,
+      activePills: [],
       paused: true,
       running: false,
       mode: null,
       forceMode: null,
     };
 
-    const resetIdlePill = (pill) => {
+    const resetIdlePill = (pill, baseRotation = idleBaseRotations.get(pill)) => {
       if (!pill) return;
       gsap.set(pill, {
-        rotation: idleStartRotation,
+        rotation: Number(baseRotation) || 0,
         scaleX: 1,
         scaleY: 1,
       });
@@ -71,9 +72,14 @@ export function initPartnersProximity() {
       idleDelay = null;
       idleTween?.kill();
       idleTween = null;
-      resetIdlePill(idlePill);
-      idlePill = null;
+      idleState.activePills.forEach((pill) => resetIdlePill(pill));
+      pills.forEach((pill) => {
+        if (pill.dataset.partnersIdle) resetIdlePill(pill);
+      });
+      idleBaseRotations.clear();
+      idlePreviousPills = [];
       idleState.activePill = null;
+      idleState.activePills = [];
       idleState.running = false;
       idleState.paused = true;
       idleState.mode = null;
@@ -95,42 +101,61 @@ export function initPartnersProximity() {
         return;
       }
 
-      let index = gsap.utils.random(0, pills.length - 1, 1);
-      if (pills.length > 1 && index === idleLastIndex) index = (index + 1) % pills.length;
-      idleLastIndex = index;
-      idlePill = pills[index];
-      const pill = idlePill;
-      const baseRotation = Number(gsap.getProperty(pill, "rotation")) || 0;
-      idleStartRotation = baseRotation;
-      const mode = idleState.forceMode || (Math.random() < 0.5 ? "wiggle" : "zoom-out");
+      const count = Math.min(pills.length, gsap.utils.random(2, 3, 1));
+      const candidates = pills.filter((pill) => !idlePreviousPills.includes(pill));
+      const pool = candidates.length >= count ? candidates : pills;
+      const activePills = gsap.utils.shuffle([...pool]).slice(0, count);
+      const forcedMode = idleState.forceMode;
       idleState.forceMode = null;
 
-      pill.dataset.partnersIdle = mode;
-      idleState.activePill = pill;
+      activePills.forEach((pill) => {
+        idleBaseRotations.set(pill, Number(gsap.getProperty(pill, "rotation")) || 0);
+      });
+      const modes = activePills.map(() => forcedMode || (Math.random() < 0.5 ? "wiggle" : "zoom-out"));
+      const round = gsap.timeline({ onComplete: finishRound });
+      idleState.activePill = activePills[0];
+      idleState.activePills = activePills;
       idleState.running = true;
       idleState.paused = false;
-      idleState.mode = mode;
+      idleState.mode = modes[0];
 
-      const finish = () => {
+      const finishPill = (pill) => {
         resetIdlePill(pill);
+      };
+
+      activePills.forEach((pill, index) => {
+        const baseRotation = idleBaseRotations.get(pill);
+        const mode = modes[index];
+        pill.dataset.partnersIdle = mode;
+        const pillTimeline = gsap.timeline({ onComplete: () => finishPill(pill) });
+
+        if (mode === "wiggle") {
+          pillTimeline
+            .to(pill, { rotation: baseRotation + DEFAULTS.idleRotation, duration: 0.16, ease: "power2.out" })
+            .to(pill, { rotation: baseRotation - DEFAULTS.idleRotation, duration: 0.2, ease: "power2.inOut" })
+            .to(pill, { rotation: baseRotation, duration: 0.16, ease: "power2.out" });
+        } else {
+          pillTimeline
+            .to(pill, { scaleX: DEFAULTS.idleScale, scaleY: DEFAULTS.idleScale, duration: 0.2, ease: "power2.out" })
+            .to(pill, { scaleX: 1, scaleY: 1, duration: 0.42, ease: "back.out(2.2)" });
+        }
+
+        round.add(pillTimeline, index * DEFAULTS.idleStagger);
+      });
+
+      function finishRound() {
+        activePills.forEach((pill) => finishPill(pill));
+        idleBaseRotations.clear();
+        idlePreviousPills = activePills;
         idleTween = null;
-        idlePill = null;
         idleState.activePill = null;
+        idleState.activePills = [];
         idleState.running = false;
         idleState.mode = null;
         scheduleIdle();
-      };
-
-      if (mode === "wiggle") {
-        idleTween = gsap.timeline({ onComplete: finish })
-          .to(pill, { rotation: baseRotation + DEFAULTS.idleRotation, duration: 0.16, ease: "power2.out" })
-          .to(pill, { rotation: baseRotation - DEFAULTS.idleRotation, duration: 0.2, ease: "power2.inOut" })
-          .to(pill, { rotation: baseRotation, duration: 0.16, ease: "power2.out" });
-      } else {
-        idleTween = gsap.timeline({ onComplete: finish })
-          .to(pill, { scaleX: DEFAULTS.idleScale, scaleY: DEFAULTS.idleScale, duration: 0.2, ease: "power2.out" })
-          .to(pill, { scaleX: 1, scaleY: 1, duration: 0.42, ease: "back.out(2.2)" });
       }
+
+      idleTween = round;
     }
 
     const createIdleVisibilityTrigger = () => {

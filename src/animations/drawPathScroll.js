@@ -327,11 +327,13 @@ function createScrubTimeline(
       onRefresh: lineRevealEnabled
         ? (self) => {
             refreshDrawMeasurements(paths);
+            setDrawScrubState(wrap, paths, stagger, tl, self);
             refreshLineRevealState(wrap, paths, tl, self, stagger);
             authoredRefresh?.(self);
           }
         : (self) => {
             refreshDrawMeasurements(paths);
+            setDrawScrubState(wrap, paths, stagger, tl, self);
             authoredRefresh?.(self);
           },
     },
@@ -345,10 +347,22 @@ function createScrubTimeline(
 
   // Keep a reference so we can kill it on breakpoint change
   wrap._drawTl = tl;
+  setDrawScrubState(wrap, paths, stagger, tl, tl.scrollTrigger);
   if (lineRevealEnabled) {
     refreshLineRevealState(wrap, paths, tl, tl.scrollTrigger, stagger);
   }
   return tl;
+}
+
+// Read by impactCollabReveal.js. Kept apart from _drawLineState, which
+// lineReveal.js owns and which stays null on lines without dependants.
+function setDrawScrubState(wrap, paths, stagger, timeline, trigger) {
+  wrap._drawScrubState = {
+    trigger,
+    paths,
+    stagger,
+    duration: timeline.duration() || 1,
+  };
 }
 
 function createWheelHoldScrubTimeline(wrap, paths, wheelState, stagger) {
@@ -494,6 +508,7 @@ function teardownDrawWrapper(wrap) {
     wrap._drawTl = null;
   }
   wrap._drawLineState = null;
+  wrap._drawScrubState = null;
   wrap.querySelectorAll("[data-draw-scroll-path]").forEach((path) => {
     if (!path._screenPathDrawState) return;
     path.style.strokeDasharray = path._screenPathDrawState.dasharray;

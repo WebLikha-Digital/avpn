@@ -29,6 +29,14 @@ async function useShortTimings(page, timings = { interval: 220, hold: 80, durati
 // whatever scrollIntoViewIfNeeded moves — every other spec jumps the same way.
 async function scrollToGrid(page) {
   const target = await page.locator(grid).evaluate((node) => {
+    // Line-led reveal (line shown, >=768): just past the last tile's reveal.
+    const reveal = node._impactCollabReveal;
+    const lineTrigger = reveal?.line?._drawScrubState?.trigger;
+    if (lineTrigger && reveal.lineRevealPositions) {
+      const span = (reveal.timeline.duration() || 1) - 1;
+      const last = Math.max(...reveal.lineRevealPositions) + span;
+      return lineTrigger.start + (lineTrigger.end - lineTrigger.start) * last + 40;
+    }
     const rect = node.getBoundingClientRect();
     const top = rect.top + window.scrollY;
     return window.innerWidth <= 991

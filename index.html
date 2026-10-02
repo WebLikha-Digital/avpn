@@ -334,6 +334,14 @@
       .forward_buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(.875rem,1.1vw,1rem)} /* Webflow: class; gap = space/3. Programmes Evolution CTAs, Button Primary instances */
       .forward_buttons [data-button]{margin-top:0}
       .forward_buttons [data-button] .sig-events_card-link-label{white-space:normal} /* labels wrap inside the half-width columns */
+      /* Pill restyle to match the Meet the team .team_tab pill: no icon, no fill wipe, yellow-lightest plate with a yellow border, charcoal bold uppercase label. Hover deepens to yellow-lighter like the team tabs. */
+      .forward_buttons [data-button]{height:auto;padding:var(--_spacing---space--3-16px, 1rem) var(--_spacing---space--5-32px);column-gap:0;border-color:var(--_primitives---brand--secondary--yellow-main);background-color:var(--_primitives---brand--secondary--yellow-lightest, #fff6d4);color:var(--_primitives---brand--secondary--charcoal-main);letter-spacing:normal;transition:background-color .25s,border-color .25s}
+      .forward_buttons [data-button] .sig-events_card-link-bg,.forward_buttons [data-button] .sig-events_card-link-icon{display:none}
+      .forward_buttons [data-button] .sig-events_card-link-label{font-family:var(--_typography---font--secondary-family);font-size:var(--_typography---font-size--text-main, 1.125rem);font-weight:var(--_typography---font--secondary-bold, 700);line-height:1.2;letter-spacing:normal;color:inherit;transition:none}
+      .forward_buttons [data-button]:is(:hover,:focus-visible) .sig-events_card-link-label{color:inherit}
+      .forward_buttons [data-button]:focus-visible{outline:2px solid var(--_primitives---brand--primary--navy-main);outline-offset:2px}
+      @media (hover:hover){.forward_buttons [data-button]:hover{background-color:var(--_primitives---brand--secondary--yellow-lighter, #ffeaa8)}}
+      @media (prefers-reduced-motion:reduce){.forward_buttons [data-button]{transition:none}}
       @media (max-width:479px){.forward_buttons{grid-template-columns:minmax(0,1fr)}} /* phone: one column, 2x2 clips the labels */
       @media (max-width:991px){.section_forward{--forward-middle-shift:-120,-150,40;--forward-panel-top-gap:0rem}.forward_panel{grid-template-columns:1fr;grid-template-rows:max-content max-content;align-content:start}.forward_panel.is-flip .forward_panel-media{order:0}.forward_panel-media{height:auto;aspect-ratio:16/9;z-index:0}.forward_panel-body{height:auto;min-width:0;align-items:flex-start;overflow:visible;background-color:#f7f1ea;z-index:1;padding-top:6.5rem;min-height:100vh}.forward_panel-inner{max-width:35.5rem}}
       @media (min-width:768px) and (max-width:991px){.section_forward{--forward-panel-top-gap:0rem}.forward_content{max-width:none;padding-inline:calc(12vw + 1.5rem)}} /* tablet: the zoomed side tiles reach about 11.3vw in from each edge, so the intro copy is inset past them with 1.5rem to spare (forward-css embed) */

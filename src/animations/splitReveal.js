@@ -93,7 +93,13 @@ function setupSplit(heading, replay = false) {
   // Inside a horizontal band the heading never moves vertically, so the
   // default has to swap axis with it. An authored start still wins, and has
   // to be written in the band's axis when there is one.
-  const band = bandContext(heading);
+  // A heading in the band header is a sibling of the viewport, so it moves
+  // with the window even though its section owns an active horizontal band.
+  // Keep bandContext's broader section-element contract intact for its other
+  // callers (marketsChart and signatureEvents pass the section itself).
+  const band = heading.closest("[data-hscroll-viewport]")
+    ? bandContext(heading)
+    : null;
   const line = lineRevealContext(heading);
   const scrollContext = line ? lineScrollContext(line) : band;
   const authoredStart = heading.getAttribute("data-split-start");

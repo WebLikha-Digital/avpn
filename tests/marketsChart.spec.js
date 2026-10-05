@@ -57,6 +57,46 @@ test("has the twenty authored market bars", async ({ page }) => {
   await expect(page.locator(bars).first()).toHaveAttribute("data-markets-value", "49.19");
 });
 
+test("reveals the markets heading on the vertical page scroll", async ({ page }) => {
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+
+  const heading = page.locator(`${section} .markets_heading`);
+  await expect(heading).toHaveCount(1);
+  await expect.poll(() => heading.locator(".line").count()).toBeGreaterThan(0);
+
+  const before = await heading.locator(".line").evaluateAll((lines) =>
+    lines.map((line) => new DOMMatrixReadOnly(getComputedStyle(line).transform).m42),
+  );
+  expect(before.every((y) => Math.abs(y) > 1)).toBe(true);
+
+  const trigger = await heading.evaluate((element) => ({
+    horizontal: element._splitTween.scrollTrigger.vars.horizontal ?? false,
+    scrollerIsWindow: element._splitTween.scrollTrigger.scroller === window,
+    start: element._splitTween.scrollTrigger.vars.start,
+  }));
+  expect(trigger).toEqual({ horizontal: false, scrollerIsWindow: true, start: "clamp(top 80%)" });
+
+  const triggerStart = await heading.evaluate((element) => element._splitTween.scrollTrigger.start);
+  await page.evaluate((target) => {
+    window.scrollTo({ top: Math.max(0, target - 1200), behavior: "instant" });
+  }, triggerStart);
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+
+  await page.mouse.move(640, 400);
+  for (let frame = 0; frame < 40; frame += 1) {
+    await page.mouse.wheel(0, 100);
+    await page.waitForTimeout(25);
+    if (await heading.evaluate((element) => element.getBoundingClientRect().top < window.innerHeight * 0.8)) {
+      break;
+    }
+  }
+
+  await expect.poll(() => heading.locator(".line").evaluateAll((lines) =>
+    lines.every((line) => Math.abs(new DOMMatrixReadOnly(getComputedStyle(line).transform).m42) < 1),
+  )).toBe(true);
+});
+
 test("reveals entry bars in sequence without scrub triggers", async ({ page }) => {
   await page.goto("/");
   await page.waitForLoadState("networkidle");

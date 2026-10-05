@@ -202,7 +202,7 @@ test("animates a fresh group of two or three idle pills per round", async ({ pag
   )))).toBe(true);
 });
 
-test("idle uses the default four-second interval", async ({ page }) => {
+test("idle uses the default three-second interval", async ({ page }) => {
   const section = await showPartners(page);
   const interval = await section.evaluate(async (root) => {
     document.adoptedStyleSheets = document.adoptedStyleSheets.filter((sheet) => (
@@ -228,8 +228,8 @@ test("idle uses the default four-second interval", async ({ page }) => {
       observer.observe(root, { subtree: true, attributes: true, attributeFilter: ["data-partners-idle"] });
     });
   });
-  expect(interval).toBeGreaterThan(3900);
-  expect(interval).toBeLessThan(4100);
+  expect(interval).toBeGreaterThan(2900);
+  expect(interval).toBeLessThan(3100);
 });
 
 test("idle keeps running while the pointer is over the section", async ({ page }) => {

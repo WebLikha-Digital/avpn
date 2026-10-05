@@ -5,7 +5,7 @@ import { gsap, ScrollTrigger } from "../lib/gsap.js";
  * border-radius values. Border-radius preserves the tile's layout and text
  * position while expressing all four authored shapes without SVG morphing or
  * a crossfade. The repeating timeline follows the Osmo Logo Wall Cycle:
- * repeatDelay spaces swaps by four seconds and a shuffled tile pattern makes
+ * repeatDelay spaces swaps by three seconds and a shuffled tile pattern makes
  * every tile morph once per round. The shared "smooth" ease comes from
  * lib/gsap.js; ScrollTrigger and visibilitychange keep the cycle active only
  * while the section is visible and the document is visible. Reduced-motion
@@ -115,8 +115,8 @@ export function initCausesShapes() {
 
     instance.timeline = gsap.timeline({
       repeat: -1,
-      repeatDelay: 4,
-      delay: 4,
+      repeatDelay: 3,
+      delay: 3,
       paused: true,
     }).call(instance.swapNext);
 

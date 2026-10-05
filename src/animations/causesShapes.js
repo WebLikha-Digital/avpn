@@ -40,8 +40,8 @@ const SHAPE_NAMES = Object.keys(SHAPES);
 // the arc on published tiles. Authored start shapes are not validated by this
 // morph-decision rule.
 const FIT_TOLERANCE = 0.02;
-const REVEAL_DURATION = 0.8;
-const REVEAL_STAGGER = 0.06;
+const REVEAL_DURATION = 0.6;
+const REVEAL_STAGGER = 0.04;
 const REVEAL_DISTANCE = "2em";
 const REVEAL_EASE = "power4.inOut";
 

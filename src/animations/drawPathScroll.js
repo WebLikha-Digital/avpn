@@ -1,4 +1,4 @@
-import { gsap, ScrollTrigger } from "../lib/gsap.js";
+import { gsap, ScrollTrigger, DrawSVGPlugin } from "../lib/gsap.js";
 import {
   bandContext,
   horizontalScrollPosition,
@@ -238,6 +238,7 @@ export function initDrawPathScroll() {
               ...scrollTrigger,
               onRefresh: (self) => {
                 refreshDrawMeasurements(paths);
+                syncDrawVisibility(paths);
                 authoredRefresh?.(self);
               },
             },
@@ -329,11 +330,13 @@ function createScrubTimeline(
             refreshDrawMeasurements(paths);
             setDrawScrubState(wrap, paths, stagger, tl, self);
             refreshLineRevealState(wrap, paths, tl, self, stagger);
+            syncDrawVisibility(paths);
             authoredRefresh?.(self);
           }
         : (self) => {
             refreshDrawMeasurements(paths);
             setDrawScrubState(wrap, paths, stagger, tl, self);
+            syncDrawVisibility(paths);
             authoredRefresh?.(self);
           },
     },
@@ -348,6 +351,7 @@ function createScrubTimeline(
   // Keep a reference so we can kill it on breakpoint change
   wrap._drawTl = tl;
   setDrawScrubState(wrap, paths, stagger, tl, tl.scrollTrigger);
+  syncDrawVisibility(paths);
   if (lineRevealEnabled) {
     refreshLineRevealState(wrap, paths, tl, tl.scrollTrigger, stagger);
   }
@@ -396,6 +400,7 @@ function createWheelHoldScrubTimeline(wrap, paths, wheelState, stagger) {
     onRefresh: (self) => {
       refreshDrawMeasurements(paths);
       mapHoldProgress(self);
+      syncDrawVisibility(paths);
     },
   });
   // ScrollTrigger normally adds this back-reference when `animation` is
@@ -592,6 +597,15 @@ function setDrawProgress(paths, progress) {
     } else {
       gsap.set(path, { drawSVG: `${progress * 100}%` });
     }
+  });
+}
+
+function syncDrawVisibility(paths) {
+  paths.forEach((path) => {
+    if (usesScreenPathLength(path)) return;
+
+    const [start, end] = DrawSVGPlugin.getPosition(path);
+    setPathVisibility(path, end - start > 0);
   });
 }
 

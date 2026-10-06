@@ -469,6 +469,136 @@ test("keeps one canvas per instance after a resize", async ({ page }) => {
   await expect(page.locator("[data-tunnel2-init] canvas")).toHaveCount(1);
 });
 
+test("uses mobile portrait tunnel2 variants and switches them at 480px", async ({ page }) => {
+  await page.addInitScript(() => {
+    const applyAttributes = () => {
+      const mount = document.querySelector("[data-tunnel2-init]");
+      if (!mount) return false;
+      const base = {
+        width: "13",
+        height: "17",
+        cols: "2",
+        rows: "3",
+        bg: "#101112",
+        haze: "#131415",
+        "fog-near": "14",
+        "fog-far": "74",
+        "image-opacity": "0.8",
+        gap: "0.4",
+        "depth-fill": "0.7",
+        "fill-rate": "0.9",
+        inset: "1.1",
+        speed: "2.5",
+        fov: "47",
+      };
+      const portrait = {
+        width: "1000",
+        height: "11",
+        cols: "4",
+        rows: "2",
+        bg: "#202122",
+        haze: "#232425",
+        "fog-near": "30",
+        "fog-far": "63",
+        "image-opacity": "0.6",
+        gap: "0.2",
+        "depth-fill": "0.55",
+        "fill-rate": "0.75",
+        inset: "0.8",
+        speed: "1.5",
+        fov: "60",
+      };
+      Object.entries(base).forEach(([name, value]) => {
+        mount.setAttribute(`data-tunnel2-${name}`, value);
+      });
+      Object.entries(portrait).forEach(([name, value]) => {
+        mount.setAttribute(`data-tunnel2-${name}-mobile-portrait`, value);
+      });
+      return true;
+    };
+    const observer = new MutationObserver(() => {
+      if (applyAttributes()) observer.disconnect();
+    });
+    observer.observe(document, { childList: true, subtree: true });
+    applyAttributes();
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  const mount = page.locator("[data-tunnel2-init]");
+  await expect.poll(() => mount.evaluate((node) => node._tunnel2?.vars)).toEqual({
+    width: 1000,
+    height: 11,
+    cols: 4,
+    rows: 2,
+    bg: "#202122",
+    haze: "#232425",
+    fogNear: 30,
+    fogFar: 63,
+    imageOpacity: 0.6,
+    gap: 0.2,
+    depthFill: 0.55,
+    fillRate: 0.75,
+    inset: 0.8,
+    speed: 1.5,
+    fov: 60,
+  });
+  await expect.poll(() => mount.evaluate((node) => node._tunnel2?.camera.fov)).toBe(60);
+  await expect(mount.locator("canvas")).toHaveCount(1);
+
+  await page.setViewportSize({ width: 480, height: 844 });
+  await expect.poll(() => mount.evaluate((node) => node._tunnel2?.vars)).toMatchObject({
+    height: 17,
+    cols: 2,
+    rows: 3,
+    bg: "#101112",
+    haze: "#131415",
+    fogNear: 14,
+    fogFar: 74,
+    imageOpacity: 0.8,
+    gap: 0.4,
+    depthFill: 0.7,
+    fillRate: 0.9,
+    inset: 1.1,
+    speed: 2.5,
+    fov: 47,
+  });
+  await expect.poll(() => mount.evaluate((node) => node._tunnel2?.vars.width)).toBeGreaterThanOrEqual(13);
+  await expect.poll(() => mount.evaluate((node) => node._tunnel2?.camera.fov)).toBe(47);
+  await expect(mount.locator("canvas")).toHaveCount(1);
+});
+
+test("falls back from invalid mobile portrait tunnel2 variants", async ({ page }) => {
+  await page.addInitScript(() => {
+    const applyAttributes = () => {
+      const mount = document.querySelector("[data-tunnel2-init]");
+      if (!mount) return false;
+      mount.setAttribute("data-tunnel2-height", "19");
+      mount.setAttribute("data-tunnel2-cols", "3");
+      mount.setAttribute("data-tunnel2-fog-near", "21");
+      mount.setAttribute("data-tunnel2-speed", "not-a-number");
+      mount.setAttribute("data-tunnel2-height-mobile-portrait", "not-a-number");
+      mount.setAttribute("data-tunnel2-cols-mobile-portrait", "0");
+      mount.setAttribute("data-tunnel2-fog-near-mobile-portrait", "");
+      mount.setAttribute("data-tunnel2-speed-mobile-portrait", "also-not-a-number");
+      return true;
+    };
+    const observer = new MutationObserver(() => {
+      if (applyAttributes()) observer.disconnect();
+    });
+    observer.observe(document, { childList: true, subtree: true });
+    applyAttributes();
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  const mount = page.locator("[data-tunnel2-init]");
+  await expect.poll(() => mount.evaluate((node) => ({
+    height: node._tunnel2?.vars.height,
+    cols: node._tunnel2?.vars.cols,
+    fogNear: node._tunnel2?.vars.fogNear,
+    speed: node._tunnel2?.vars.speed,
+  }))).toEqual({ height: 19, cols: 3, fogNear: 21, speed: 3.5 });
+});
+
 test("keeps decorative rendering out of the accessibility tree", async ({ page }) => {
   await expect(page.locator("canvas[aria-hidden='true']")).toHaveCount(2);
   await expect(page.locator("[data-tunnel2-images][aria-hidden='true']")).toHaveCount(1);

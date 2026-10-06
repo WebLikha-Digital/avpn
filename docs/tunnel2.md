@@ -75,6 +75,13 @@ same corridor depth indicate a geometry or configuration problem.
 ## Tunable attributes
 
 All attributes are optional. Invalid or missing values use the defaults below.
+At the Mobile Portrait breakpoint (`max-width: 479px`), append
+`-mobile-portrait` to any tunable attribute to provide a portrait-specific
+value, for example `data-tunnel2-fog-near-mobile-portrait="30"` or
+`data-tunnel2-fov-mobile-portrait="60"`. A valid suffixed value takes
+precedence there; a missing or invalid suffixed value falls back to the base
+attribute and then the default. At 480px and wider, only the base attribute is
+used. Resizing across the breakpoint rebuilds the tunnel with the active set.
 
 | Attribute | Default | Description |
 |---|---:|---|
@@ -94,6 +101,10 @@ All attributes are optional. Invalid or missing values use the defaults below.
 | `data-tunnel2-inset` | `1.4` | Consistent distance panels float inward from the corridor surface. |
 | `data-tunnel2-speed` | `3.5` | Camera travel speed in world units per second. |
 | `data-tunnel2-fov` | `50` | Camera field of view. |
+
+Every row above also accepts the `-mobile-portrait` suffix. The suffix applies
+to the mount attribute, not to manifest image attributes such as
+`data-tunnel2-surface`.
 
 The tile meshes expose a test-only, read-only hook at `mount.__tunnel2.scene`.
 Walk meshes named `tile` to inspect `userData.surface`, `userData.sourceIndex`

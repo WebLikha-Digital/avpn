@@ -61,6 +61,10 @@ import {
  *                                                               (default 1.4)
  *   data-tunnel2-speed         world units per second          (default 3.5)
  *   data-tunnel2-fov           camera field of view            (default 50)
+ *
+ * Every tunable also accepts a `-mobile-portrait` suffix, used at the Mobile
+ * Portrait breakpoint (max-width: 479px). A valid suffixed value wins there;
+ * the unsuffixed attribute remains the fallback.
  */
 
 // Corridor depth is fixed geometry, not a design tunable — changing it changes
@@ -89,19 +93,36 @@ const DEFAULTS = {
   fov: 50,
 };
 
-/** Reads a data attribute off the mount, falling back to the default. */
+const MOBILE_PORTRAIT_QUERY = "(max-width: 479px)";
+
+/** Reads a data attribute off the mount, with a Mobile Portrait override. */
 function readVars(container) {
+  const mobilePortrait = window.matchMedia(MOBILE_PORTRAIT_QUERY).matches;
   const str = (name, fallback) => {
-    const v = container.getAttribute(name)?.trim();
-    return v || fallback;
+    const variant = mobilePortrait
+      ? container.getAttribute(`${name}-mobile-portrait`)?.trim()
+      : "";
+    return variant || container.getAttribute(name)?.trim() || fallback;
   };
   const num = (name, fallback) => {
-    const v = parseFloat(container.getAttribute(name));
-    return Number.isFinite(v) ? v : fallback;
+    const parse = (value) => {
+      const parsed = parseFloat(value);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+    const variant = mobilePortrait
+      ? parse(container.getAttribute(`${name}-mobile-portrait`))
+      : null;
+    return variant ?? parse(container.getAttribute(name)) ?? fallback;
   };
   const int = (name, fallback) => {
-    const v = Math.round(num(name, fallback));
-    return v >= 1 ? v : fallback;
+    const parse = (value) => {
+      const parsed = Math.round(parseFloat(value));
+      return Number.isFinite(parsed) && parsed >= 1 ? parsed : null;
+    };
+    const variant = mobilePortrait
+      ? parse(container.getAttribute(`${name}-mobile-portrait`))
+      : null;
+    return variant ?? parse(container.getAttribute(name)) ?? fallback;
   };
 
   return {
@@ -302,6 +323,28 @@ function fitWidthToMount(container, vars) {
   vars.width = Math.max(vars.width, vars.height * aspect);
 }
 
+function removeBreakpointListener(container) {
+  const query = container._tunnel2MediaQuery;
+  const listener = container._tunnel2BreakpointListener;
+  if (query && listener) query.removeEventListener("change", listener);
+  container._tunnel2MediaQuery = null;
+  container._tunnel2BreakpointListener = null;
+}
+
+function initializeContainer(container) {
+  removeBreakpointListener(container);
+  container._tunnel2?.destroy();
+  container._tunnel2 = null;
+  container._tunnel2Gen = (container._tunnel2Gen || 0) + 1;
+
+  const query = window.matchMedia(MOBILE_PORTRAIT_QUERY);
+  const onBreakpointChange = () => initializeContainer(container);
+  container._tunnel2MediaQuery = query;
+  container._tunnel2BreakpointListener = onBreakpointChange;
+  query.addEventListener("change", onBreakpointChange);
+  mount(container);
+}
+
 /** Builds one instance. Returns a handle with a `destroy()` for teardown. */
 function setupInstance(container, pool, vars) {
   const { cols: COLS, rows: ROWS, gap: GAP } = vars;
@@ -348,6 +391,7 @@ function setupInstance(container, pool, vars) {
   // Test-only read-only hook: exposes the scene so specs can inspect tile
   // metadata without changing rendering behaviour.
   instance.scene = scene;
+  instance.vars = vars;
   container.__tunnel2 = instance;
   if (vars.bg !== "transparent" && vars.bg !== "none") {
     scene.background = new Color(vars.bg);
@@ -358,6 +402,7 @@ function setupInstance(container, pool, vars) {
 
   const camera = new PerspectiveCamera(vars.fov, dim.w / dim.h, 0.1, 1000);
   camera.position.set(0, 0, 0);
+  instance.camera = camera;
 
   const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -700,9 +745,7 @@ function setupInstance(container, pool, vars) {
   const onContextRestored = () => {
     contextLost = false;
     destroy();
-    container._tunnel2 = null;
-    container._tunnel2Gen = (container._tunnel2Gen || 0) + 1;
-    mount(container);
+    initializeContainer(container);
   };
   canvas.addEventListener("webglcontextlost", onContextLost);
   canvas.addEventListener("webglcontextrestored", onContextRestored);
@@ -710,6 +753,7 @@ function setupInstance(container, pool, vars) {
   /* ---------- teardown ---------- */
 
   function destroy() {
+    if (instance.destroyed) return;
     instance.destroyed = true;
     cancelAnimationFrame(container._tunnel2Raf);
     cancelAnimationFrame(uploadRaf);
@@ -719,6 +763,7 @@ function setupInstance(container, pool, vars) {
     intersectionObserver.disconnect();
     canvas.removeEventListener("webglcontextlost", onContextLost);
     canvas.removeEventListener("webglcontextrestored", onContextRestored);
+    removeBreakpointListener(container);
 
     segments.forEach((seg) => {
       clearTiles(seg);
@@ -779,9 +824,6 @@ function mount(container) {
  */
 export function initTunnel2() {
   document.querySelectorAll("[data-tunnel2-init]").forEach((container) => {
-    container._tunnel2?.destroy();
-    container._tunnel2 = null;
-    container._tunnel2Gen = (container._tunnel2Gen || 0) + 1;
-    mount(container);
+    initializeContainer(container);
   });
 }

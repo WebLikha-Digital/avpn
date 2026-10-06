@@ -81,6 +81,136 @@ test("scrubs grid entrance, copy reveal, and panels in order", async ({ page }) 
   expect(reversed.panel).toBeGreaterThan(0);
 });
 
+test("reveals panel copy once, hints pathway links, and resets on the way back", async ({ page }) => {
+  await loadForward(page, false, { width: 1440, height: 900 });
+  const phase = await page.locator(ROOT).evaluate((section) => {
+    const { timeline } = section._forwardInstance;
+    const trigger = timeline.scrollTrigger;
+    return {
+      start: trigger.start,
+      end: trigger.end,
+      duration: timeline.duration(),
+      panelStart: timeline.labels.panel1,
+    };
+  });
+  const result = await page.evaluate(({ start, end, duration, panelStart }) => new Promise((resolve) => {
+    const samples = [];
+    const panelEnd = panelStart + 1;
+    let index = 0;
+    let samplingDone = false;
+    let hintObserved = false;
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      observer.disconnect();
+      resolve({ frames: samples, hintObserved });
+    };
+    const observer = new MutationObserver(() => {
+      if ([...document.querySelectorAll('[data-forward-reveal="item"]')]
+        .some((item) => item.dataset.forwardItemState === "hint")) {
+        hintObserved = true;
+        if (samplingDone) finish();
+      }
+    });
+    observer.observe(document.querySelector("[data-forward-init]"), { attributes: true, attributeFilter: ["data-forward-item-state"], subtree: true });
+    setTimeout(finish, 4000);
+    const sample = () => {
+      const panel = document.querySelectorAll("[data-forward-panel]")[0];
+      const heading = panel.querySelector('[data-forward-reveal="heading"]');
+      const copy = panel.querySelector('[data-forward-reveal="copy"]');
+      samples.push({
+        time: panelStart + (panelEnd - panelStart) * index / 23,
+        headingOpacity: Number.parseFloat(getComputedStyle(heading).opacity),
+        copyOpacity: Number.parseFloat(getComputedStyle(copy).opacity),
+        states: [...panel.querySelectorAll('[data-forward-reveal="item"]')].map((item) => item.dataset.forwardItemState || null),
+      });
+      index += 1;
+      if (index >= 24) {
+        samplingDone = true;
+        if (hintObserved) finish();
+        return;
+      }
+      window.scrollTo({ top: start + (end - start) * (panelStart + (panelEnd - panelStart) * index / 23) / duration, behavior: "instant" });
+      requestAnimationFrame(sample);
+    };
+    window.scrollTo({ top: start + (end - start) * (panelStart + 0.2) / duration, behavior: "instant" });
+    requestAnimationFrame(sample);
+  }), phase);
+  const { frames, hintObserved } = result;
+
+  expect(frames.some((frame) => frame.headingOpacity < 0.1 && frame.copyOpacity < 0.1)).toBe(true);
+  expect(frames.some((frame) => frame.headingOpacity > 0.1 || frame.copyOpacity > 0.1)).toBe(true);
+  expect(hintObserved).toBe(true);
+  await expect.poll(() => page.locator(ROOT).evaluate((section) => [
+    ...section.querySelectorAll('[data-forward-reveal="item"]'),
+  ].map((item) => item.dataset.forwardItemState))).toEqual(["rest", "rest"]);
+
+  await page.evaluate(({ start, end, duration, panelStart }) => {
+    window.scrollTo({ top: start + (end - start) * (panelStart + 0.1) / duration, behavior: "instant" });
+  }, phase);
+  await expect.poll(() => page.locator(ROOT).evaluate((section) => ({
+    copy: getComputedStyle(section.querySelector('[data-forward-reveal="copy"]')).opacity,
+    states: [...section.querySelectorAll('[data-forward-reveal="item"]')].map((item) => item.dataset.forwardItemState || null),
+  }))).toEqual({ copy: "0", states: [null, null] });
+});
+
+test("re-syncs a finished panel after a global ScrollTrigger refresh", async ({ page }) => {
+  await loadForward(page, false, { width: 1440, height: 900 });
+  const phase = await page.locator(ROOT).evaluate((section) => {
+    const { timeline } = section._forwardInstance;
+    const trigger = timeline.scrollTrigger;
+    const time = timeline.labels.panel1 + 1;
+    return { start: trigger.start, end: trigger.end, duration: timeline.duration(), time };
+  });
+  await page.evaluate(({ start, end, duration, time }) => {
+    window.scrollTo({ top: start + (end - start) * time / duration, behavior: "instant" });
+  }, phase);
+  await expect.poll(() => page.locator(ROOT).evaluate((section) => (
+    section.querySelector('[data-forward-reveal="item"]')?.dataset.forwardItemState
+  ))).toBe("rest");
+  await page.locator(ROOT).evaluate((section) => section._forwardInstance.timeline.scrollTrigger.constructor.refresh());
+  await expect.poll(() => page.locator(ROOT).evaluate((section) => ({
+    copy: getComputedStyle(section.querySelector('[data-forward-reveal="copy"]')).opacity,
+    states: [...section.querySelectorAll('[data-forward-reveal="item"]')].map((item) => item.dataset.forwardItemState),
+  }))).toEqual({ copy: "1", states: ["rest", "rest"] });
+});
+
+test("shows the panel reveal end state on a deep load", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  const deepY = await page.locator(ROOT).evaluate((section) => {
+    const { timeline } = section._forwardInstance;
+    const trigger = timeline.scrollTrigger;
+    const time = timeline.labels.panel2 + 1;
+    return trigger.start + (trigger.end - trigger.start) * time / timeline.duration();
+  });
+  await page.evaluate((y) => window.scrollTo({ top: y, behavior: "instant" }), deepY);
+  await page.waitForTimeout(50);
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+  await expect.poll(() => page.locator(ROOT).evaluate((section) => Boolean(section._forwardInstance))).toBe(true);
+  // The repo normally restores the saved position on reload. Re-apply it before
+  // the explicit refresh so this stays deterministic when the test browser
+  // declines to preserve scroll between page loads.
+  await page.evaluate((y) => window.scrollTo({ top: y, behavior: "instant" }), deepY);
+  await page.locator(ROOT).evaluate((section) => section._forwardInstance.timeline.scrollTrigger.constructor.refresh());
+  await expect.poll(() => page.locator(ROOT).evaluate((section) => {
+    const opacities = [...section.querySelectorAll('[data-forward-reveal="heading"], [data-forward-reveal="copy"], [data-forward-reveal="items"] > *')]
+      .map((element) => getComputedStyle(element).opacity);
+    const headingLines = [...section.querySelectorAll('[data-forward-reveal="heading"] .line')]
+      .map((line) => getComputedStyle(line).transform);
+    const states = [...section.querySelectorAll('[data-forward-reveal="item"]')]
+      .map((item) => item.dataset.forwardItemState || null);
+    return opacities.length === 8
+      && opacities.every((opacity) => opacity === "1")
+      && headingLines.length > 0
+      && headingLines.every((transform) => transform === "none" || new DOMMatrixReadOnly(transform).f === 0)
+      && states.every((state) => state === "rest");
+  })).toBe(true);
+});
+
 test("anchor navigation lands after the forward entrance", async ({ page }) => {
   await page.addInitScript(() => {
     document.addEventListener("click", (event) => {
@@ -156,12 +286,17 @@ test("keeps the section static under reduced motion", async ({ page }) => {
     copyOpacity: getComputedStyle(section.querySelector("[data-forward-copy]")).opacity,
     panelTransforms: [...section.querySelectorAll("[data-forward-panel]")].map((panel) => getComputedStyle(panel).transform),
     columnTransforms: [...section.querySelectorAll("[data-forward-col]")].map((column) => getComputedStyle(column).transform),
+    revealStates: [...section.querySelectorAll('[data-forward-reveal="item"]')].map((item) => item.dataset.forwardItemState),
+    revealOpacities: [...section.querySelectorAll('[data-forward-reveal="copy"], [data-forward-reveal="items"] > *')]
+      .map((element) => getComputedStyle(element).opacity),
   }));
 
   expect(state.timeline).toBeNull();
   expect(state.copyOpacity).toBe("1");
   expect(state.panelTransforms).toEqual(["none", "none"]);
   expect(state.columnTransforms).toEqual(["none", "none", "none"]);
+  expect(state.revealStates).toEqual(["rest", "rest"]);
+  expect(state.revealOpacities.every((opacity) => opacity === "1")).toBe(true);
 });
 
 test("clears the intro copy from the zoomed tablet tiles", async ({ page }) => {

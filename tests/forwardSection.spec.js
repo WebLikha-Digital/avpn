@@ -99,19 +99,29 @@ test("reveals panel copy once, hints pathway links, and resets on the way back",
     let index = 0;
     let samplingDone = false;
     let hintObserved = false;
+    const hintStartedAt = new WeakMap();
+    const restObserved = new WeakSet();
+    const hintDurations = [];
     let settled = false;
     const finish = () => {
       if (settled) return;
       settled = true;
       observer.disconnect();
-      resolve({ frames: samples, hintObserved });
+      resolve({ frames: samples, hintObserved, hintDurations });
     };
     const observer = new MutationObserver(() => {
-      if ([...document.querySelectorAll('[data-forward-reveal="item"]')]
-        .some((item) => item.dataset.forwardItemState === "hint")) {
-        hintObserved = true;
-        if (samplingDone) finish();
-      }
+      [...document.querySelectorAll('[data-forward-reveal="item"]')].forEach((item) => {
+        const state = item.dataset.forwardItemState;
+        if (state === "hint" && !hintStartedAt.has(item)) {
+          hintObserved = true;
+          hintStartedAt.set(item, performance.now());
+        }
+        if (state === "rest" && hintStartedAt.has(item) && !restObserved.has(item)) {
+          restObserved.add(item);
+          hintDurations.push(performance.now() - hintStartedAt.get(item));
+        }
+      });
+      if (samplingDone && hintDurations.length === 2) finish();
     });
     observer.observe(document.querySelector("[data-forward-init]"), { attributes: true, attributeFilter: ["data-forward-item-state"], subtree: true });
     setTimeout(finish, 4000);
@@ -128,7 +138,7 @@ test("reveals panel copy once, hints pathway links, and resets on the way back",
       index += 1;
       if (index >= 24) {
         samplingDone = true;
-        if (hintObserved) finish();
+        if (hintDurations.length === 2) finish();
         return;
       }
       window.scrollTo({ top: start + (end - start) * (panelStart + (panelEnd - panelStart) * index / 23) / duration, behavior: "instant" });
@@ -137,11 +147,13 @@ test("reveals panel copy once, hints pathway links, and resets on the way back",
     window.scrollTo({ top: start + (end - start) * (panelStart + 0.2) / duration, behavior: "instant" });
     requestAnimationFrame(sample);
   }), phase);
-  const { frames, hintObserved } = result;
+  const { frames, hintObserved, hintDurations } = result;
 
   expect(frames.some((frame) => frame.headingOpacity < 0.1 && frame.copyOpacity < 0.1)).toBe(true);
   expect(frames.some((frame) => frame.headingOpacity > 0.1 || frame.copyOpacity > 0.1)).toBe(true);
   expect(hintObserved).toBe(true);
+  expect(hintDurations).toHaveLength(2);
+  expect(Math.min(...hintDurations)).toBeGreaterThanOrEqual(500);
   await expect.poll(() => page.locator(ROOT).evaluate((section) => [
     ...section.querySelectorAll('[data-forward-reveal="item"]'),
   ].map((item) => item.dataset.forwardItemState))).toEqual(["rest", "rest"]);

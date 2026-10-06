@@ -363,6 +363,7 @@ function createPanelReveal(panel, reducedMotion = false) {
 
   let panelReveal;
   let revealTween;
+  let headingTween;
   const split = heading && !reducedMotion
     ? SplitText.create(heading, {
       type: "lines",
@@ -371,8 +372,8 @@ function createPanelReveal(panel, reducedMotion = false) {
       linesClass: "line",
       onSplit(instance) {
         if (panelReveal && panelReveal.state !== "hidden") {
-          revealTween?.kill();
-          showEndState();
+          headingTween?.kill();
+          gsap.set(instance.lines, { yPercent: 0 });
         } else {
           gsap.set(instance.lines, { yPercent: 120 });
         }
@@ -387,6 +388,8 @@ function createPanelReveal(panel, reducedMotion = false) {
   }));
   const buttons = itemsContainer ? [...itemsContainer.children] : [];
   let restCalls = [];
+  let pendingRestCount = 0;
+  let revealCompleted = false;
   panelReveal = {
     state: "hidden",
     hasObservedUpdate: false,
@@ -405,23 +408,26 @@ function createPanelReveal(panel, reducedMotion = false) {
 
   function update(timelineTime) {
     if (ScrollTrigger.isRefreshing) return;
-    if (panelReveal.hasObservedUpdate) {
-      sync(timelineTime);
+    if (timelineTime <= resetTime || timelineTime < panelStart) {
+      if (panelReveal.state !== "hidden") reset();
+      panelReveal.hasObservedUpdate = true;
       return;
     }
+    if (timelineTime >= playTime && panelReveal.state === "hidden") {
+      if (panelReveal.hasObservedUpdate) play();
+      else showEndState();
+    }
     panelReveal.hasObservedUpdate = true;
-    sync(timelineTime, true);
   }
 
-  function sync(timelineTime, isFirstUpdate = false) {
+  function sync(timelineTime) {
     if (timelineTime <= resetTime || timelineTime < panelStart) {
       if (panelReveal.state !== "hidden") reset();
       return;
     }
     if (timelineTime >= playTime) {
       if (panelReveal.state === "hidden") {
-        if (isFirstUpdate || !panelReveal.hasObservedUpdate) showEndState();
-        else play();
+        showEndState();
       } else if (panelReveal.state === "revealed") {
         showEndState();
       }
@@ -441,12 +447,19 @@ function createPanelReveal(panel, reducedMotion = false) {
   function play() {
     if (panelReveal.state !== "hidden") return;
     panelReveal.state = "revealing";
+    pendingRestCount = 0;
+    revealCompleted = false;
     revealTween?.kill();
     restCalls.forEach((call) => call.kill());
     restCalls = [];
-    revealTween = gsap.timeline({ onComplete: () => { panelReveal.state = "revealed"; } });
-    if (heading) revealTween.set(heading, { opacity: 1 }, 0);
-    if (split) revealTween.to(split.lines, { yPercent: 0, duration: 0.8, stagger: 0.08, ease: "smooth" }, 0);
+    revealTween = gsap.timeline({ onComplete: () => {
+      revealCompleted = true;
+      finishReveal();
+    } });
+    headingTween?.kill();
+    headingTween = gsap.timeline();
+    if (heading) headingTween.set(heading, { opacity: 1 }, 0);
+    if (split) headingTween.to(split.lines, { yPercent: 0, duration: 0.8, stagger: 0.08, ease: "smooth" }, 0);
     if (copy) revealTween.to(copy, { opacity: 1, y: 0, pointerEvents: "auto", duration: 0.55, ease: "smooth" }, 0.22);
     itemParts.forEach(({ item, icon, title, copy: itemCopy }, index) => {
       const start = 0.9 + index * 0.16;
@@ -456,7 +469,12 @@ function createPanelReveal(panel, reducedMotion = false) {
       if (parts.length) {
         revealTween.call(() => {
           item.setAttribute("data-forward-item-state", "hint");
-          const restCall = gsap.delayedCall(PANEL_ITEM_REST_DELAY, () => item.setAttribute("data-forward-item-state", "rest"));
+          pendingRestCount += 1;
+          const restCall = gsap.delayedCall(PANEL_ITEM_REST_DELAY, () => {
+            item.setAttribute("data-forward-item-state", "rest");
+            pendingRestCount -= 1;
+            finishReveal();
+          });
           restCalls.push(restCall);
         }, [], start + 0.6);
       }
@@ -466,10 +484,17 @@ function createPanelReveal(panel, reducedMotion = false) {
     });
   }
 
+  function finishReveal() {
+    if (revealCompleted && pendingRestCount === 0) panelReveal.state = "revealed";
+  }
+
   function showEndState() {
     revealTween?.kill();
+    headingTween?.kill();
     restCalls.forEach((call) => call.kill());
     restCalls = [];
+    pendingRestCount = 0;
+    revealCompleted = true;
     panelReveal.state = "revealed";
     if (heading) gsap.set(heading, { clearProps: "opacity" });
     if (split) gsap.set(split.lines, { yPercent: 0 });
@@ -483,8 +508,11 @@ function createPanelReveal(panel, reducedMotion = false) {
 
   function reset() {
     revealTween?.kill();
+    headingTween?.kill();
     restCalls.forEach((call) => call.kill());
     restCalls = [];
+    pendingRestCount = 0;
+    revealCompleted = false;
     panelReveal.state = "hidden";
     if (heading) gsap.set(heading, { opacity: 0 });
     if (split) gsap.set(split.lines, { yPercent: 120 });
@@ -498,7 +526,10 @@ function createPanelReveal(panel, reducedMotion = false) {
 
   function cleanup() {
     revealTween?.kill();
+    headingTween?.kill();
     restCalls.forEach((call) => call.kill());
+    pendingRestCount = 0;
+    revealCompleted = false;
     if (split) split.revert();
     gsap.set([heading, copy, ...itemParts.flatMap(({ icon, title, copy: itemCopy }) => [icon, title, itemCopy]), ...buttons].filter(Boolean), {
       clearProps: "transform,opacity,pointerEvents",

@@ -485,9 +485,12 @@ hub carries `[data-snap-carousel-track]`, and its direct children are the
 slides. The buttons use `[data-snap-carousel-prev]` and
 `[data-snap-carousel-next]`. The script computes each snap position from the
 slides' `offsetLeft` (including the authored gap), updates `disabled` and
-`aria-disabled` after scrolls and resizes, and uses automatic scrolling when
-`prefers-reduced-motion: reduce` is active. The controls remain hidden and the
-rotary-wheel component remains untouched at 768px and above.
+`aria-disabled` after scrolls and resizes, and supports opt-in autoplay through
+`data-snap-carousel-autoplay` when it is set to a positive millisecond value.
+Autoplay only runs while the root is visible, the viewport is at most 767px
+wide, the document is visible, and reduced motion is not requested; it pauses
+for user interaction and resumes with a full interval. The controls remain
+hidden and the rotary-wheel component remains untouched at 768px and above.
 
 | Class | Mobile value |
 |---|---|

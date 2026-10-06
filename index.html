@@ -1680,11 +1680,11 @@
         align-items: center;
         justify-content: center;
       }
+      /* At 991px and below the rows carry their own thumbnail, so a mouse in
+         a narrow window gets no follower — the orange bar and row dimming
+         still run. Mirrors the programmes-overview-css embed. */
       @media (max-width: 991px) {
-        .prog-overview_follower { width: 200px; height: 200px; }
-      }
-      @media (max-width: 767px) {
-        .prog-overview_follower { width: 144px; height: 144px; }
+        .prog-overview_follower { display: none; }
       }
       .prog-overview_follower-inner {
         position: relative;

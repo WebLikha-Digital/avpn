@@ -1588,6 +1588,34 @@
         object-fit: cover;
         display: block;
       }
+      /* Tablet and mobile: no hover to drive the follower, so each row shows
+         its own photo as a circle thumbnail on the left, like the Our Team
+         rows. Mirrors the programmes-overview-css embed. The thumbnail
+         narrows the title, so a long one (ASPIRE) can need four lines: the
+         row keeps its height as a minimum and grows past it. */
+      @media (max-width: 991px) {
+        .prog-overview_item { height: auto; }
+        .prog-overview_item-inner {
+          position: relative;
+          min-height: clamp(64px, 12vh, 106px);
+          padding-top: 0.75rem;
+          padding-bottom: 0.75rem;
+        }
+        .prog-overview_item-inner > .prog-overview_item-media {
+          position: static;
+          display: block;
+          flex: none;
+          width: 3.5rem;
+          height: 3.5rem;
+          margin: 0;
+          border-radius: 50%;
+          opacity: 1;
+        }
+        .prog-overview_item-inner > .prog-overview_item-heading {
+          flex: 1 1 auto;
+          min-width: 0;
+        }
+      }
       .prog-overview_item-heading {
         position: relative;
         z-index: 2;

@@ -1,4 +1,4 @@
-import { gsap, ScrollTrigger } from "../lib/gsap.js";
+import { gsap, ScrollTrigger, SplitText } from "../lib/gsap.js";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -12,6 +12,9 @@ const DEFAULT_PANEL_DURATION = 1;
 const DEFAULT_DWELL = 0.35;
 const DEFAULT_CONTENT_DWELL = 0.9;
 const DEFAULT_PANEL_TOP_GAP = 80;
+const PANEL_REVEAL_PLAY_AT = 0.7;
+const PANEL_REVEAL_RESET_AT = 0.3;
+const PANEL_ITEM_REST_DELAY = 0.7;
 // Keeps scaled tile images and subpixel compositing clear of the stage clip.
 const ENTRANCE_CLEARANCE = 24;
 const RESIZE_DEBOUNCE = 150;
@@ -76,7 +79,10 @@ export function initForwardSection() {
       ]),
     ].filter(Boolean);
 
+    const panelReveals = panels.slice(0, 2).map((panel) => createPanelReveal(panel, reducedMotion));
+
     if (reducedMotion) {
+      panelReveals.forEach((reveal) => reveal?.showEndState());
       section._forwardInstance = { timeline: null, elements };
       return;
     }
@@ -195,6 +201,7 @@ export function initForwardSection() {
       const measureOverflow = () => Math.max(0, scroll.scrollHeight - body.clientHeight);
       const overflow = measureOverflow();
       const panelLabel = `panel${index + 1}`;
+      panelReveals[index]?.setPhase(cursor, DEFAULT_PANEL_DURATION);
       gsap.set(image || media, { scale: 1.3, transformOrigin: "50% 50%" });
       timeline.addLabel(panelLabel, cursor);
       timeline.to(panel, { yPercent: 0, duration: DEFAULT_PANEL_DURATION, ease: "power2.inOut" }, panelLabel);
@@ -217,7 +224,25 @@ export function initForwardSection() {
       }
     });
 
-    section._forwardInstance = { timeline, elements, entranceDistance, runway: section.getBoundingClientRect().height };
+    const updatePanelReveals = () => {
+      const timelineTime = timeline.time();
+      panelReveals.forEach((reveal) => reveal?.update(timelineTime));
+    };
+    timeline.eventCallback("onUpdate", updatePanelReveals);
+    const syncPanelReveals = () => {
+      const timelineTime = timeline.time();
+      panelReveals.forEach((reveal) => reveal?.sync(timelineTime));
+    };
+    ScrollTrigger.addEventListener("refresh", syncPanelReveals);
+
+    section._forwardInstance = {
+      timeline,
+      elements,
+      panelReveals,
+      refreshHandler: syncPanelReveals,
+      entranceDistance,
+      runway: section.getBoundingClientRect().height,
+    };
   });
 
   if (sections.length && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -314,6 +339,8 @@ function readCustomProperty(section, property) {
 
 function teardown(section) {
   const previous = section._forwardInstance;
+  previous?.panelReveals?.forEach((reveal) => reveal?.cleanup());
+  if (previous?.refreshHandler) ScrollTrigger.removeEventListener("refresh", previous.refreshHandler);
   previous?.timeline?.scrollTrigger?.kill();
   previous?.timeline?.kill();
 
@@ -324,6 +351,193 @@ function teardown(section) {
     gsap.set(elements, { clearProps: "transform,transformOrigin,opacity,pointerEvents" });
   }
   section._forwardInstance = null;
+}
+
+function createPanelReveal(panel, reducedMotion = false) {
+  const heading = panel.querySelector('[data-forward-reveal="heading"]');
+  const copy = panel.querySelector('[data-forward-reveal="copy"]');
+  const items = [...panel.querySelectorAll('[data-forward-reveal="item"]')];
+  const itemsContainer = panel.querySelector('[data-forward-reveal="items"]');
+
+  if (!heading && !copy && !items.length && !itemsContainer) return null;
+
+  let panelReveal;
+  let revealTween;
+  let headingTween;
+  const split = heading && !reducedMotion
+    ? SplitText.create(heading, {
+      type: "lines",
+      mask: "lines",
+      autoSplit: true,
+      linesClass: "line",
+      onSplit(instance) {
+        if (panelReveal && panelReveal.state !== "hidden") {
+          headingTween?.kill();
+          gsap.set(instance.lines, { yPercent: 0 });
+        } else {
+          gsap.set(instance.lines, { yPercent: 120 });
+        }
+      },
+    })
+    : null;
+  const itemParts = items.map((item) => ({
+    item,
+    icon: item.querySelector(".forward_item-icon"),
+    title: item.querySelector(".forward_item-title"),
+    copy: item.querySelector(".forward_panel-copy"),
+  }));
+  const buttons = itemsContainer ? [...itemsContainer.children] : [];
+  let restCalls = [];
+  let pendingRestCount = 0;
+  let revealCompleted = false;
+  panelReveal = {
+    state: "hidden",
+    hasObservedUpdate: false,
+    showEndState,
+    update,
+    sync,
+    cleanup,
+  };
+
+  if (heading) gsap.set(heading, { opacity: 0 });
+  if (copy) gsap.set(copy, { opacity: 0, y: "1.5rem", pointerEvents: "none" });
+  itemParts.forEach(({ icon, title, copy: itemCopy }) => {
+    gsap.set([icon, title, itemCopy].filter(Boolean), { opacity: 0, y: "1.5rem" });
+  });
+  if (buttons.length) gsap.set(buttons, { opacity: 0, y: "1.5rem" });
+
+  function update(timelineTime) {
+    if (ScrollTrigger.isRefreshing) return;
+    if (timelineTime <= resetTime || timelineTime < panelStart) {
+      if (panelReveal.state !== "hidden") reset();
+      panelReveal.hasObservedUpdate = true;
+      return;
+    }
+    if (timelineTime >= playTime && panelReveal.state === "hidden") {
+      if (panelReveal.hasObservedUpdate) play();
+      else showEndState();
+    }
+    panelReveal.hasObservedUpdate = true;
+  }
+
+  function sync(timelineTime) {
+    if (timelineTime <= resetTime || timelineTime < panelStart) {
+      if (panelReveal.state !== "hidden") reset();
+      return;
+    }
+    if (timelineTime >= playTime) {
+      if (panelReveal.state === "hidden") {
+        showEndState();
+      } else if (panelReveal.state === "revealed") {
+        showEndState();
+      }
+    }
+  }
+
+  let panelStart = 0;
+  let playTime = 0;
+  let resetTime = 0;
+
+  panelReveal.setPhase = (start, duration) => {
+    panelStart = start;
+    playTime = start + duration * PANEL_REVEAL_PLAY_AT;
+    resetTime = start + duration * PANEL_REVEAL_RESET_AT;
+  };
+
+  function play() {
+    if (panelReveal.state !== "hidden") return;
+    panelReveal.state = "revealing";
+    pendingRestCount = 0;
+    revealCompleted = false;
+    revealTween?.kill();
+    restCalls.forEach((call) => call.kill());
+    restCalls = [];
+    revealTween = gsap.timeline({ onComplete: () => {
+      revealCompleted = true;
+      finishReveal();
+    } });
+    headingTween?.kill();
+    headingTween = gsap.timeline();
+    if (heading) headingTween.set(heading, { opacity: 1 }, 0);
+    if (split) headingTween.to(split.lines, { yPercent: 0, duration: 0.8, stagger: 0.08, ease: "smooth" }, 0);
+    if (copy) revealTween.to(copy, { opacity: 1, y: 0, pointerEvents: "auto", duration: 0.55, ease: "smooth" }, 0.22);
+    itemParts.forEach(({ item, icon, title, copy: itemCopy }, index) => {
+      const start = 0.9 + index * 0.16;
+      const parts = [icon, title, itemCopy].filter(Boolean);
+      if (icon) revealTween.to(icon, { opacity: 1, y: 0, duration: 0.4, ease: "smooth" }, start);
+      if (title || itemCopy) revealTween.to([title, itemCopy].filter(Boolean), { opacity: 1, y: 0, duration: 0.5, stagger: 0.06, ease: "smooth" }, start + 0.1);
+      if (parts.length) {
+        revealTween.call(() => {
+          item.setAttribute("data-forward-item-state", "hint");
+          pendingRestCount += 1;
+          const restCall = gsap.delayedCall(PANEL_ITEM_REST_DELAY, () => {
+            item.setAttribute("data-forward-item-state", "rest");
+            pendingRestCount -= 1;
+            finishReveal();
+          });
+          restCalls.push(restCall);
+        }, [], start + 0.6);
+      }
+    });
+    buttons.forEach((button, index) => {
+      revealTween.to(button, { opacity: 1, y: 0, duration: 0.5, ease: "smooth" }, 0.9 + index * 0.1);
+    });
+  }
+
+  function finishReveal() {
+    if (revealCompleted && pendingRestCount === 0) panelReveal.state = "revealed";
+  }
+
+  function showEndState() {
+    revealTween?.kill();
+    headingTween?.kill();
+    restCalls.forEach((call) => call.kill());
+    restCalls = [];
+    pendingRestCount = 0;
+    revealCompleted = true;
+    panelReveal.state = "revealed";
+    if (heading) gsap.set(heading, { clearProps: "opacity" });
+    if (split) gsap.set(split.lines, { yPercent: 0 });
+    if (copy) gsap.set(copy, { clearProps: "transform,opacity,pointerEvents" });
+    itemParts.forEach(({ item, icon, title, copy: itemCopy }) => {
+      gsap.set([icon, title, itemCopy].filter(Boolean), { clearProps: "transform,opacity" });
+      item.setAttribute("data-forward-item-state", "rest");
+    });
+    if (buttons.length) gsap.set(buttons, { clearProps: "transform,opacity" });
+  }
+
+  function reset() {
+    revealTween?.kill();
+    headingTween?.kill();
+    restCalls.forEach((call) => call.kill());
+    restCalls = [];
+    pendingRestCount = 0;
+    revealCompleted = false;
+    panelReveal.state = "hidden";
+    if (heading) gsap.set(heading, { opacity: 0 });
+    if (split) gsap.set(split.lines, { yPercent: 120 });
+    if (copy) gsap.set(copy, { opacity: 0, y: "1.5rem", pointerEvents: "none" });
+    itemParts.forEach(({ item, icon, title, copy: itemCopy }) => {
+      gsap.set([icon, title, itemCopy].filter(Boolean), { opacity: 0, y: "1.5rem" });
+      item.removeAttribute("data-forward-item-state");
+    });
+    if (buttons.length) gsap.set(buttons, { opacity: 0, y: "1.5rem" });
+  }
+
+  function cleanup() {
+    revealTween?.kill();
+    headingTween?.kill();
+    restCalls.forEach((call) => call.kill());
+    pendingRestCount = 0;
+    revealCompleted = false;
+    if (split) split.revert();
+    gsap.set([heading, copy, ...itemParts.flatMap(({ icon, title, copy: itemCopy }) => [icon, title, itemCopy]), ...buttons].filter(Boolean), {
+      clearProps: "transform,opacity,pointerEvents",
+    });
+    items.forEach((item) => item.removeAttribute("data-forward-item-state"));
+  }
+
+  return panelReveal;
 }
 
 function installResizeHandler() {

@@ -279,7 +279,9 @@ test("travels to hovered board rows and swaps one image", async ({ page }) => {
 
   const row = list.locator("[data-team-row]").nth(2);
   const rowBox = await row.boundingBox();
-  expect(Math.abs(first.state.preview.bottom - (rowBox.y + rowBox.height))).toBeLessThanOrEqual(2);
+  const previewCenter = (first.state.preview.top + first.state.preview.bottom) / 2;
+  const rowCenter = rowBox.y + rowBox.height / 2;
+  expect(Math.abs(previewCenter - rowCenter)).toBeLessThanOrEqual(2);
 
   const nextRow = list.locator("[data-team-row]").nth(5);
   const expectedNextSrc = await nextRow.locator("img").getAttribute("src");

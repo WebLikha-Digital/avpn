@@ -60,7 +60,7 @@ export function initTeamPreview() {
 
       const row = event.currentTarget;
       const index = rows.indexOf(row);
-      const targetY = row.offsetTop + row.offsetHeight - preview.offsetHeight + 1;
+      const targetY = row.offsetTop + (row.offsetHeight - preview.offsetHeight) / 2;
       const forward = previousIndex === null || index > previousIndex;
       previousIndex = index;
 

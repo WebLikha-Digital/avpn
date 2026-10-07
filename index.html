@@ -3269,6 +3269,11 @@
     }
     .members_line { top: 0; left: 40%; width: 90vw; }
   }
+  @media (max-width: 767px) {
+    /* Globe sits 32px under the last row at every width (sphere top 0.533 box above the section bottom; list ends ~14px under the last card). */
+    .members_layout { padding-bottom: calc(var(--members-globe) * 0.533 + 18px); }
+    .members_line svg[data-draw-scroll-desktop] { display: none !important; } /* desktop hook off; Webflow draws .members_line-mobile instead */
+  }
   </style></div>
   <div class="testimonials-css w-embed"><style>
   /* Hear from Our Members — state, geometry and motion only. Layout and skin

@@ -142,6 +142,80 @@ test("settles inside the pile on mobile without a header obstacle", async ({ pag
   });
 });
 
+test.describe("touch ball interaction", () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test("a tap nudges a settled ball and keeps it inside the pile", async ({ page }) => {
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    await scrollIntoView(page);
+    await expect.poll(() => page.locator(section).evaluate((root) => ({
+      dropped: root._communitiesPile.dropped,
+      tickerActive: root._communitiesPile.tickerActive,
+    })), { timeout: 8000 }).toEqual({ dropped: true, tickerActive: false });
+
+    const samples = await page.locator(section).evaluate(async (root) => {
+      const pile = root.querySelector("[data-communities-pile]");
+      const element = root.querySelector("[data-communities-ball]");
+      const radius = element.offsetWidth / 2;
+      const readPosition = () => {
+        const match = element.style.transform.match(/translate3d\(([-\d.]+)px, ([-\d.]+)px/);
+        return { x: Number(match[1]) + radius, y: Number(match[2]) + radius };
+      };
+      const point = readPosition();
+      const pointer = (type) => element.dispatchEvent(new PointerEvent(type, {
+        bubbles: true,
+        clientX: point.x,
+        clientY: point.y,
+        pointerId: 1,
+        pointerType: "touch",
+      }));
+      pointer("pointerdown");
+      pointer("pointerup");
+      const values = [];
+      for (let index = 0; index < 36; index += 1) {
+        values.push(readPosition());
+        await new Promise(requestAnimationFrame);
+      }
+      const pileRect = pile.getBoundingClientRect();
+      return { values, radius, pile: { left: pileRect.left, right: pileRect.right, top: pileRect.top, bottom: pileRect.bottom } };
+    });
+
+    const start = samples.values[0];
+    const movement = Math.max(...samples.values.map(({ x, y }) => Math.hypot(x - start.x, y - start.y)));
+    expect(movement).toBeGreaterThan(10);
+    samples.values.forEach(({ x, y }) => {
+      expect(x - samples.radius).toBeGreaterThanOrEqual(samples.pile.left - 1);
+      expect(x + samples.radius).toBeLessThanOrEqual(samples.pile.right + 1);
+      expect(y - samples.radius).toBeGreaterThanOrEqual(samples.pile.top - 1);
+      expect(y + samples.radius).toBeLessThanOrEqual(samples.pile.bottom + 1);
+    });
+    await expect.poll(() => page.locator(section).evaluate((root) => root._communitiesPile.tickerActive), { timeout: 5000 }).toBe(false);
+  });
+
+  test("touches on balls do not cancel native scrolling", async ({ page }) => {
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    await scrollIntoView(page);
+    await page.waitForTimeout(4200);
+    const result = await page.locator(ball).first().evaluate((element) => {
+      const event = new PointerEvent("pointerdown", {
+        bubbles: true,
+        cancelable: true,
+        pointerId: 2,
+        pointerType: "touch",
+      });
+      element.dispatchEvent(event);
+      return {
+        defaultPrevented: event.defaultPrevented,
+        touchAction: getComputedStyle(element).touchAction,
+      };
+    });
+    expect(result.defaultPrevented).toBe(false);
+    expect(result.touchAction).not.toBe("none");
+  });
+});
+
 test("dragging a settled desktop ball wakes, tracks, and flings the pile", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");

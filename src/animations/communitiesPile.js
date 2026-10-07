@@ -13,6 +13,10 @@ const {
 
 const DROP_INTERVAL = 120;
 const DESKTOP_QUERY = "(hover: hover) and (pointer: fine)";
+const TAP_MAX_DURATION = 400;
+const TAP_MAX_MOVEMENT = 10;
+const NUDGE_SIDEWAYS = 0.12;
+const NUDGE_UPWARD = 0.25;
 // Resting bodies in a heavy pile sink a few px into a static edge; pad the
 // header body so the text itself stays clear.
 const OBSTACLE_PADDING = 12;
@@ -104,6 +108,10 @@ export function initCommunitiesPile() {
       mouseConstraint: null,
       mouseDownHandler: null,
       mouseUpHandler: null,
+      pointerDownHandler: null,
+      pointerUpHandler: null,
+      pointerCancelHandler: null,
+      tap: null,
       obstacle,
       obstacleBody: null,
       ceiling: null,
@@ -137,6 +145,11 @@ export function initCommunitiesPile() {
         const x = clamp(body.position.x, radius, dimensions.width - radius);
         const y = Math.min(body.position.y, dimensions.height - radius);
         if (x !== body.position.x || y !== body.position.y) Body.setPosition(body, { x, y });
+        if (!instance.desktop && instance.timers.size === 0
+          && body.position.y < radius && body.velocity.y < 0) {
+          Body.setPosition(body, { x: body.position.x, y: radius });
+          Body.setVelocity(body, { x: body.velocity.x, y: 0 });
+        }
         const tilt = Math.sin(body.angle) * 0.3;
         body.plugin.communitiesElement.style.transform =
           `translate3d(${body.position.x - radius}px, ${body.position.y - radius}px, 0) rotate(${tilt}rad)`;
@@ -151,6 +164,7 @@ export function initCommunitiesPile() {
     const resume = () => startTicker(instance);
 
     if (desktop) initMouse(instance, resume);
+    else initTapNudge(instance, resume);
     instance.trigger = ScrollTrigger.create({
       trigger: section,
       start: "top 70%",
@@ -209,6 +223,60 @@ function initMouse(instance, resume) {
     }
     resume();
   });
+}
+
+function initTapNudge(instance, resume) {
+  const { pile, balls, bodies } = instance;
+  const bodyForBall = (element) => {
+    const index = balls.indexOf(element);
+    return index === -1 ? null : bodies[index];
+  };
+  const isBodyInWorld = (body) => body && instance.engine.world.bodies.includes(body);
+  const ballFromTarget = (target) => {
+    const element = target instanceof Element
+      ? target.closest("[data-communities-ball]")
+      : null;
+    return element && pile.contains(element) ? element : null;
+  };
+
+  instance.pointerDownHandler = (event) => {
+    if (event.pointerType === "mouse") return;
+    const element = ballFromTarget(event.target);
+    const body = element && bodyForBall(element);
+    if (!instance.dropped || !isBodyInWorld(body)) return;
+    instance.tap = {
+      body,
+      element,
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      time: performance.now(),
+    };
+  };
+  instance.pointerUpHandler = (event) => {
+    const tap = instance.tap;
+    instance.tap = null;
+    if (!tap || tap.pointerId !== event.pointerId) return;
+    if (event.pointerType === "mouse") return;
+    if (performance.now() - tap.time > TAP_MAX_DURATION) return;
+    if (Math.hypot(event.clientX - tap.x, event.clientY - tap.y) > TAP_MAX_MOVEMENT) return;
+    if (ballFromTarget(event.target) !== tap.element) return;
+    if (!instance.dropped || !isBodyInWorld(tap.body)) return;
+
+    const radius = tap.body.plugin.communitiesRadius;
+    Body.setVelocity(tap.body, {
+      x: (Math.random() - 0.5) * radius * NUDGE_SIDEWAYS,
+      y: -Math.max(3, radius * NUDGE_UPWARD),
+    });
+    tap.body.isSleeping = false;
+    resume();
+  };
+  instance.pointerCancelHandler = () => {
+    instance.tap = null;
+  };
+  pile.addEventListener("pointerdown", instance.pointerDownHandler, { passive: true });
+  window.addEventListener("pointerup", instance.pointerUpHandler, { passive: true });
+  window.addEventListener("pointercancel", instance.pointerCancelHandler, { passive: true });
 }
 
 function dropBalls(instance) {
@@ -353,6 +421,16 @@ function kill(instance) {
   if (instance.mouseUpHandler) {
     window.removeEventListener("mouseup", instance.mouseUpHandler);
   }
+  if (instance.pointerDownHandler) {
+    instance.pile.removeEventListener("pointerdown", instance.pointerDownHandler);
+  }
+  if (instance.pointerUpHandler) {
+    window.removeEventListener("pointerup", instance.pointerUpHandler);
+  }
+  if (instance.pointerCancelHandler) {
+    window.removeEventListener("pointercancel", instance.pointerCancelHandler);
+  }
+  instance.tap = null;
   World.clear(instance.engine.world, false);
   Engine.clear(instance.engine);
   instance.balls.forEach((ball) => {

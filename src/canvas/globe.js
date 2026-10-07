@@ -6,6 +6,7 @@ const PHI_TURNS = Math.PI * 1.5;
 const THETA = 0.2;
 const MAX_DPR = 1.5;
 const RENDER_TAIL_MS = 200;
+const RENDER_INTERVAL_MS = 33;
 // cobe renders white dots on a near-black sphere; CSS tints the canvas via
 // #members-globe-tint so the ocean becomes cream and the dots become orange.
 const DARK = 1;
@@ -39,6 +40,12 @@ export function initMembersGlobe() {
     let phi = PHI_START;
     let renderUntil = 0;
     let rendering = false;
+    let renderTimer;
+    let resumeFrame;
+    let renderRequestedAt = 0;
+    let lastRenderEndedAt = -Infinity;
+    let lastRenderDuration = 0;
+    let renderCount = 0;
     // Safari drops the SVG tint filter on a WebGL canvas, so cobe draws into a
     // detached canvas and each frame is copied into the visible 2D one, where
     // the filter applies. Phenomenon sizes its canvas from clientWidth/Height,
@@ -59,17 +66,46 @@ export function initMembersGlobe() {
       });
     };
 
+    const cancelRenderTimer = () => {
+      if (renderTimer === undefined) return;
+      clearTimeout(renderTimer);
+      renderTimer = undefined;
+    };
+    const cancelResumeFrame = () => {
+      if (resumeFrame === undefined) return;
+      cancelAnimationFrame(resumeFrame);
+      resumeFrame = undefined;
+    };
     const pause = () => {
+      cancelRenderTimer();
+      cancelResumeFrame();
       if (!globe || !rendering) return;
       rendering = false;
       globe.toggle(false);
     };
+    const scheduleRender = () => {
+      if (destroyed || !globe || rendering || renderTimer !== undefined || resumeFrame !== undefined) return;
+      const interval = Math.max(RENDER_INTERVAL_MS, lastRenderDuration * 2);
+      const delay = Math.max(0, lastRenderEndedAt + interval - performance.now());
+      // Leave one rAF idle after each cobe frame. This keeps the expensive draw
+      // from occupying consecutive browser frames, even when it takes longer
+      // than RENDER_INTERVAL_MS.
+      resumeFrame = requestAnimationFrame(() => {
+        resumeFrame = undefined;
+        if (destroyed || !globe) return;
+        renderTimer = window.setTimeout(() => {
+          renderTimer = undefined;
+          if (destroyed || !globe) return;
+          rendering = true;
+          renderRequestedAt = performance.now();
+          globe.toggle(true);
+        }, delay);
+      });
+    };
     const requestFrame = () => {
       if (destroyed) return;
       renderUntil = performance.now() + RENDER_TAIL_MS;
-      if (!globe || rendering) return;
-      rendering = true;
-      globe.toggle(true);
+      scheduleRender();
     };
 
     const cleanup = (killTrigger = true) => {
@@ -77,6 +113,8 @@ export function initMembersGlobe() {
       destroyed = true;
       if (killTrigger) trigger?.kill();
       observer?.disconnect();
+      cancelRenderTimer();
+      cancelResumeFrame();
       globe?.destroy();
       canvas.remove();
       if (mount._membersGlobeInstance?.destroy === destroy) {
@@ -118,11 +156,16 @@ export function initMembersGlobe() {
         height: size * dpr,
         devicePixelRatio: dpr,
         onRender: (state) => {
+          const endedAt = performance.now();
+          renderCount += 1;
+          if (renderRequestedAt) lastRenderDuration = endedAt - renderRequestedAt;
+          lastRenderEndedAt = endedAt;
           state.phi = phi;
           state.width = size * dpr;
           state.height = size * dpr;
           copyFrame();
-          if (performance.now() > renderUntil) pause();
+          pause();
+          if (endedAt <= renderUntil) scheduleRender();
         },
       });
       rendering = true;
@@ -157,6 +200,14 @@ export function initMembersGlobe() {
       mount.setAttribute("data-members-globe-phi", PHI_START.toFixed(3));
     }
 
-    mount._membersGlobeInstance = { destroy };
+    mount._membersGlobeInstance = {
+      destroy,
+      get renderCount() {
+        return renderCount;
+      },
+      get lastRenderDuration() {
+        return lastRenderDuration;
+      },
+    };
   });
 }

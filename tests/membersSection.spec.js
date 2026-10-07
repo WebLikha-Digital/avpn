@@ -177,3 +177,67 @@ test("keeps globe rotation fixed for reduced-motion users", async ({ page }) => 
   const after = await mount.getAttribute("data-members-globe-phi");
   expect(after).toBe(before);
 });
+
+test("keeps the globe rotating while it is visible on mobile", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  const mount = page.locator("[data-members-globe]");
+  await expect(mount.locator("canvas")).toHaveClass(/is-ready/, { timeout: 10_000 });
+
+  const mountTop = await mount.evaluate((node) => node.getBoundingClientRect().top + window.scrollY);
+  await page.evaluate((top) => window.scrollTo({ top, behavior: "instant" }), mountTop);
+  await nextFrame(page);
+  const before = Number(await mount.getAttribute("data-members-globe-phi"));
+
+  await page.evaluate(() => window.scrollBy({ top: 300, behavior: "instant" }));
+  await nextFrame(page);
+  const after = Number(await mount.getAttribute("data-members-globe-phi"));
+  const visibility = await mount.evaluate((node) => {
+    const { top, bottom } = node.getBoundingClientRect();
+    return { top, bottom, viewportHeight: window.innerHeight };
+  });
+
+  expect(visibility.top).toBeLessThan(visibility.viewportHeight);
+  expect(visibility.bottom).toBeGreaterThan(0);
+  expect(after).toBeGreaterThan(before);
+  expect(after).toBeLessThan(1.5 * Math.PI);
+});
+
+test("keeps the globe rotating after the desktop pinned range", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.reload();
+  const mount = page.locator("[data-members-globe]");
+  const section = page.locator("[data-members-init]");
+  await expect(mount.locator("canvas")).toHaveClass(/is-ready/, { timeout: 10_000 });
+
+  const sectionTop = await section.evaluate((node) => node.getBoundingClientRect().top + window.scrollY);
+  await page.evaluate((top) => window.scrollTo({ top: top - window.innerHeight / 2, behavior: "instant" }), sectionTop);
+  await nextFrame(page);
+  const beforePin = Number(await mount.getAttribute("data-members-globe-phi"));
+  expect(beforePin).toBeGreaterThan(0);
+
+  await page.evaluate(() => window.scrollBy({ top: 200, behavior: "instant" }));
+  await nextFrame(page);
+  const afterPrePin = Number(await mount.getAttribute("data-members-globe-phi"));
+  expect(afterPrePin).toBeGreaterThan(beforePin);
+
+  const pinRelease = await section.evaluate((node) =>
+    node.getBoundingClientRect().top + window.scrollY + node.offsetHeight - window.innerHeight,
+  );
+  await page.evaluate((top) => window.scrollTo({ top, behavior: "instant" }), pinRelease);
+  await nextFrame(page);
+  const before = Number(await mount.getAttribute("data-members-globe-phi"));
+
+  await page.evaluate(() => window.scrollBy({ top: 300, behavior: "instant" }));
+  await nextFrame(page);
+  const after = Number(await mount.getAttribute("data-members-globe-phi"));
+  const visibility = await mount.evaluate((node) => {
+    const { top, bottom } = node.getBoundingClientRect();
+    return { top, bottom, viewportHeight: window.innerHeight };
+  });
+
+  expect(visibility.top).toBeLessThan(visibility.viewportHeight);
+  expect(visibility.bottom).toBeGreaterThan(0);
+  expect(after).toBeGreaterThan(before);
+  expect(after).toBeLessThan(1.5 * Math.PI);
+});

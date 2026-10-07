@@ -136,8 +136,8 @@ export function initMembersGlobe() {
     if (section && !reduced) {
       trigger = ScrollTrigger.create({
         trigger: section,
-        start: "top top",
-        end: "bottom bottom",
+        start: "top bottom",
+        end: "bottom top",
         scrub: true,
         onUpdate: (self) => {
           const nextPhi = PHI_START + self.progress * PHI_TURNS;

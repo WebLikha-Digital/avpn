@@ -144,6 +144,53 @@ test("scrubs member rows without layout shifts during continuous scroll", async 
   expect(maxRowError).toBeLessThanOrEqual(1);
 });
 
+test("caps globe renders while keeping rotation live during continuous scroll", async ({ page }) => {
+  const section = page.locator("[data-members-init]");
+  const mount = page.locator("[data-members-globe]");
+  const sectionTop = await section.evaluate((node) => node.getBoundingClientRect().top + window.scrollY);
+  await page.evaluate((top) => window.scrollTo({ top: Math.max(0, top - window.innerHeight), behavior: "instant" }), sectionTop);
+  await nextFrame(page);
+
+  const before = await mount.evaluate((node) => ({
+    phi: Number(node.getAttribute("data-members-globe-phi")),
+    renders: node._membersGlobeInstance.renderCount,
+  }));
+  await page.evaluate(() => {
+    const mountNode = document.querySelector("[data-members-globe]");
+    window.__membersGlobeRenderFrames = [];
+    const sample = () => {
+      if (!window.__membersGlobeSampling) return;
+      window.__membersGlobeRenderFrames.push(mountNode._membersGlobeInstance.renderCount);
+      requestAnimationFrame(sample);
+    };
+    window.__membersGlobeSampling = true;
+    requestAnimationFrame(sample);
+  });
+
+  await page.mouse.move(600, 450);
+  for (let index = 0; index < 55; index += 1) {
+    await page.mouse.wheel(0, 60);
+    await page.waitForTimeout(40);
+  }
+  await page.waitForTimeout(100);
+  await page.evaluate(() => {
+    window.__membersGlobeSampling = false;
+  });
+  await nextFrame(page);
+
+  const result = await mount.evaluate((node) => ({
+    phi: Number(node.getAttribute("data-members-globe-phi")),
+    renders: node._membersGlobeInstance.renderCount,
+  }));
+  const frames = await page.evaluate(() => window.__membersGlobeRenderFrames);
+  const rendersDuringScroll = result.renders - before.renders;
+  const renderedFrames = frames.map((renders, index) => renders > (index === 0 ? before.renders : frames[index - 1]));
+  expect(frames.length).toBeGreaterThan(0);
+  expect(rendersDuringScroll).toBeLessThanOrEqual(frames.length * 0.6);
+  expect(renderedFrames.some((rendered, index) => rendered && renderedFrames[index - 1])).toBe(false);
+  expect(result.phi).toBeGreaterThan(before.phi);
+});
+
 test("members accordion opens one row and closes its active sibling", async ({ page }) => {
   const section = page.locator("[data-members-init]");
   const list = page.locator("[data-members-list]");

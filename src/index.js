@@ -29,8 +29,6 @@ import { initListPreviewFollower } from "./animations/listPreviewFollower.js";
 import { initTeamTabs } from "./animations/teamTabs.js";
 import { initTeamPreview } from "./animations/teamPreview.js";
 import { initTunnel2 } from "./canvas/tunnel2.js";
-import { initEcosystemTabs } from "./animations/ecosystemTabs.js";
-import { initEcosystemSlider } from "./animations/ecosystemSlider.js";
 import { initEcosystemFolders } from "./animations/ecosystemFolders.js";
 import { initHamburgerNav } from "./animations/hamburgerNav.js";
 import { initAccordion } from "./animations/accordion.js";
@@ -82,7 +80,6 @@ function init() {
   initHeroVideoGate();
   initHorizontalScroller();
   initSnapCarousel();
-  initEcosystemTabs();
   initEcosystemFolders();
   // Fit before SplitText runs so its line measurements use the final font size.
   initTextFitToWidth();
@@ -97,7 +94,6 @@ function init() {
   initArcScrollTransition();
   initForwardSection();
   initProgrammesOverview();
-  initEcosystemSlider();
   initListHoverReveal();
   initListPreviewFollower();
   initTeamTabs();

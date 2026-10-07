@@ -350,8 +350,8 @@ test("keeps non-scaling stretched lines screen-accurate during continuous scroll
   expect(initial.zeroDash).toMatch(/^0(px|,)/);
   expect(initial.visibility).toBe("hidden");
   expect(Math.abs(initial.scaleX - initial.scaleY)).toBeGreaterThan(0.01);
-  await expect(page.locator("[data-markets-line-path]")).toHaveCSS("stroke-width", "4.5px");
-  await expect(page.locator("[data-markets-line-path]")).toHaveCSS("vector-effect", "non-scaling-stroke");
+  await expect(page.locator(".markets_line [data-markets-line-path]")).toHaveCSS("stroke-width", "4.5px");
+  await expect(page.locator(".markets_line [data-markets-line-path]")).toHaveCSS("vector-effect", "non-scaling-stroke");
 
   const samples = await line.evaluate(async (path) => {
     const wrap = path.closest("[data-draw-scroll-wrap]");

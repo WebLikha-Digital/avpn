@@ -31,8 +31,9 @@ export function initMarketsChart() {
 
     const bars = [...section.querySelectorAll("[data-markets-bar]")];
     const viewport = section.querySelector("[data-markets-viewport]");
-    const line = section.querySelector("[data-markets-line]");
-    const path = section.querySelector("[data-markets-line-path]");
+    const line = [...section.querySelectorAll("[data-markets-line]")]
+      .find((candidate) => getComputedStyle(candidate).display !== "none");
+    const path = line?.querySelector("[data-markets-line-path]");
     if (bars.length === 0 && (!line || !path || !viewport)) return;
 
     const reducedMotion = window.matchMedia?.(
@@ -126,8 +127,7 @@ function measureEntryBars(instance) {
 
 function initLine(instance, reducedMotion) {
   const { line, path, viewport } = instance;
-  if (!line || !path || !viewport || !instance.band) return false;
-  if (getComputedStyle(line).display === "none") return false;
+  if (!line || !path || !viewport) return false;
 
   gsap.registerPlugin(DrawSVGPlugin);
 

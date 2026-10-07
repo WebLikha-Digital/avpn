@@ -328,7 +328,10 @@ test("mobile arrows step and accumulate against the wrapped marquee offset", asy
   const root = page.locator(folders);
   const deck = root.locator(learn);
   await deck.evaluate((root) => root.style.setProperty("--deck-speed", "0"));
-  await deck.locator("[data-deck-folder]").click();
+  const folder = deck.locator("[data-deck-folder]");
+  await folder.evaluate((element) => element.scrollIntoView({ block: "center", behavior: "instant" }));
+  await folder.focus();
+  await folder.press("Enter");
   await expect(deck).toHaveAttribute("data-deck-state", "expanded");
 
   const before = await deck.evaluate((root) => {
@@ -342,14 +345,19 @@ test("mobile arrows step and accumulate against the wrapped marquee offset", asy
     }, null);
     return { offset: deck.offset, width: deck.setWidth, step: card.getBoundingClientRect().width + parseFloat(getComputedStyle(deck.track).gap) };
   });
+  const scrollControls = () => deck.locator("[data-deck-controls]").evaluate((element) => element.scrollIntoView({ block: "center", behavior: "instant" }));
+  await scrollControls();
   await deck.locator("[data-deck-next]").click();
+  await scrollControls();
   await deck.locator("[data-deck-next]").click();
+  await scrollControls();
   await deck.locator("[data-deck-next]").click();
   await expect.poll(() => deck.evaluate((root) => Boolean(root._ecosystemDeckInstance.stepTween))).toBe(false);
   const after = await deck.evaluate((root) => root._ecosystemDeckInstance.offset);
   const expected = ((before.offset - before.step * 3) % before.width + before.width) % before.width;
   const normalized = ((after % before.width) + before.width) % before.width;
   expect(normalized).toBeCloseTo(expected, 1);
+  await scrollControls();
   await deck.locator("[data-deck-prev]").click();
   await expect.poll(() => deck.evaluate((root) => Boolean(root._ecosystemDeckInstance.stepTween))).toBe(false);
   const afterPrev = await deck.evaluate((root) => root._ecosystemDeckInstance.offset);
@@ -366,15 +374,20 @@ test("reduced-motion arrows scroll one native card step", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 900 });
   await page.reload();
   const deck = page.locator(learn);
-  await deck.locator("[data-deck-folder]").click();
+  const folder = deck.locator("[data-deck-folder]");
+  await folder.evaluate((element) => element.scrollIntoView({ block: "center", behavior: "instant" }));
+  await folder.focus();
+  await folder.press("Enter");
   await expect(deck).toHaveAttribute("data-deck-state", "expanded");
   const before = await deck.evaluate((root) => {
     const viewport = root.querySelector("[data-deck-viewport]");
     const card = root.querySelector("[data-deck-card]");
     return { left: viewport.scrollLeft, step: card.getBoundingClientRect().width + parseFloat(getComputedStyle(root.querySelector("[data-deck-track]")).gap) };
   });
+  await deck.locator("[data-deck-controls]").evaluate((element) => element.scrollIntoView({ block: "center", behavior: "instant" }));
   await deck.locator("[data-deck-next]").click();
   await expect.poll(() => deck.locator("[data-deck-viewport]").evaluate((viewport) => viewport.scrollLeft)).toBeCloseTo(before.left + before.step, 0);
+  await deck.locator("[data-deck-controls]").evaluate((element) => element.scrollIntoView({ block: "center", behavior: "instant" }));
   await deck.locator("[data-deck-prev]").click();
   await expect.poll(() => deck.locator("[data-deck-viewport]").evaluate((viewport) => viewport.scrollLeft)).toBeCloseTo(before.left, 0);
 });

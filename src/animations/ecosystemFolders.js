@@ -51,7 +51,7 @@ export function initEcosystemFolders() {
       const deck = {
         root, folder, panel, viewport, track, collapse, hint, cards,
         reduced, paused: false, offset: 0, setWidth: 0, ticker: null,
-        tween: null, hoverTween: null, listeners: [], draggable: null,
+        tween: null, stepTween: null, stepTarget: null, stepping: false, hoverTween: null, listeners: [], draggable: null,
         proxy: null, throwActive: false, dragPaused: false,
         movedSincePress: false, proxyX: 0, footerFadeTween: null,
       };
@@ -72,6 +72,7 @@ export function initEcosystemFolders() {
       const meta = root.querySelector("[data-deck-meta]");
       if (meta && !meta.textContent.trim()) meta.textContent = root.dataset.deckMeta || "";
       const localListen = (target, type, handler, options) => {
+        if (!target) return;
         target.addEventListener(type, handler, options);
         deck.listeners.push(() => target.removeEventListener(type, handler, options));
       };
@@ -324,6 +325,35 @@ export function initEcosystemFolders() {
         if (["Enter", " "].includes(event.key)) { event.preventDefault(); expand(); }
       });
       localListen(collapse, "click", () => collapseDeck());
+      const step = (direction) => {
+        if (root.dataset.deckState !== "expanded") return;
+        if (deck.reduced) {
+          viewport.scrollBy({ left: -direction * deckStep(deck), behavior: "auto" });
+          return;
+        }
+        cancelThrow(deck);
+        if (!deck.setWidth) return;
+        const target = (deck.stepTarget ?? deck.offset) + direction * deckStep(deck);
+        deck.stepTarget = target;
+        deck.stepping = true;
+        deck.stepTween?.kill();
+        deck.stepTween = gsap.to(deck, {
+          offset: target,
+          duration: 0.5,
+          ease: "power3.out",
+          overwrite: true,
+          onUpdate: () => gsap.set(track, { x: wrapOffset(deck.offset, deck.setWidth) }),
+          onComplete: () => {
+            deck.offset = wrapOffset(target, deck.setWidth);
+            deck.stepTarget = null;
+            deck.stepping = false;
+            deck.stepTween = null;
+            gsap.set(track, { x: deck.offset });
+          },
+        });
+      };
+      localListen(root.querySelector("[data-deck-prev]"), "click", (event) => { event.preventDefault(); event.stopPropagation(); step(1); });
+      localListen(root.querySelector("[data-deck-next]"), "click", (event) => { event.preventDefault(); event.stopPropagation(); step(-1); });
       localListen(viewport, "pointerenter", () => { deck.paused = true; });
       localListen(viewport, "pointerleave", () => { deck.paused = false; });
       localListen(viewport, "focusin", () => { deck.paused = true; });
@@ -397,7 +427,7 @@ function startMarquee(deck) {
   deck.setWidth = originalsWidth;
   deck.offset = 0;
   deck.ticker = () => {
-    if (deck.paused || deck.dragPaused || deck.throwActive || !deck.setWidth) return;
+    if (deck.paused || deck.dragPaused || deck.throwActive || deck.stepping || !deck.setWidth) return;
     deck.offset = (deck.offset - speed * gsap.ticker.deltaRatio(60) / 60) % deck.setWidth;
     gsap.set(deck.track, { x: deck.offset });
   };
@@ -430,6 +460,7 @@ function createDrag(deck) {
     minimumMovement: 4,
     bounds: false,
     onPress() {
+      cancelStep(deck);
       deck.movedSincePress = false;
       deck.dragPaused = true;
       deck.throwActive = false;
@@ -463,6 +494,7 @@ function createDrag(deck) {
 }
 
 function killDrag(deck) {
+  cancelStep(deck);
   deck.throwActive = false;
   deck.dragPaused = false;
   deck.movedSincePress = false;
@@ -502,11 +534,44 @@ function alignOriginalsToView(deck) {
 }
 
 function stopMarquee(deck) {
+  cancelStep(deck);
   if (deck.ticker) gsap.ticker.remove(deck.ticker);
   deck.ticker = null;
   deck.setWidth = 0;
   gsap.set(deck.track, { clearProps: "x" });
   removeClones(deck.root);
+}
+
+function cancelStep(deck) {
+  deck.stepTween?.kill();
+  deck.stepTween = null;
+  deck.stepTarget = null;
+  deck.stepping = false;
+  if (deck.setWidth) {
+    deck.offset = wrapOffset(deck.offset, deck.setWidth);
+    gsap.set(deck.track, { x: deck.offset });
+  }
+}
+
+function cancelThrow(deck) {
+  if (!deck.throwActive) return;
+  deck.draggable?.tween?.kill();
+  deck.throwActive = false;
+  deck.dragPaused = false;
+  deck.proxyX = 0;
+  if (deck.proxy) gsap.set(deck.proxy, { x: 0 });
+  deck.viewport?.setAttribute("data-deck-drag-status", "grab");
+}
+
+function deckStep(deck) {
+  const viewportCentre = deck.viewport.getBoundingClientRect().left + deck.viewport.getBoundingClientRect().width / 2;
+  const card = deck.cards.reduce((nearest, candidate) => {
+    const candidateBox = candidate.getBoundingClientRect();
+    const nearestBox = nearest?.getBoundingClientRect();
+    return !nearest || Math.abs(candidateBox.left + candidateBox.width / 2 - viewportCentre) <
+      Math.abs(nearestBox.left + nearestBox.width / 2 - viewportCentre) ? candidate : nearest;
+  }, null);
+  return (card?.getBoundingClientRect().width || 0) + gap(deck.track);
 }
 
 function wrapOffset(value, width) {
@@ -524,7 +589,7 @@ function teardown(group) {
   const instance = group._ecosystemFoldersInstance;
   if (!instance) return;
   instance.listeners?.forEach((remove) => remove());
-  instance.decks?.forEach((deck) => { deck.tween?.kill(); killFooterFade(deck); stopMarquee(deck); deck.listeners?.forEach((remove) => remove()); });
+  instance.decks?.forEach((deck) => { deck.tween?.kill(); cancelStep(deck); killFooterFade(deck); stopMarquee(deck); deck.listeners?.forEach((remove) => remove()); });
   instance.decks?.forEach((deck) => killDrag(deck));
   group._ecosystemFoldersInstance = null;
 }

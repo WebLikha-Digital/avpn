@@ -1788,6 +1788,8 @@
       .ecosystem_deck:not([data-deck-state="expanded"]) .ecosystem_card { pointer-events:none; }
       .ecosystem_deck-hint { margin:16px 0 0; text-align:center; color:#6e6e6a; font:500 14px/20px Archivo,system-ui,sans-serif; }
       .ecosystem_deck-collapse { padding:10px 16px; border:1px solid #002944; border-radius:999px; background:#F7F1EA; color:#002944; font:700 12px/1 Archivo,system-ui,sans-serif; letter-spacing:.08em; cursor:pointer; }
+      .ecosystem_deck-arrow { display:none; width:3rem; height:3rem; align-items:center; justify-content:center; border:0; border-radius:50%; background:#002944; color:#fff; padding:0; cursor:pointer; flex:none; }
+      .prog-highlights_arrow-icon { display:flex; width:1.25rem; height:1.25rem; }
       /* While expanding the COLLAPSE pill is still `hidden` (the JS unhides it on finish), so
          the deck was 50px shorter mid-expand, the section shrank, and the stretched line SVG
          squashed then sprang back. Keep the pill in flow but invisible until it is shown. */
@@ -1807,6 +1809,14 @@
       .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-title { order:2; margin:72px 0 0; text-align:center; }
       .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-hint { order:3; margin:8px 0 0; }
       .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-collapse { order:4; position:relative; z-index:2; align-self:center; margin:16px 0 0; }
+      .ecosystem_deck-controls { display:contents; }
+      .ecosystem_deck-arrow:focus-visible { outline:2px solid #002944; outline-offset:3px; }
+      .ecosystem_deck[data-deck-state="expanding"] .ecosystem_deck-arrow { visibility:hidden; }
+      @media (max-width:767px) {
+        .ecosystem_deck-arrow { display:flex; }
+        .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-controls { order:4; display:flex; align-items:center; justify-content:center; gap:16px; position:relative; z-index:2; margin:16px 0 0; }
+        .ecosystem_deck:is([data-deck-state="expanding"],[data-deck-state="expanded"]) .ecosystem_deck-controls .ecosystem_deck-collapse { order:0; margin:0; }
+      }
       .ecosystem_deck[data-deck-state="expanding"] .ecosystem_deck-cover { z-index:6; overflow:visible; }
       .ecosystem_deck[data-deck-state="expanding"] .ecosystem_deck-surface,
       .ecosystem_deck[data-deck-state="expanded"] .ecosystem_deck-surface { overflow:visible; }
@@ -3009,7 +3019,7 @@
             </div>
             </div>
           </div>
-          <div class="ecosystem_deck-header" data-deck-header><span class="ecosystem_deck-title" data-deck-title>Learn with AVPN</span><button class="ecosystem_deck-collapse" type="button" data-deck-collapse hidden>COLLAPSE</button></div>
+          <div class="ecosystem_deck-header" data-deck-header><span class="ecosystem_deck-title" data-deck-title>Learn with AVPN</span><div class="ecosystem_deck-controls" data-deck-controls><button type="button" data-deck-prev aria-label="Previous publication" class="ecosystem_deck-arrow"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true" class="prog-highlights_arrow-icon"><path d="M17 10H3m0 0 6-6m-6 6 6 6" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"></path></svg></button><button class="ecosystem_deck-collapse" type="button" data-deck-collapse hidden>COLLAPSE</button><button type="button" data-deck-next aria-label="Next publication" class="ecosystem_deck-arrow"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true" class="prog-highlights_arrow-icon"><path d="M3 10h14m0 0-6-6m6 6-6 6" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"></path></svg></button></div></div>
           <p class="ecosystem_intro ecosystem_deck-intro" data-split="heading">Through AVPN’s engagements with the ecosystem, we have crystallised our knowledge, findings &amp; experience into publications including reports and podcast episodes.</p>
           <p class="ecosystem_deck-hint" data-deck-hint data-deck-hint-stacked="Click the folder to reveal all publications" data-deck-hint-expanded="Hover to pause · Click a card to open it"></p>
         </article>
@@ -3038,7 +3048,7 @@
             </div>
             </div>
           </div>
-          <div class="ecosystem_deck-header" data-deck-header><span class="ecosystem_deck-title" data-deck-title>AVPN Leading Voice</span><button class="ecosystem_deck-collapse" type="button" data-deck-collapse hidden>COLLAPSE</button></div>
+          <div class="ecosystem_deck-header" data-deck-header><span class="ecosystem_deck-title" data-deck-title>AVPN Leading Voice</span><div class="ecosystem_deck-controls" data-deck-controls><button type="button" data-deck-prev aria-label="Previous publication" class="ecosystem_deck-arrow"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true" class="prog-highlights_arrow-icon"><path d="M17 10H3m0 0 6-6m-6 6 6 6" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"></path></svg></button><button class="ecosystem_deck-collapse" type="button" data-deck-collapse hidden>COLLAPSE</button><button type="button" data-deck-next aria-label="Next publication" class="ecosystem_deck-arrow"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true" class="prog-highlights_arrow-icon"><path d="M3 10h14m0 0-6-6m6 6-6 6" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"></path></svg></button></div></div>
           <p class="ecosystem_intro ecosystem_deck-intro" data-split="heading">AVPN is beginning to speak its own voice in the impact ecosystem, sharing knowledge and viewpoints with the rest of the world.</p>
           <p class="ecosystem_deck-hint" data-deck-hint data-deck-hint-stacked="Click the folder to reveal all publications" data-deck-hint-expanded="Hover to pause · Click a card to open it"></p>
         </article>

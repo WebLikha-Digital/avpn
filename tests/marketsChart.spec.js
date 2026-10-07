@@ -404,7 +404,7 @@ test("advances the decor line per frame and reaches its end", async ({ page }) =
     const values = [];
     const top = root.getBoundingClientRect().top + window.scrollY;
     const viewport = root.querySelector("[data-markets-viewport]");
-    const path = root.querySelector("[data-markets-line-path]");
+    const path = root.querySelector(".markets_line [data-markets-line-path]");
     const read = () => {
       const raw = path.style.strokeDasharray.trim();
       return {
@@ -457,7 +457,7 @@ test("draws the line fully without a trigger in reduced motion", async ({ page }
   await page.waitForLoadState("networkidle");
 
   const state = await page.locator(section).evaluate((root) => {
-    const path = root.querySelector("[data-markets-line-path]");
+    const path = root.querySelector(".markets_line [data-markets-line-path]");
     return {
       dash: path.style.strokeDasharray,
       trigger: Boolean(root._marketsChart?.lineTrigger),

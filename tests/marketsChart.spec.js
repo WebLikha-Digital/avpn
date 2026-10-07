@@ -3,7 +3,8 @@ import { test, expect } from "@playwright/test";
 const section = ".section_markets[data-markets-init]";
 const viewport = `${section} [data-markets-viewport]`;
 const bars = `${section} [data-markets-bar]`;
-const linePath = `${section} [data-markets-line-path]`;
+const linePath = `${section} .markets_line [data-markets-line-path]`;
+const mobileLinePath = `${section} .markets_line-mobile [data-markets-line-path]`;
 
 function clipTopOf(element) {
   const match = element.style.clipPath.match(/inset\(\s*([\d.]+)%/i);
@@ -282,6 +283,91 @@ test("reveals mobile entry bars from the window trigger", async ({ page }) => {
   )).toBe(true);
 });
 
+test("draws the mobile decor line lead on section entry", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+
+  const before = await page.locator(mobileLinePath).evaluate((path) => ({
+    dash: path.style.strokeDasharray,
+    visibility: path.style.visibility,
+  }));
+  expect(before.dash).toMatch(/^0px/);
+  expect(before.visibility).toBe("hidden");
+  expect(await page.locator(linePath).evaluate((path) => ({
+    dash: path.style.strokeDasharray,
+    visibility: path.style.visibility,
+  }))).toEqual({ dash: "", visibility: "" });
+
+  const target = await page.locator(section).evaluate((root) =>
+    root.getBoundingClientRect().top + window.scrollY - window.innerHeight * 0.8 + 2,
+  );
+  await page.evaluate((top) => window.scrollTo({ top, behavior: "instant" }), target);
+  await expect.poll(() => page.locator(mobileLinePath).evaluate((path) => {
+    const total = path.getTotalLength();
+    const raw = path.style.strokeDasharray.trim();
+    const drawn = Number.parseFloat(raw) || 0;
+    const matrix = path.getScreenCTM();
+    const scaleX = matrix ? Math.hypot(matrix.a, matrix.b) : 1;
+    return path.getPointAtLength(Math.min(total, drawn / scaleX)).x;
+  }), { timeout: 2000 }).toBeGreaterThan(280);
+  await expect.poll(() => page.locator(mobileLinePath).evaluate((path) => {
+    const total = path.getTotalLength();
+    const raw = path.style.strokeDasharray.trim();
+    const drawn = Number.parseFloat(raw) || 0;
+    const matrix = path.getScreenCTM();
+    const scaleX = matrix ? Math.hypot(matrix.a, matrix.b) : 1;
+    return path.getPointAtLength(Math.min(total, drawn / scaleX)).x;
+  }), { timeout: 2000 }).toBeLessThan(320);
+});
+
+test("advances the mobile decor line per frame to the path end", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+
+  const target = await page.locator(section).evaluate((root) =>
+    root.getBoundingClientRect().top + window.scrollY - window.innerHeight * 0.8 + 2,
+  );
+  await page.evaluate((top) => window.scrollTo({ top, behavior: "instant" }), target);
+  await page.waitForTimeout(1000);
+
+  const samples = await page.locator(section).evaluate(async (root) => {
+    const viewport = root.querySelector("[data-markets-viewport]");
+    const path = root.querySelector(".markets_line-mobile [data-markets-line-path]");
+    const read = () => {
+      const raw = path.style.strokeDasharray.trim();
+      return {
+        left: viewport.scrollLeft,
+        drawn: Number.parseFloat(raw) || 0,
+      };
+    };
+    const max = viewport.scrollWidth - viewport.clientWidth;
+    const values = [];
+    return new Promise((resolve) => {
+      let frame = 0;
+      const sample = () => {
+        viewport.scrollLeft = max * frame / 30;
+        requestAnimationFrame(() => {
+          values.push(read());
+          frame += 1;
+          if (frame <= 30) requestAnimationFrame(sample);
+          else requestAnimationFrame(() => resolve({ max, values, final: read() }));
+        });
+      };
+      sample();
+    });
+  });
+
+  const drawn = samples.values.map(({ drawn: length }) => length);
+  expect(drawn.some((length, index) => index > 0 && length > drawn[index - 1])).toBe(true);
+  expect(samples.final.left).toBeCloseTo(samples.max, 0);
+  const total = await page.locator(section).evaluate((root) =>
+    root._marketsChart.lineMeasurements.totalLength,
+  );
+  expect(samples.final.drawn / total).toBeGreaterThan(0.99);
+});
+
 test("reveals the decor line lead on desktop section entry", async ({ page }) => {
   await page.goto("/");
   await page.waitForLoadState("networkidle");
@@ -379,6 +465,27 @@ test("draws the line fully without a trigger in reduced motion", async ({ page }
     };
   });
   expect(state.dash).not.toMatch(/^0/);
+  expect(state.trigger).toBe(false);
+  expect(state.render).toBe(false);
+});
+
+test("draws the mobile line fully without a trigger in reduced motion", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+
+  const state = await page.locator(section).evaluate((root) => {
+    const path = root.querySelector(".markets_line-mobile [data-markets-line-path]");
+    const raw = path.style.strokeDasharray.trim();
+    const drawn = Number.parseFloat(raw) || 0;
+    return {
+      ratio: drawn / root._marketsChart.lineMeasurements.totalLength,
+      trigger: Boolean(root._marketsChart?.lineTrigger),
+      render: Boolean(root._marketsChart?.lineRender),
+    };
+  });
+  expect(state.ratio).toBeGreaterThan(0.99);
   expect(state.trigger).toBe(false);
   expect(state.render).toBe(false);
 });

@@ -392,6 +392,23 @@ test("reduced-motion arrows scroll one native card step", async ({ page }) => {
   await expect.poll(() => deck.locator("[data-deck-viewport]").evaluate((viewport) => viewport.scrollLeft)).toBeCloseTo(before.left, 0);
 });
 
+test("ignores arrow steps while collapse is fading", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 900 });
+  const deck = page.locator(learn);
+  const folder = deck.locator("[data-deck-folder]");
+  await folder.evaluate((element) => element.scrollIntoView({ block: "center", behavior: "instant" }));
+  await folder.focus();
+  await folder.press("Enter");
+  await expect(deck).toHaveAttribute("data-deck-state", "expanded");
+
+  const controls = deck.locator("[data-deck-controls]");
+  await controls.evaluate((element) => element.scrollIntoView({ block: "center", behavior: "instant" }));
+  await deck.locator("[data-deck-collapse]").dispatchEvent("click");
+  await deck.locator("[data-deck-next]").dispatchEvent("click");
+  expect(await deck.evaluate((root) => Boolean(root._ecosystemDeckInstance.stepTween))).toBe(false);
+  await expect(deck).toHaveAttribute("data-deck-state", "stacked", { timeout: COLLAPSE_TIMEOUT });
+});
+
 test("folders stack on mobile", async ({ page }) => {
   await page.setViewportSize({ width: 768, height: 900 });
   const root = page.locator(folders);

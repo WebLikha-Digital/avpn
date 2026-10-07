@@ -327,6 +327,7 @@ export function initEcosystemFolders() {
       localListen(collapse, "click", () => collapseDeck());
       const step = (direction) => {
         if (root.dataset.deckState !== "expanded") return;
+        if (deck.footerFadeTween) return;
         if (deck.reduced) {
           viewport.scrollBy({ left: -direction * deckStep(deck), behavior: "auto" });
           return;

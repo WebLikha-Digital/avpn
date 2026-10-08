@@ -570,12 +570,18 @@ test("pausing an incomplete mobile reveal finishes the active morph", async ({ p
 
   const beforePause = await page.locator(section).evaluate((root) => {
     const instance = root._causesShapes;
-    for (let attempt = 0; !instance.currentTween && attempt < instance.tiles.length * 4; attempt += 1) {
+    let fresh = null;
+    for (let attempt = 0; attempt < instance.tiles.length * 4; attempt += 1) {
+      const before = instance.currentTween;
       instance.swapNext();
+      if (instance.currentTween && instance.currentTween !== before && instance.currentTween.progress() < 1) {
+        fresh = instance.currentTween;
+        break;
+      }
     }
-    return { patternIndex: instance.patternIndex, hasTween: Boolean(instance.currentTween) };
+    return { patternIndex: instance.patternIndex, active: Boolean(fresh) };
   });
-  expect(beforePause.hasTween).toBe(true);
+  expect(beforePause.active).toBe(true);
   const gridStart = await page.evaluate((selector) => {
     const element = document.querySelector(selector);
     return window.scrollY + element.getBoundingClientRect().top - window.innerHeight * 0.95;
@@ -600,18 +606,25 @@ test("leaving desktop causes while morphing lets the tween settle", async ({ pag
 
   const morph = await page.locator(section).evaluate((root, shapes) => {
     const instance = root._causesShapes;
-    for (let attempt = 0; !instance.currentTween && attempt < instance.tiles.length * 4; attempt += 1) {
+    let fresh = null;
+    for (let attempt = 0; attempt < instance.tiles.length * 4; attempt += 1) {
+      const before = instance.currentTween;
       instance.swapNext();
+      if (instance.currentTween && instance.currentTween !== before && instance.currentTween.progress() < 1) {
+        fresh = instance.currentTween;
+        break;
+      }
     }
-    if (!instance.currentTween) return null;
-    const tile = instance.tiles.find((element) => instance.currentTween?.targets().includes(element));
-    const targetRadius = instance.currentTween.vars.borderRadius;
+    if (!fresh) return { active: false };
+    const tile = instance.tiles.find((element) => fresh.targets().includes(element));
+    const targetRadius = fresh.vars.borderRadius;
     return {
+      active: true,
       tileIndex: instance.tiles.indexOf(tile),
       target: Object.keys(shapes).find((shape) => shapes[shape] === targetRadius),
     };
   }, shapeRadii);
-  expect(morph).not.toBeNull();
+  expect(morph.active).toBe(true);
   await page.evaluate((selector) => {
     const element = document.querySelector(selector);
     window.scrollTo(0, window.scrollY + element.getBoundingClientRect().bottom + 1);

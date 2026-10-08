@@ -46,6 +46,35 @@ async function radii(page) {
   }));
 }
 
+async function shapeRadiusMismatches(page) {
+  return page.locator(section).evaluate((root, shapes) => {
+    const instance = root._causesShapes;
+    const tiles = instance.isMobile ? instance.visibleTiles : instance.tiles;
+    return tiles.flatMap((element) => {
+      const shape = element.dataset.causesShape;
+      const expected = shapes[shape].split(" ").map((value) => parseFloat(value));
+      const tileWidth = element.getBoundingClientRect().width;
+      const styles = getComputedStyle(element);
+      const actual = [
+        styles.borderTopLeftRadius,
+        styles.borderTopRightRadius,
+        styles.borderBottomRightRadius,
+        styles.borderBottomLeftRadius,
+      ];
+      return actual.some((value, index) => {
+        const actualValue = parseFloat(value);
+        const expectedValue = value.endsWith("%")
+          ? expected[index]
+          : expected[index] / 100 * tileWidth;
+        const tolerance = value.endsWith("%") ? 0.5 : 1.5;
+        return Math.abs(actualValue - expectedValue) > tolerance;
+      })
+        ? [{ shape, actual, expected }]
+        : [];
+    });
+  }, shapeRadii);
+}
+
 async function revealState(page) {
   return page.locator(tile).evaluateAll((tiles) => tiles.map((element) => {
     const styles = getComputedStyle(element);
@@ -530,4 +559,82 @@ test("many forced swaps never produce a quarter shape", async ({ page }) => {
   });
 
   expect(quarterShapes).toEqual([]);
+});
+
+test("pausing an incomplete mobile reveal finishes the active morph", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await waitForReveal(page);
+
+  const beforePause = await page.locator(section).evaluate((root) => {
+    const instance = root._causesShapes;
+    let fresh = null;
+    for (let attempt = 0; attempt < instance.tiles.length * 4; attempt += 1) {
+      const before = instance.currentTween;
+      instance.swapNext();
+      if (instance.currentTween && instance.currentTween !== before && instance.currentTween.progress() < 1) {
+        fresh = instance.currentTween;
+        break;
+      }
+    }
+    return { patternIndex: instance.patternIndex, active: Boolean(fresh) };
+  });
+  expect(beforePause.active).toBe(true);
+  const gridStart = await page.evaluate((selector) => {
+    const element = document.querySelector(selector);
+    return window.scrollY + element.getBoundingClientRect().top - window.innerHeight * 0.95;
+  }, grid);
+  await page.evaluate((top) => window.scrollTo(0, top), gridStart);
+  await page.waitForTimeout(300);
+
+  expect(await page.locator(section).evaluate((root) => root._causesShapes.timeline.paused())).toBe(true);
+  await page.waitForTimeout(3600);
+  await expect.poll(
+    () => page.locator(section).evaluate((root) => root._causesShapes.patternIndex),
+  ).toBe(beforePause.patternIndex);
+  expect(await shapeRadiusMismatches(page)).toEqual([]);
+});
+
+test("leaving desktop causes while morphing lets the tween settle", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  await scrollIntoView(page);
+  await waitForReveal(page);
+
+  const morph = await page.locator(section).evaluate((root, shapes) => {
+    const instance = root._causesShapes;
+    let fresh = null;
+    for (let attempt = 0; attempt < instance.tiles.length * 4; attempt += 1) {
+      const before = instance.currentTween;
+      instance.swapNext();
+      if (instance.currentTween && instance.currentTween !== before && instance.currentTween.progress() < 1) {
+        fresh = instance.currentTween;
+        break;
+      }
+    }
+    if (!fresh) return { active: false };
+    const tile = instance.tiles.find((element) => fresh.targets().includes(element));
+    const targetRadius = fresh.vars.borderRadius;
+    return {
+      active: true,
+      tileIndex: instance.tiles.indexOf(tile),
+      target: Object.keys(shapes).find((shape) => shapes[shape] === targetRadius),
+    };
+  }, shapeRadii);
+  expect(morph.active).toBe(true);
+  await page.evaluate((selector) => {
+    const element = document.querySelector(selector);
+    window.scrollTo(0, window.scrollY + element.getBoundingClientRect().bottom + 1);
+  }, section);
+  await page.waitForTimeout(1200);
+
+  const settled = await page.locator(section).evaluate((root, expected) => {
+    const tile = root._causesShapes.tiles[expected.tileIndex];
+    return { shape: tile.dataset.causesShape, radius: getComputedStyle(tile).borderTopLeftRadius };
+  }, morph);
+  expect(settled.shape).toBe(morph.target);
+  expect(await shapeRadiusMismatches(page)).toEqual([]);
 });

@@ -187,7 +187,7 @@ function setRevealState(instance, complete) {
   if (complete) {
     if (instance.trigger?.isActive) instance.playMorph?.();
   } else if (instance.isMobile) {
-    instance.pauseMorph?.(true);
+    instance.pauseMorph?.();
   }
 }
 
@@ -202,12 +202,8 @@ function buildMorph(instance) {
   instance.playMorph = () => {
     if (!document.hidden && instance.revealed) instance.timeline.play();
   };
-  instance.pauseMorph = (cancelTween = false) => {
+  instance.pauseMorph = () => {
     instance.timeline.pause();
-    if (cancelTween) {
-      instance.currentTween?.kill();
-      instance.currentTween = null;
-    }
   };
   instance.trigger = ScrollTrigger.create({
     trigger: instance.section,
@@ -215,8 +211,8 @@ function buildMorph(instance) {
     end: "bottom top",
     onEnter: instance.playMorph,
     onEnterBack: instance.playMorph,
-    onLeave: instance.pauseMorph,
-    onLeaveBack: instance.pauseMorph,
+    onLeave: () => instance.pauseMorph(),
+    onLeaveBack: () => instance.pauseMorph(),
   });
   instance.visibilityHandler = () => {
     if (document.hidden) {

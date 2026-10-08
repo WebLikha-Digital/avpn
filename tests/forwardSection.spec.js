@@ -311,6 +311,60 @@ test("keeps the section static under reduced motion", async ({ page }) => {
   expect(state.revealOpacities.every((opacity) => opacity === "1")).toBe(true);
 });
 
+test("stacks the reduced-motion layout without horizontal overflow", async ({ page }) => {
+  for (const viewport of [
+    { width: 390, height: 844 },
+    { width: 768, height: 1024 },
+    { width: 1440, height: 900 },
+  ]) {
+    await test.step(`${viewport.width}x${viewport.height}`, async () => {
+      await loadForward(page, true, viewport);
+      const layout = await page.locator(ROOT).evaluate((section) => {
+        const rect = (selector) => section.querySelector(selector).getBoundingClientRect();
+        const panels = [...section.querySelectorAll("[data-forward-panel]")];
+        const panelBodies = panels.map((panel) => panel.querySelector("[data-forward-body]").getBoundingClientRect());
+        return {
+          viewportWidth: window.innerWidth,
+          scrollWidth: document.documentElement.scrollWidth,
+          section: section.getBoundingClientRect(),
+          rects: {
+            grid: rect("[data-forward-grid]"),
+            content: rect("[data-forward-content]"),
+            panels: panels.map((panel) => panel.getBoundingClientRect()),
+            panelBodies,
+          },
+        };
+      });
+      const horizontalRects = [
+        layout.rects.grid,
+        ...layout.rects.panels,
+        ...layout.rects.panelBodies,
+      ];
+
+      for (const elementRect of horizontalRects) {
+        expect(elementRect.left).toBeGreaterThanOrEqual(layout.section.left - 1);
+        expect(elementRect.right).toBeLessThanOrEqual(layout.section.right + 1);
+      }
+      for (const panel of layout.rects.panels) {
+        expect(panel.width).toBeGreaterThanOrEqual(layout.section.width * 0.9);
+      }
+
+      const [panelOne, panelTwo] = layout.rects.panels;
+      // The mirror's fixed-size title can overflow the narrow sandbox section.
+      expect(Math.abs(
+        (layout.rects.content.left + layout.rects.content.width / 2)
+          - (layout.section.left + layout.section.width / 2),
+      )).toBeLessThanOrEqual(2);
+      expect(layout.rects.grid.top).toBeLessThan(layout.rects.content.top);
+      expect(layout.rects.content.top).toBeLessThan(panelOne.top);
+      expect(panelOne.top).toBeLessThan(panelTwo.top);
+      expect(layout.rects.content.bottom).toBeLessThanOrEqual(panelOne.top);
+      expect(panelOne.bottom).toBeLessThanOrEqual(panelTwo.top);
+      expect(layout.scrollWidth).toBeLessThanOrEqual(layout.viewportWidth);
+    });
+  }
+});
+
 test("clears the intro copy from the zoomed tablet tiles", async ({ page }) => {
   for (const viewport of [
     { width: 768, height: 1024 },

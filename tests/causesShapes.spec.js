@@ -305,6 +305,81 @@ test("hides causes tiles before scroll and reveals them in DOM order", async ({ 
   )).toBe(true);
 });
 
+test("scrubs the mobile reveal in DOM order and reverses it on scroll up", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+
+  const gridStart = await page.evaluate((selector) => {
+    const element = document.querySelector(selector);
+    return window.scrollY + element.getBoundingClientRect().top - window.innerHeight * 0.95;
+  }, grid);
+  await page.evaluate((top) => window.scrollTo(0, top), gridStart);
+  await page.waitForTimeout(150);
+
+  const forwardSamples = await page.evaluate(async (selector) => {
+    const root = document.querySelector(selector);
+    const visibleTiles = [...root.querySelectorAll("[data-causes-tile]")]
+      .filter((tile) => tile.offsetParent !== null);
+    const samples = [];
+    for (let step = 0; step < 180; step += 1) {
+      window.scrollBy(0, 8);
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      samples.push(visibleTiles.map((tile) => ({
+        top: tile.getBoundingClientRect().top,
+        opacity: parseFloat(getComputedStyle(tile).opacity),
+      })));
+    }
+    return samples;
+  }, section);
+  const lowerViewportViolations = forwardSamples.flat()
+    .filter(({ top, opacity }) => top > 844 * 0.95 && opacity > 0);
+  expect(lowerViewportViolations).toEqual([]);
+  await page.waitForTimeout(700);
+  const settledAboveEnd = await page.locator(section).evaluate((root) =>
+    root._causesShapes.visibleTiles
+      .filter((tile) => tile.getBoundingClientRect().top < window.innerHeight * 0.7)
+      .map((tile) => parseFloat(getComputedStyle(tile).opacity)),
+  );
+  expect(settledAboveEnd.length).toBeGreaterThan(0);
+  expect(settledAboveEnd.every((opacity) => opacity > 0.99)).toBe(true);
+
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await waitForReveal(page);
+  const beforeReverse = await page.locator(section).evaluate((root) =>
+    root._causesShapes.visibleTiles.map((tile) => parseFloat(getComputedStyle(tile).opacity)),
+  );
+  expect(beforeReverse.every((opacity) => opacity > 0.99)).toBe(true);
+
+  await page.evaluate((top) => window.scrollTo(0, top), gridStart);
+  await page.waitForTimeout(700);
+  await expect.poll(
+    () => page.locator(section).evaluate((root) => root._causesShapes.revealed),
+  ).toBe(false);
+  const afterReverse = await page.locator(section).evaluate((root) =>
+    root._causesShapes.visibleTiles.map((tile) => parseFloat(getComputedStyle(tile).opacity)),
+  );
+  expect(afterReverse.some((opacity, index) => opacity < beforeReverse[index] - 0.05)).toBe(true);
+});
+
+test("keeps the one-shot reveal at the 768px breakpoint", async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 844 });
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+
+  const initial = await page.locator(section).evaluate((root) => ({
+    once: root._causesShapes.revealTrigger.vars.once,
+    start: root._causesShapes.revealTrigger.vars.start,
+    hasScrubTrigger: Boolean(root._causesShapes.revealTimeline.scrollTrigger),
+    paused: root._causesShapes.revealTimeline.paused(),
+  }));
+  expect(initial).toEqual({ once: true, start: "top 80%", hasScrubTrigger: false, paused: true });
+
+  await scrollIntoView(page);
+  await waitForReveal(page);
+  expect(await page.locator(section).evaluate((root) => root._causesShapes.revealTimeline.progress())).toBe(1);
+});
+
 test("does not morph before the one-shot reveal completes or replay it", async ({ page }) => {
   await page.goto("/");
   await page.waitForLoadState("networkidle");

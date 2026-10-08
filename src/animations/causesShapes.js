@@ -44,6 +44,9 @@ const REVEAL_DURATION = 0.6;
 const REVEAL_STAGGER = 0.04;
 const REVEAL_DISTANCE = "2em";
 const REVEAL_EASE = "power4.inOut";
+const MOBILE_REVEAL_START = "top 95%";
+const MOBILE_REVEAL_END = "top 70%";
+const MOBILE_REVEAL_SCRUB = 0.5;
 
 export function initCausesShapes() {
   document.querySelectorAll("[data-causes-init]").forEach((section) => {
@@ -53,96 +56,177 @@ export function initCausesShapes() {
     if (tiles.length === 0) return;
     const grid = section.querySelector("[data-causes-grid]") || section;
 
-    const reducedMotion = window.matchMedia?.(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
-    if (reducedMotion) return;
-
-    const pattern = shuffleArray(tiles.map((_, index) => index));
-    const instance = {
-      section,
-      tiles,
-      pattern,
-      patternIndex: 0,
-      currentTween: null,
-      timeline: null,
-      revealTimeline: null,
-      revealTrigger: null,
-      revealed: false,
-      trigger: null,
-      visibilityHandler: null,
-      swapNext: null,
-      fitsShape: null,
-    };
-
-    tiles.forEach((tile) => {
-      const shape = tile.dataset.causesShape;
-      gsap.set(tile, { borderRadius: SHAPES[shape] || SHAPES.square });
-      gsap.set(tile, { y: REVEAL_DISTANCE, autoAlpha: 0 });
-    });
-
-    instance.swapNext = () => swapNext(instance);
-    instance.fitsShape = (tileIndex, shapeName) =>
-      fitsShape(instance.tiles[tileIndex], shapeName);
-    instance.revealTimeline = gsap.timeline({
-      paused: true,
-      onComplete: () => {
-        instance.revealed = true;
-        if (instance.trigger?.isActive) play();
+    const matchMedia = gsap.matchMedia();
+    section._causesShapesMatchMedia = matchMedia;
+    matchMedia.add(
+      {
+        isMobile: "(max-width: 767px)",
+        isDesktop: "(min-width: 768px)",
+        reduceMotion: "(prefers-reduced-motion: reduce)",
       },
-    });
-    tiles.forEach((tile, index) => {
-      instance.revealTimeline.to(
-        tile,
-        {
-          y: 0,
-          autoAlpha: 1,
-          duration: REVEAL_DURATION,
-          ease: REVEAL_EASE,
-          clearProps: "y,autoAlpha",
-        },
-        index * REVEAL_STAGGER,
-      );
-    });
-    instance.revealTrigger = ScrollTrigger.create({
-      trigger: grid,
-      start: "top 80%",
-      once: true,
-      onEnter: () => {
-        instance.revealTimeline.play();
+      (context) => {
+        const { isMobile, reduceMotion } = context.conditions;
+        if (reduceMotion) {
+          gsap.set(tiles, { clearProps: "y,autoAlpha,borderRadius" });
+          section._causesShapes = null;
+          return;
+        }
+
+        const instance = createInstance(section, tiles, grid, isMobile);
+        instance.matchMedia = matchMedia;
+        section._causesShapes = instance;
+        buildReveal(instance);
+        buildMorph(instance);
+
+        return () => {
+          destroyInstance(instance);
+          if (section._causesShapes === instance) section._causesShapes = null;
+        };
       },
-    });
-
-    instance.timeline = gsap.timeline({
-      repeat: -1,
-      repeatDelay: 2,
-      delay: 2,
-      paused: true,
-    }).call(instance.swapNext);
-
-    const play = () => {
-      if (!document.hidden && instance.revealed) instance.timeline.play();
-    };
-    const pause = () => instance.timeline.pause();
-    instance.trigger = ScrollTrigger.create({
-      trigger: section,
-      start: "top bottom",
-      end: "bottom top",
-      onEnter: play,
-      onEnterBack: play,
-      onLeave: pause,
-      onLeaveBack: pause,
-    });
-    instance.visibilityHandler = () => {
-      if (document.hidden) {
-        pause();
-      } else if (instance.trigger.isActive) {
-        play();
-      }
-    };
-    document.addEventListener("visibilitychange", instance.visibilityHandler);
-    section._causesShapes = instance;
+    );
   });
+}
+
+function createInstance(section, tiles, grid, isMobile) {
+  const instance = {
+    section,
+    tiles,
+    grid,
+    isMobile,
+    pattern: shuffleArray(tiles.map((_, index) => index)),
+    patternIndex: 0,
+    currentTween: null,
+    timeline: null,
+    revealTimeline: null,
+    revealTrigger: null,
+    revealTriggers: [],
+    revealTweens: [],
+    visibleTiles: [],
+    revealed: false,
+    trigger: null,
+    visibilityHandler: null,
+    swapNext: null,
+    fitsShape: null,
+    matchMedia: null,
+  };
+
+  tiles.forEach((tile) => {
+    const shape = tile.dataset.causesShape;
+    gsap.set(tile, { borderRadius: SHAPES[shape] || SHAPES.square });
+    gsap.set(tile, { y: REVEAL_DISTANCE, autoAlpha: 0 });
+  });
+
+  instance.swapNext = () => swapNext(instance);
+  instance.fitsShape = (tileIndex, shapeName) =>
+    fitsShape(instance.tiles[tileIndex], shapeName);
+  return instance;
+}
+
+function buildReveal(instance) {
+  if (instance.isMobile) {
+    instance.visibleTiles = instance.tiles.filter((tile) => tile.offsetParent !== null);
+    instance.revealTweens = instance.visibleTiles.map((tile) => {
+      const tween = gsap.to(tile, {
+        y: 0,
+        autoAlpha: 1,
+        ease: "none",
+        scrollTrigger: {
+          trigger: tile,
+          start: MOBILE_REVEAL_START,
+          end: MOBILE_REVEAL_END,
+          scrub: MOBILE_REVEAL_SCRUB,
+          invalidateOnRefresh: true,
+          onUpdate: () => updateMobileRevealState(instance),
+          onRefresh: () => updateMobileRevealState(instance),
+        },
+      });
+      instance.revealTriggers.push(tween.scrollTrigger);
+      return tween;
+    });
+    instance.revealTrigger = instance.revealTriggers[0] || null;
+    updateMobileRevealState(instance);
+    return;
+  }
+
+  instance.revealTimeline = gsap.timeline({
+    paused: true,
+    onComplete: () => {
+      setRevealState(instance, true);
+      if (instance.trigger?.isActive) instance.playMorph();
+    },
+  });
+  instance.tiles.forEach((tile, index) => {
+    instance.revealTimeline.to(
+      tile,
+      {
+        y: 0,
+        autoAlpha: 1,
+        duration: REVEAL_DURATION,
+        ease: REVEAL_EASE,
+        clearProps: "y,autoAlpha",
+      },
+      index * REVEAL_STAGGER,
+    );
+  });
+  instance.revealTrigger = ScrollTrigger.create({
+    trigger: instance.grid,
+    start: "top 80%",
+    once: true,
+    onEnter: () => instance.revealTimeline.play(),
+  });
+}
+
+function updateMobileRevealState(instance) {
+  const complete = instance.revealTriggers.length > 0 &&
+    instance.revealTriggers.every((trigger) => trigger.progress >= 0.9999);
+  setRevealState(instance, complete);
+}
+
+function setRevealState(instance, complete) {
+  instance.revealed = complete;
+  if (complete) {
+    if (instance.trigger?.isActive) instance.playMorph?.();
+  } else if (instance.isMobile) {
+    instance.pauseMorph?.(true);
+  }
+}
+
+function buildMorph(instance) {
+  instance.timeline = gsap.timeline({
+    repeat: -1,
+    repeatDelay: 2,
+    delay: 2,
+    paused: true,
+  }).call(instance.swapNext);
+
+  instance.playMorph = () => {
+    if (!document.hidden && instance.revealed) instance.timeline.play();
+  };
+  instance.pauseMorph = (cancelTween = false) => {
+    instance.timeline.pause();
+    if (cancelTween) {
+      instance.currentTween?.kill();
+      instance.currentTween = null;
+    }
+  };
+  instance.trigger = ScrollTrigger.create({
+    trigger: instance.section,
+    start: "top bottom",
+    end: "bottom top",
+    onEnter: instance.playMorph,
+    onEnterBack: instance.playMorph,
+    onLeave: instance.pauseMorph,
+    onLeaveBack: instance.pauseMorph,
+  });
+  instance.visibilityHandler = () => {
+    if (document.hidden) {
+      instance.pauseMorph();
+    } else if (instance.trigger.isActive) {
+      instance.playMorph();
+    }
+  };
+  document.addEventListener("visibilitychange", instance.visibilityHandler);
+  if (instance.revealed && instance.trigger.isActive) instance.playMorph();
 }
 
 function swapNext(instance) {
@@ -254,17 +338,29 @@ function shuffleArray(values) {
 
 function teardown(section) {
   const previous = section._causesShapes;
-  if (!previous) return;
-
-  previous.currentTween?.kill();
-  previous.timeline?.kill();
-  previous.revealTrigger?.kill();
-  previous.revealTimeline?.revert();
-  previous.revealTimeline?.kill();
-  previous.trigger?.kill();
-  if (previous.visibilityHandler) {
-    document.removeEventListener("visibilitychange", previous.visibilityHandler);
+  const matchMedia = previous?.matchMedia || section._causesShapesMatchMedia;
+  section._causesShapesMatchMedia = null;
+  matchMedia?.revert();
+  if (!previous || matchMedia) {
+    section._causesShapes = null;
+    return;
   }
-  gsap.set(previous.tiles, { clearProps: "y,autoAlpha,borderRadius" });
+
+  destroyInstance(previous);
   section._causesShapes = null;
+}
+
+function destroyInstance(instance) {
+  instance.currentTween?.kill();
+  instance.timeline?.kill();
+  instance.revealTriggers?.forEach((trigger) => trigger.kill());
+  instance.revealTweens?.forEach((tween) => tween.kill());
+  instance.revealTrigger?.kill();
+  instance.revealTimeline?.revert();
+  instance.revealTimeline?.kill();
+  instance.trigger?.kill();
+  if (instance.visibilityHandler) {
+    document.removeEventListener("visibilitychange", instance.visibilityHandler);
+  }
+  gsap.set(instance.tiles, { clearProps: "y,autoAlpha,borderRadius" });
 }

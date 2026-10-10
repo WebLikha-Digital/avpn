@@ -138,12 +138,22 @@ test("bounces on a down-scroll lock and not on an up-scroll lock", async ({ page
   await page.waitForTimeout(100);
   const down = await page.evaluate((start) => {
     window.scrollTo({ top: start + 20, behavior: "instant" });
-    return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => {
-      const target = document.querySelector("#faq [data-stacking-card-target]");
-      resolve({ scale: new DOMMatrixReadOnly(getComputedStyle(target).transform).a });
-    })));
+    return new Promise((resolve) => {
+      const samples = [];
+      const started = performance.now();
+      const sample = () => {
+        const target = document.querySelector("#faq [data-stacking-card-target]");
+        samples.push(new DOMMatrixReadOnly(getComputedStyle(target).transform).a);
+        if (performance.now() - started >= 150) {
+          return resolve({ peak: Math.max(...samples), samples });
+        }
+        requestAnimationFrame(sample);
+      };
+      requestAnimationFrame(sample);
+    });
   }, range.start);
-  expect(down.scale).not.toBeCloseTo(1, 2);
+  expect(down.samples.length).toBeGreaterThan(5);
+  expect(down.peak).toBeGreaterThanOrEqual(1.01);
   await page.waitForTimeout(1200);
   const upScales = await page.evaluate((start) => new Promise((resolve) => {
     window.scrollTo({ top: start - 80, behavior: "instant" });

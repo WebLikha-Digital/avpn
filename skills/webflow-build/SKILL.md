@@ -15,7 +15,8 @@ of colour, type, or spacing values — the site's design system is.
    copy a Figma pixel value into a class or an embed. The one exception is an
    **absolute element** — a positioned overlay, decor line, arc, hub, or canvas whose
    offset is geometry, not rhythm (e.g. `.markets_line { top: -97.5px }`,
-   `.testimonials_orbit`); those keep exact values, in the section's `*-css` embed.
+   `.testimonials_orbit`); those keep exact values, in the `page-style` or
+   `page-style-2` embed, according to page order.
 2. **Colours come from the `primitives` collection** (`Brand/Primary/*`,
    `Brand/Secondary/*`, `Brand/Neutral/*`, `Colors/*`, `Opacity/*`) as much as
    possible. Match the Figma swatch to the nearest variable; if no variable is close
@@ -37,7 +38,10 @@ of colour, type, or spacing values — the site's design system is.
    fallbacks. Inside an embed, reference variables by CSS name
    (`var(--_spacing---space--4-24px)`, `var(--_typography---font-size--text-main)`,
    `var(--_primitives---brand--primary--navy-main)`), not by value. Never put the
-   same declaration on a class and in the embed.
+   same declaration on a class and in the embed. New embed CSS goes into whichever
+   of `page-style` / `page-style-2` holds that section, never a new per-section
+   embed, and the embeds carry no comments (record the reasoning in the PR or
+   docs instead).
 6. **Structure follows the site's Client-First pattern**: `section_<name>` >
    `padding-global` > `container-*` > `<name>_*` classes; combo classes `is-*` for
    variants; state in `data-*` attributes, never in class names the JS reads.

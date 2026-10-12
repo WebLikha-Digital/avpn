@@ -13,41 +13,33 @@ async function revealTeamTabs(page) {
   const section = page.locator(root);
   const tabs = section.locator("[data-team-tabs]");
   await tabs.evaluate((element) => element.scrollIntoView({ block: "center", inline: "nearest" }));
-  const toggle = section.locator("[data-team-toggle]");
-  await expect(toggle).toBeVisible();
-  return { section, toggle };
+  await expect(tabs).toBeVisible();
+  return { section, tabs };
 }
 
-test("switches team categories and keeps tab state exclusive", async ({ page }) => {
-  const { section, toggle } = await revealTeamTabs(page);
-  const group = section.locator("[data-team-group]");
+test("switches the two team tabs and keeps tab state and panels exclusive", async ({ page }) => {
+  const { section } = await revealTeamTabs(page);
+  const tabs = section.locator("[data-team-tab]");
+  const panels = section.locator("[data-team-panel]");
 
-  await toggle.click();
-  await expect(group).toHaveAttribute("data-team-open", "true");
-  await expect(toggle).toHaveAttribute("aria-expanded", "true");
-  await expect(section.locator(panel("team-management"))).not.toBeHidden();
+  await expect(section.locator('[role="tablist"]')).toHaveCount(1);
+  await expect(tabs).toHaveCount(2);
+  expect(await tabs.evaluateAll((nodes) => nodes.every((tab) => tab.tagName === "BUTTON"))).toBe(true);
+  expect(await tabs.evaluateAll((nodes) => nodes.map((tab) => tab.dataset.teamTab))).toEqual([
+    "board",
+    "team-management",
+  ]);
+  await expect(panels).toHaveCount(2);
 
-  const categories = await section.locator("[data-team-subtabs] [data-team-tab]").evaluateAll(
-    (tabs) => tabs.map((tab) => tab.dataset.teamTab),
-  );
-  expect(categories).toHaveLength(11);
-  for (const id of categories) {
+  for (const id of ["team-management", "board"]) {
     await section.locator(`[data-team-tab="${id}"]`).click();
-    for (const candidate of ["board", ...categories]) {
-      const current = section.locator(panel(candidate));
-      if (candidate === id) await expect(current).not.toBeHidden();
-      else await expect(current).toBeHidden();
-    }
+    const otherId = id === "board" ? "team-management" : "board";
+    await expect(section.locator(panel(id))).not.toBeHidden();
+    await expect(section.locator(panel(otherId))).toBeHidden();
     await expect(section.locator('[data-team-tab][aria-selected="true"]')).toHaveCount(1);
     await expect(section.locator(`[data-team-tab="${id}"]`)).toHaveAttribute("aria-selected", "true");
+    await expect(section.locator(`[data-team-tab="${otherId}"]`)).toHaveAttribute("aria-selected", "false");
   }
-
-  await section.locator('[data-team-tab="board"]').click();
-  await expect(group).toHaveAttribute("data-team-open", "false");
-  await expect(toggle).toHaveAttribute("aria-expanded", "false");
-  await expect(section.locator(panel("board"))).not.toBeHidden();
-  await expect(section.locator('[data-team-tab="board"]')).toHaveAttribute("aria-selected", "true");
-  await expect(section.locator('[data-team-subtabs]')).toHaveAttribute("inert", "");
 });
 
 test("hides board rows until the team list enters view, then reveals them", async ({ page }) => {
@@ -97,7 +89,7 @@ test("switching before entry cancels the board reveal", async ({ page }) => {
 
   // Keep this a genuine pre-entry switch: contentReveal hides the tabs before
   // they enter view, but a DOM click can activate the tab before any scroll.
-  await page.evaluate(() => document.querySelector("[data-team-toggle]").click());
+  await page.evaluate(() => document.querySelector('[data-team-tab="team-management"]').click());
   await expect(section.locator(panel("team-management"))).not.toBeHidden();
   await revealTeamTabs(page);
   await section.locator("[data-team-tabs]").evaluate((element) =>
@@ -125,20 +117,13 @@ test("keeps board rows visible without an entry reveal under reduced motion", as
   )).toBe(true);
 });
 
-test("reveals incoming rows on category changes and settles cleanly", async ({ page }) => {
-  const { section, toggle } = await revealTeamTabs(page);
-  await toggle.click();
-
-  const management = section.locator(panel("team-management"));
-  await expect.poll(() => management.locator("[data-team-row]").evaluateAll((nodes) =>
-    nodes.every((row) => getComputedStyle(row).opacity === "1" && !row.style.transform),
-  ), { timeout: 2_000 }).toBe(true);
-
-  const rows = section.locator(panel("team-programmes")).locator("[data-team-row]");
+test("reveals incoming rows on panel changes and settles cleanly", async ({ page }) => {
+  const { section } = await revealTeamTabs(page);
+  const rows = section.locator(panel("team-management")).locator("[data-team-row]");
 
   const minOpacities = await page.evaluate(async () => {
-    document.querySelector('[data-team-tab="team-programmes"]').click();
-    const rows = [...document.querySelectorAll('[data-team-panel="team-programmes"] [data-team-row]')];
+    document.querySelector('[data-team-tab="team-management"]').click();
+    const rows = [...document.querySelectorAll('[data-team-panel="team-management"] [data-team-row]')];
     const samples = [];
     const started = performance.now();
 
@@ -172,17 +157,12 @@ test("reveals incoming rows on category changes and settles cleanly", async ({ p
 });
 
 test("rapid switching clears the interrupted panel and reveals the last panel", async ({ page }) => {
-  const { section, toggle } = await revealTeamTabs(page);
-  await toggle.click();
-  const management = section.locator(panel("team-management"));
-  await expect.poll(() => management.locator("[data-team-row]").evaluateAll((nodes) =>
-    nodes.every((row) => getComputedStyle(row).opacity === "1" && !row.style.transform),
-  ), { timeout: 2_000 }).toBe(true);
+  const { section } = await revealTeamTabs(page);
 
   await page.evaluate(async () => {
-    document.querySelector('[data-team-tab="team-programmes"]').click();
+    document.querySelector('[data-team-tab="team-management"]').click();
     await new Promise((resolve) => setTimeout(resolve, 80));
-    document.querySelector('[data-team-tab="team-finance"]').click();
+    document.querySelector('[data-team-tab="board"]').click();
   });
 
   const result = await page.evaluate(() => [...document.querySelectorAll("[data-team-panel]")].map((panel) => ({
@@ -194,12 +174,12 @@ test("rapid switching clears the interrupted panel and reveals the last panel", 
     })),
   })));
 
-  const intermediate = result.find(({ id }) => id === "team-programmes");
-  const last = result.find(({ id }) => id === "team-finance");
+  const intermediate = result.find(({ id }) => id === "team-management");
+  const last = result.find(({ id }) => id === "board");
   expect(intermediate.hidden).toBe(true);
   expect(intermediate.rows.every(({ opacity, transform }) => !opacity && !transform)).toBe(true);
   expect(last.hidden).toBe(false);
-  await expect.poll(() => section.locator(panel("team-finance")).locator("[data-team-row]").evaluateAll((nodes) =>
+  await expect.poll(() => section.locator(panel("board")).locator("[data-team-row]").evaluateAll((nodes) =>
     nodes.every((row) => {
       const styles = getComputedStyle(row);
       return styles.opacity === "1" && (styles.transform === "none" || new DOMMatrix(styles.transform).isIdentity);
@@ -207,17 +187,28 @@ test("rapid switching clears the interrupted panel and reveals the last panel", 
   ), { timeout: 1_500 }).toBe(true);
 });
 
-test("ArrowDown switches subtabs and reduced motion swaps without inline reveal styles", async ({ page }) => {
-  const { section, toggle } = await revealTeamTabs(page);
-  await toggle.click();
+test("ArrowDown, ArrowUp, Home, and End switch tabs; reduced motion skips reveal styles", async ({ page }) => {
+  const { section } = await revealTeamTabs(page);
+  const boardTab = section.locator('[data-team-tab="board"]');
   const managementTab = section.locator('[data-team-tab="team-management"]');
+
+  await boardTab.focus();
+  await boardTab.press("ArrowDown");
+  await expect(managementTab).toHaveAttribute("aria-selected", "true");
+  await expect(section.locator(panel("team-management"))).not.toBeHidden();
   await managementTab.focus();
-  await managementTab.press("ArrowDown");
-  await expect(section.locator(panel("team-advisor"))).not.toBeHidden();
+  await managementTab.press("ArrowUp");
+  await expect(boardTab).toHaveAttribute("aria-selected", "true");
+  await boardTab.focus();
+  await boardTab.press("End");
+  await expect(managementTab).toHaveAttribute("aria-selected", "true");
+  await managementTab.focus();
+  await managementTab.press("Home");
+  await expect(boardTab).toHaveAttribute("aria-selected", "true");
 
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await section.locator('[data-team-tab="team-finance"]').click();
-  const reduced = await section.locator(panel("team-finance")).locator("[data-team-row]").evaluateAll((nodes) =>
+  await managementTab.click();
+  const reduced = await section.locator(panel("team-management")).locator("[data-team-row]").evaluateAll((nodes) =>
     nodes.map((row) => ({ opacity: row.style.opacity, transform: row.style.transform, computed: getComputedStyle(row).opacity })),
   );
   expect(reduced.every(({ opacity, transform, computed }) => !opacity && !transform && computed === "1")).toBe(true);
@@ -298,18 +289,13 @@ test("travels to hovered board rows and swaps one image", async ({ page }) => {
   await expect.poll(() => previewState(list).then((state) => state.opacity), { timeout: 3_000 }).toBe(0);
 });
 
-test("keeps every panel live across category switches", async ({ page }) => {
-  const { section, toggle } = await revealTeamTabs(page);
+test("keeps every panel live across tab switches", async ({ page }) => {
+  const { section } = await revealTeamTabs(page);
   const boardList = section.locator(panel("board")).locator("[data-team-list]");
 
-  await toggle.click();
+  await section.locator('[data-team-tab="team-management"]').click();
   const management = section.locator(panel("team-management")).locator("[data-team-list]");
   await expectPreviewForRow(page, management, 1);
-  await expect.poll(() => previewState(boardList).then((state) => state.opacity), { timeout: 3_000 }).toBe(0);
-
-  await section.locator('[data-team-tab="team-programmes"]').click();
-  const programmes = section.locator(panel("team-programmes")).locator("[data-team-list]");
-  await expectPreviewForRow(page, programmes, 1);
   await expect.poll(() => previewState(boardList).then((state) => state.opacity), { timeout: 3_000 }).toBe(0);
 
   await section.locator('[data-team-tab="board"]').click();

@@ -200,13 +200,14 @@ their DOM and none of it was copied.
 One `HtmlEmbed.prog-highlights_arc` per wheel panel, inserted **between the
 disc and the hub** — that DOM order is what puts the text behind the cards
 without a `z-index`. The wrapper class centres it on the hub the way the disc
-is centred, at `100vh` square with `pointer-events: none`:
+is centred, as the same `min(160vh, 100vw)` square as the disc, with
+`pointer-events: none`:
 
 ```css
 .prog-highlights_arc {
   position: absolute;
   left: 50%; top: 50%;
-  width: 100vh; height: 100vh;
+  width: min(160vh, 100vw); height: min(160vh, 100vw);
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
@@ -218,8 +219,8 @@ The embed holds nothing but the SVG; the type lives once in `.page-style`
 ```html
 <svg class="prog-highlights_arc-svg" viewBox="0 0 100 100" aria-hidden="true">
   <defs>
-    <path id="arcThematicL" fill="none" d="M 50 95 A 45 45 0 0 1 50 5" />
-    <path id="arcThematicR" fill="none" d="M 50 5 A 45 45 0 0 1 50 95" />
+    <path id="arcThematicL" fill="none" d="M 50 82 A 32 32 0 0 1 50 18" />
+    <path id="arcThematicR" fill="none" d="M 50 18 A 32 32 0 0 1 50 82" />
   </defs>
   <text><textPath href="#arcThematicL" startOffset="50%" text-anchor="middle">Strengthening engagements</textPath></text>
   <text><textPath href="#arcThematicR" startOffset="50%" text-anchor="middle">in thematic areas</textPath></text>
@@ -250,28 +251,49 @@ copy — no offsets to retune when the text changes.
 ### Where the numbers come from
 
 Geometry is authored in viewBox units on a `0 0 100 100` box that the wrapper
-maps to a `100vh` square, so **1 unit = 1% of the stage height** and every
-value scales with the viewport — the same basis the disc, cards, and wheel
-radius already use.
+maps to the disc's own square, so **1 unit = 1% of the disc** and every value
+scales with it. The disc is 90% of that box, so its edge sits at radius 45.
 
-Both numbers were measured off the Figma mock by circle-fitting its arcs
-pixel-wise (per-row ink centroid, Kåsa fit), not estimated by eye:
+The arc started at `r = 45` on a `100vh` box with `6.26`-unit type, measured
+off the Figma mock by circle-fitting its arcs. On 2026-09-13 the box became
+the disc's square and the radius moved in to `32`, with type at `5.2` units.
 
-| | left arc | right arc |
+Current values, set 2026-10-12 because the client wanted no arc text outside
+the screen:
+
+| | value | why |
 |---|---|---|
-| fitted radius | 409.8px | 401.4px |
-| stage height in the mock | 895px | 895px |
-| **radius / stage height** | **0.458** | **0.448** |
-| arc covered by the text | 145.6° | 111.9° |
+| radius | `32` | unchanged; at a given type size it leaves *more* room top and bottom than a larger radius (38 gave 37px against 49px at 1080 tall, both at 3.8 units) |
+| `font-size` | `4px` (units) | largest size that keeps every glyph of the longest run, "Strengthening engagements", inside the viewport |
+| `letter-spacing` | `0.192px` | the old `0.25` scaled by 4 / 5.2 so the tracking stays proportional |
 
-Hence `r = 45`. Type is `56px` against that 895px stage, which is the
-`6.26` units in `.page-style`. Eyeballing the same screenshot had put the
-radius at 0.73 — worth knowing before trusting a visual estimate here, because
-a shallow arc and a deep one look similar once the text is short.
+Size, not radius, is what fits the text. A long run centred on a half-circle
+reaches round towards 12 and 6 o'clock; shrinking the type shortens the run,
+so its ends stop lower. A larger radius pushes the ends outward again and,
+past about `r = 40`, puts glyphs outside the disc.
 
-`letter-spacing: 0.34px` is the one *fitted* rather than measured number:
-radius and size alone leave the left string about 20° short of the mock's
-145.6°, and the tracking closes it.
+Measured glyph by glyph on the published page (`getExtentOfChar` through the
+text's screen CTM), gap from the first wheel's text to the top and bottom of
+the viewport — the other two wheels have 95px or more:
+
+| viewport | gap | type height |
+|---|---|---|
+| 1280×800 | 21px | 51px |
+| 1366×768 | 20px | 49px |
+| 1440×900 | 23px | 58px |
+| 1728×1000 | 26px | 64px |
+| 1920×1080, 2560×1080 | 28px | 69px |
+
+The box is `160vh` tall on any desktop at 16:10 or wider, so the gap is the
+same fraction of the height there; narrower screens get a `100vw` box and
+more room.
+
+**The arc text is desktop-only.** `.prog-highlights_arc` is
+`display: none` from the Tablet breakpoint (991px) down, set on the class in
+the Designer. At phone widths the rotated arc ran ~120px past both screen
+edges and no type size that fits "Strengthening engagements" across 390px
+stays readable, so the client chose to drop it below desktop. The tablet and
+mobile `width`/`height`/`rotate` overrides on the class are kept but inert.
 
 ### Gotchas
 
@@ -512,7 +534,7 @@ hidden and the rotary-wheel component remains untouched at 768px and above.
 | `.prog-highlights_intro-icon-wrapper` | `transform: rotate(90deg)` — the arrow art points right; the inner wrapper turns it down |
 | `.prog-highlights_stage` | `width: 100%; height: min(180vw, 140vh, 50rem); overflow: visible; display: flex; align-items: center` |
 | `.prog-highlights_disc` | `width/height: min(180vw, 140vh, 50rem); left: 50%; right: auto; margin-left: calc(-0.5 * min(180vw, 140vh, 50rem)); margin-right: 0` — the desktop `inset: 0; margin: auto` cannot centre a box wider than its parent (PR #160) |
-| `.prog-highlights_arc` | `width/height: calc(min(180vw, 140vh, 50rem) * 1.28); transform: translate(-50%, -50%) rotate(90deg)` |
+| `.prog-highlights_arc` | `width/height: calc(min(180vw, 140vh, 50rem) * 1.28); transform: translate(-50%, -50%) rotate(90deg)` — inert since 2026-10-12: `display: none` from Tablet down hides the arc text |
 | `.prog-highlights_hub` | `position: relative; width: calc(100% + 2 * space/4); margin-left: calc(-1 * space/4); padding-inline` = `space/4`; `display: flex; flex: 0 0 auto; column-gap` = `space/4`; `overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-left` = `space/4`; `scrollbar-width: none` |
 | `.prog-highlights_item` | `position: relative; flex: 0 0 100%; scroll-snap-align: start` |
 | `.prog-highlights_card` | `transform: none; width: 100%; height: 100%; min-height: auto; padding` = `space/4` per side |

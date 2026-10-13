@@ -142,7 +142,7 @@ test("uses breakpoint-specific expanded hints and updates them while open", asyn
   const hint = deck.locator("[data-deck-hint]");
   const open = async (width, expected) => {
     await page.setViewportSize({ width, height: 900 });
-    await deck.locator("[data-deck-folder]").click();
+    await deck.locator("[data-deck-folder]").press("Enter");
     await expect(deck).toHaveAttribute("data-deck-state", "expanded");
     await expect(hint).toHaveText(expected);
   };
@@ -159,7 +159,7 @@ test("uses breakpoint-specific expanded hints and updates them while open", asyn
   await expect(deck).toHaveAttribute("data-deck-state", "stacked", { timeout: COLLAPSE_TIMEOUT });
   await page.setViewportSize({ width: 390, height: 900 });
   await hint.evaluate((element) => element.removeAttribute("data-deck-hint-expanded-mobile"));
-  await deck.locator("[data-deck-folder]").click();
+  await deck.locator("[data-deck-folder]").press("Enter");
   await expect(deck).toHaveAttribute("data-deck-state", "expanded");
   await expect(hint).toHaveText("Hover to pause · Swipe to see more · Click a card to open it");
 });

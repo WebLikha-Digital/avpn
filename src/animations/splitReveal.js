@@ -174,6 +174,11 @@ function lineScrollContext(line) {
 }
 
 function cleanupSplit(heading) {
+  // Ecosystem deck hints are updated by ecosystemFolders while SplitText owns
+  // their child wrappers. Preserve the current text through revert so a
+  // resize-triggered rebuild cannot restore the text captured at initial
+  // setup (the stacked hint).
+  const currentHintText = heading.matches("[data-deck-hint]") ? heading.textContent : null;
   heading._splitTween?.scrollTrigger?.kill();
   heading._splitTween?.kill();
   heading._splitTween = null;
@@ -182,6 +187,7 @@ function cleanupSplit(heading) {
   heading._splitOpacityTween = null;
   heading._splitInstance?.revert();
   heading._splitInstance = null;
+  if (currentHintText !== null) heading.textContent = currentHintText;
 }
 
 function bindEcosystemTabReplay(heading) {

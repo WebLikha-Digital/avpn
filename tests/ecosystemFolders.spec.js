@@ -136,6 +136,34 @@ test("expands, pauses marquee, collapses, and supports Esc", async ({ page }) =>
   await expect(deck.locator("[data-deck-folder]")).toBeFocused();
 });
 
+test("uses breakpoint-specific expanded hints and updates them while open", async ({ page }) => {
+  const root = page.locator(folders);
+  const deck = root.locator(learn);
+  const hint = deck.locator("[data-deck-hint]");
+  const open = async (width, expected) => {
+    await page.setViewportSize({ width, height: 900 });
+    await deck.locator("[data-deck-folder]").press("Enter");
+    await expect(deck).toHaveAttribute("data-deck-state", "expanded");
+    await expect(hint).toHaveText(expected);
+  };
+
+  await open(390, "Use the arrows to browse · Tap a card to open it");
+  await page.setViewportSize({ width: 820, height: 900 });
+  await expect(hint).toHaveText("Swipe to browse · Tap a card to open it");
+  await expect(deck).toHaveAttribute("data-deck-state", "expanded");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(hint).toHaveText("Hover to pause · Swipe to see more · Click a card to open it");
+  await expect(deck).toHaveAttribute("data-deck-state", "expanded");
+
+  await deck.locator("[data-deck-collapse]").click();
+  await expect(deck).toHaveAttribute("data-deck-state", "stacked", { timeout: COLLAPSE_TIMEOUT });
+  await page.setViewportSize({ width: 390, height: 900 });
+  await hint.evaluate((element) => element.removeAttribute("data-deck-hint-expanded-mobile"));
+  await deck.locator("[data-deck-folder]").press("Enter");
+  await expect(deck).toHaveAttribute("data-deck-state", "expanded");
+  await expect(hint).toHaveText("Hover to pause · Swipe to see more · Click a card to open it");
+});
+
 test("keeps the ecosystem section height stable while a folder expands", async ({ page }) => {
   const deck = page.locator(learn);
   const heightSample = page.evaluate(() => new Promise((resolve) => {

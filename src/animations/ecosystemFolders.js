@@ -76,11 +76,35 @@ export function initEcosystemFolders() {
         target.addEventListener(type, handler, options);
         deck.listeners.push(() => target.removeEventListener(type, handler, options));
       };
-      const setHint = (state) => {
-        if (!hint || hint.dataset.deckHintState === state) return;
-        hint.dataset.deckHintState = state;
-        hint.textContent = hint.dataset[`deckHint${state[0].toUpperCase()}${state.slice(1)}`] || "";
+      const hintBreakpoint = () => {
+        if (window.innerWidth <= 767) return "mobile";
+        if (window.innerWidth <= 991) return "tablet";
+        return "default";
       };
+      const setHint = (state) => {
+        if (!hint) return;
+        const breakpoint = state === "expanded" ? hintBreakpoint() : "default";
+        if (hint.dataset.deckHintState === state && hint.dataset.deckHintBreakpoint === breakpoint) return;
+        hint.dataset.deckHintState = state;
+        hint.dataset.deckHintBreakpoint = breakpoint;
+        const stateKey = state[0].toUpperCase() + state.slice(1);
+        const breakpointKey = breakpoint === "default" ? "" : breakpoint[0].toUpperCase() + breakpoint.slice(1);
+        const value = hint.dataset[`deckHint${stateKey}${breakpointKey}`] ||
+          hint.dataset[`deckHint${stateKey}`] || "";
+        hint.textContent = value;
+      };
+      ["(max-width: 767px)", "(min-width: 768px) and (max-width: 991px)"].forEach((query) => {
+        const mediaQuery = window.matchMedia?.(query);
+        if (!mediaQuery) return;
+        const onBreakpointChange = () => {
+          if (root.dataset.deckState === "expanded") setHint("expanded");
+        };
+        if (mediaQuery.addEventListener) localListen(mediaQuery, "change", onBreakpointChange);
+        else if (mediaQuery.addListener) {
+          mediaQuery.addListener(onBreakpointChange);
+          deck.listeners.push(() => mediaQuery.removeListener(onBreakpointChange));
+        }
+      });
       // Resting pose of a card in the stack; the hover fan and the collapse
       // settle both return to it with an ease-out of their own rather than a
       // reversed ease-out, which would read as ease-in.

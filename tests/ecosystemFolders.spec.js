@@ -164,6 +164,35 @@ test("uses breakpoint-specific expanded hints and updates them while open", asyn
   await expect(hint).toHaveText("Hover to pause · Swipe to see more · Click a card to open it");
 });
 
+test("keeps the expanded hint after a within-band resize", async ({ page }) => {
+  const deck = page.locator(learn);
+  const hint = deck.locator("[data-deck-hint]");
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.evaluate(() => {
+    document.querySelectorAll("[data-deck-hint]").forEach((element) => {
+      element.setAttribute("data-split", "heading");
+      element.setAttribute("data-split-delay", "0.2");
+    });
+    window.dispatchEvent(new CustomEvent("hscroll:rebuilt"));
+  });
+  await expect.poll(() => hint.locator(".line").count()).toBeGreaterThan(0);
+  await deck.locator("[data-deck-folder]").press("Enter");
+  await expect(deck).toHaveAttribute("data-deck-state", "expanded");
+  await expect(hint).toHaveText("Hover to pause · Swipe to see more · Click a card to open it");
+
+  const rebuild = page.evaluate(() => new Promise((resolve) => {
+    window.addEventListener("hscroll:rebuilt", resolve, { once: true });
+  }));
+  await page.setViewportSize({ width: 1200, height: 900 });
+  await rebuild;
+  await page.evaluate(() => new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(resolve));
+  }));
+  await expect(hint).toHaveText("Hover to pause · Swipe to see more · Click a card to open it");
+  await expect(deck).toHaveAttribute("data-deck-state", "expanded");
+});
+
 test("keeps the ecosystem section height stable while a folder expands", async ({ page }) => {
   const deck = page.locator(learn);
   const heightSample = page.evaluate(() => new Promise((resolve) => {
